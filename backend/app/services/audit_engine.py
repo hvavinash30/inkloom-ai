@@ -599,6 +599,151 @@ def detect_unverified_quantitative_claims(
     return findings
 
 
+# All-caps runs are a readability/accessibility concern, not a policy breach.
+# Approved acronyms are never flagged.
+ACRONYM_ALLOWLIST = {
+    "SLA", "PDF", "API", "APIS", "SOC", "ISO", "ROI", "TCO", "TCO", "MSS", "USD",
+    "INR", "EUR", "GBP", "HTML", "JSON", "XML", "HTTP", "HTTPS", "SQL", "SSO",
+    "MFA", "SSD", "GPU", "CPU", "GDPR", "CCPA", "SAML", "OAUTH", "REST", "CRUD",
+    "SaaS", "PaaS", "IaaS", "URL", "URLS", "SDK", "SDKS", "CSP", "CDN", "DNS",
+}
+ALL_CAPS_WORD_RE = re.compile(r"(?<![A-Za-z0-9])[A-Z]{4,}(?![A-Za-z0-9])")
+
+
+def _overlaps(start: int, end: int, existing: Sequence[dict]) -> bool:
+    for finding in existing:
+        s = finding.get("start_index", 0)
+        e = finding.get("end_index", 0)
+        if start < e and end > s:
+            return True
+    return False
+
+
+def detect_all_caps_runs(
+    text: str,
+    existing: Sequence[dict],
+    *,
+    page_number: Optional[int] = None,
+    timestamp_seconds: Optional[float] = None,
+    location_label: Optional[str] = None,
+) -> List[dict]:
+    """Sustained all-caps words are harder to read and are sometimes read as shouting.
+
+    This is a genuine content-quality/accessibility signal computed from the text
+    itself. It is a suggestion, not a rule violation, and approved acronyms are
+    skipped.
+    """
+    findings: List[dict] = []
+    if not text:
+        return findings
+    for match in ALL_CAPS_WORD_RE.finditer(text):
+        word = match.group(0)
+        if word in ACRONYM_ALLOWLIST:
+            continue
+        if _overlaps(match.start(), match.end(), existing) or _overlaps(
+            match.start(), match.end(), findings
+        ):
+            continue
+        findings.append(
+            _make_finding(
+                title=f"Readability: all-caps word “{word}”",
+                category="accessibility_issue",
+                severity="low",
+                affected_text=word,
+                start=match.start(),
+                end=match.end(),
+                explanation=(
+                    "Sustained capital letters reduce readability and can read as shouting. "
+                    "This is a style and accessibility suggestion, not a brand-policy breach."
+                ),
+                evidence="Detected from the content itself; no approved acronym matched.",
+                source_reference="Readability check (built-in)",
+                suggestion="Use sentence case unless the word is an approved acronym.",
+                confidence=0.6,
+                page_number=page_number,
+                timestamp_seconds=timestamp_seconds,
+                location_label=location_label,
+                evidence_status="potential_violation",
+            )
+        )
+    return findings
+
+
+def _canonical_product_name(approved_value: str) -> str:
+    """Derive a canonical product name from a naming fact, e.g.
+    'Acme Cloud (two words, title case)' -> 'Acme Cloud'.
+    """
+    candidate = re.split(r"[(\[;,]", approved_value or "")[0].strip()
+    candidate = candidate.strip('"“”\'')
+    if len(candidate) < 4 or " " not in candidate or re.search(r"\d", candidate):
+        return ""
+    return candidate
+
+
+def detect_inconsistent_product_naming(
+    text: str,
+    facts: Sequence[ApprovedFact],
+    existing: Sequence[dict],
+    *,
+    page_number: Optional[int] = None,
+    timestamp_seconds: Optional[float] = None,
+    location_label: Optional[str] = None,
+) -> List[dict]:
+    """Flag squashed or re-cased variants of a product name defined by an approved naming fact.
+
+    The canonical form comes from the workspace's approved fact, so this only
+    fires where an organization has actually recorded how its product is named.
+    It is a style suggestion, not a claim that the copy is false.
+    """
+    findings: List[dict] = []
+    if not text:
+        return findings
+    for fact in facts:
+        if not fact.is_active or (fact.status or "verified") == "expired":
+            continue
+        if "naming" not in (fact.category or "").lower():
+            continue
+        canonical = _canonical_product_name(fact.approved_value)
+        if not canonical:
+            continue
+        squashed = re.sub(r"[\s-]+", "", canonical)
+        if len(squashed) < 4:
+            continue
+        pattern = re.compile(rf"(?i)(?<![A-Za-z0-9]){re.escape(squashed)}(?![A-Za-z0-9])")
+        for match in pattern.finditer(text):
+            matched = match.group(0)
+            if matched.lower() == canonical.lower():
+                continue
+            if _overlaps(match.start(), match.end(), existing) or _overlaps(
+                match.start(), match.end(), findings
+            ):
+                continue
+            findings.append(
+                _make_finding(
+                    title=f"Inconsistent product name: “{matched}”",
+                    category="style_suggestion",
+                    severity="medium",
+                    affected_text=matched,
+                    start=match.start(),
+                    end=match.end(),
+                    explanation=(
+                        f"The approved naming fact records “{canonical}”. This variant does not match it, "
+                        "which makes product naming inconsistent across content."
+                    ),
+                    evidence=f'Approved fact “{fact.claim_statement}”: “{fact.approved_value}”.',
+                    source_reference=f"Approved fact: {fact.claim_statement} ({fact.source_reference})",
+                    suggestion=canonical,
+                    confidence=0.8,
+                    fact_id=fact.id,
+                    page_number=page_number,
+                    timestamp_seconds=timestamp_seconds,
+                    location_label=location_label,
+                    evidence_status="potential_violation",
+                )
+            )
+    return findings
+
+
 def _dedupe(findings: Sequence[dict]) -> List[dict]:
     best: dict[tuple, dict] = {}
     for finding in findings:
@@ -833,6 +978,8 @@ def run_text_audit(
     findings.extend(detect_fact_contradictions(text, facts))
     findings.extend(detect_ambiguous_claims(text, facts, findings))
     findings.extend(detect_unverified_quantitative_claims(text, facts, findings))
+    findings.extend(detect_all_caps_runs(text, findings))
+    findings.extend(detect_inconsistent_product_naming(text, facts, findings))
     findings = _dedupe(findings)
     score, risk, factors, method = _score(findings)
     return AuditResult(
@@ -870,6 +1017,14 @@ def run_page_audit(
         )
         page_findings.extend(
             detect_unverified_quantitative_claims(
+                page, facts, page_findings, page_number=index, location_label=label
+            )
+        )
+        page_findings.extend(
+            detect_all_caps_runs(page, page_findings, page_number=index, location_label=label)
+        )
+        page_findings.extend(
+            detect_inconsistent_product_naming(
                 page, facts, page_findings, page_number=index, location_label=label
             )
         )
@@ -918,6 +1073,16 @@ def run_transcript_audit(
             )
             seg_findings.extend(
                 detect_unverified_quantitative_claims(
+                    text, facts, seg_findings, timestamp_seconds=seconds, location_label=label
+                )
+            )
+            seg_findings.extend(
+                detect_all_caps_runs(
+                    text, seg_findings, timestamp_seconds=seconds, location_label=label
+                )
+            )
+            seg_findings.extend(
+                detect_inconsistent_product_naming(
                     text, facts, seg_findings, timestamp_seconds=seconds, location_label=label
                 )
             )
@@ -984,3 +1149,73 @@ def aggregate_findings_for_version(findings: Iterable) -> dict:
         counts[finding.category] = counts.get(finding.category, 0) + 1
         severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
     return {"categories": counts, "severities": severity_counts}
+
+
+# ---------------------------------------------------------------------------
+# Findings organisation. Each finding belongs to exactly one group so counts
+# never double-count. The same ordered rules are mirrored in the frontend so
+# the presented groups and their counts agree with the stored records.
+# ---------------------------------------------------------------------------
+FINDING_GROUPS: List[tuple[str, str]] = [
+    ("resolved", "Resolved and dismissed"),
+    ("priority", "Critical and high severity"),
+    ("unsupported_claims", "Unsupported claims"),
+    ("missing_required", "Missing required content"),
+    ("tone_style", "Tone and style"),
+    ("review", "Needs human review"),
+    ("limits", "Extraction limits and human review"),
+    ("guidance", "Other guidance"),
+]
+
+
+def _finding_field(finding: Any, key: str, default: Any = "") -> Any:
+    if isinstance(finding, dict):
+        return finding.get(key, default)
+    return getattr(finding, key, default)
+
+
+def assign_finding_group(finding: Any) -> str:
+    """Return the single group id for a finding. Order matters; first match wins."""
+    status = _finding_field(finding, "status", "open")
+    if status and status != "open":
+        return "resolved"
+    severity = _finding_field(finding, "severity", "")
+    category = _finding_field(finding, "category", "")
+    evidence_status = _finding_field(finding, "evidence_status", "")
+    if severity in ("critical", "high"):
+        return "priority"
+    if category == "unsupported_claim":
+        return "unsupported_claims"
+    if evidence_status == "missing_required_text":
+        return "missing_required"
+    if category == "style_suggestion":
+        return "tone_style"
+    if category == "needs_human_review":
+        return "review"
+    if category == "processing_issue" or evidence_status == "processing_limitation":
+        return "limits"
+    return "guidance"
+
+
+def group_findings(findings: Iterable) -> List[dict]:
+    """Group findings for presentation with accurate, non-overlapping counts."""
+    buckets: dict[str, List[Any]] = {group_id: [] for group_id, _ in FINDING_GROUPS}
+    for finding in findings:
+        buckets[assign_finding_group(finding)].append(finding)
+    groups: List[dict] = []
+    for group_id, label in FINDING_GROUPS:
+        items = buckets[group_id]
+        if not items:
+            continue
+        groups.append(
+            {
+                "id": group_id,
+                "title": label,
+                "count": len(items),
+                "severities": sorted({_finding_field(item, "severity", "") for item in items} - {""}),
+                "finding_ids": [
+                    _finding_field(item, "id", "") for item in items if _finding_field(item, "id", "")
+                ],
+            }
+        )
+    return groups

@@ -66,6 +66,7 @@ import {
   titleCase,
 } from '../lib/format';
 import { analyzeExactEvidence } from '../lib/evidence';
+import { groupFindings, replaceAffected } from '../lib/findings';
 import type {
   ContentType,
   DecisionType,
@@ -109,93 +110,6 @@ function verificationBadge(status: VerificationStatus) {
       </Badge>
     </span>
   );
-}
-
-type FindingGroup = {
-  id: string;
-  title: string;
-  description: string;
-  findings: Finding[];
-};
-
-function groupFindings(items: Finding[]): FindingGroup[] {
-  const priority: Finding[] = [];
-  const claims: Finding[] = [];
-  const review: Finding[] = [];
-  const limits: Finding[] = [];
-  const guidance: Finding[] = [];
-
-  for (const finding of items) {
-    if (finding.severity === 'critical' || finding.severity === 'high') {
-      priority.push(finding);
-    } else if (finding.category === 'unsupported_claim') {
-      claims.push(finding);
-    } else if (finding.category === 'needs_human_review') {
-      review.push(finding);
-    } else if (
-      finding.category === 'processing_issue' ||
-      finding.evidence_status === 'processing_limitation'
-    ) {
-      limits.push(finding);
-    } else {
-      guidance.push(finding);
-    }
-  }
-
-  return [
-    {
-      id: 'priority',
-      title: 'Critical and high severity',
-      description: 'Resolve these first. Severity comes from the stored finding record.',
-      findings: priority,
-    },
-    {
-      id: 'claims',
-      title: 'Unsupported claims',
-      description:
-        'Claim restrictions matched by the deterministic check. Review the evidence attached to each finding.',
-      findings: claims,
-    },
-    {
-      id: 'review',
-      title: 'Needs human review',
-      description:
-        'The check could not confirm or refute these claims. A finding is not proof that a claim is false.',
-      findings: review,
-    },
-    {
-      id: 'limits',
-      title: 'Inspection limits',
-      description: 'These record what automated checks could not inspect, not content violations.',
-      findings: limits,
-    },
-    {
-      id: 'guidance',
-      title: 'Policy, style, and accessibility',
-      description: 'Remaining rule matches and guidance from the deterministic check.',
-      findings: guidance,
-    },
-  ].filter((group) => group.findings.length > 0);
-}
-
-function replaceAffected(source: string, finding: Finding, replacement: string): string | null {
-  if (finding.affected_text) {
-    const { start_index, end_index } = finding;
-    if (
-      typeof start_index === 'number' &&
-      typeof end_index === 'number' &&
-      start_index >= 0 &&
-      end_index <= source.length &&
-      source.slice(start_index, end_index) === finding.affected_text
-    ) {
-      return source.slice(0, start_index) + replacement + source.slice(end_index);
-    }
-    const index = source.indexOf(finding.affected_text);
-    if (index >= 0) {
-      return source.slice(0, index) + replacement + source.slice(index + finding.affected_text.length);
-    }
-  }
-  return null;
 }
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
@@ -278,6 +192,7 @@ export function DocumentPage({ id }: { id: string }) {
   const decisionsState = useAsync(() => api.listDecisions(id), [id, role]);
   const eventsState = useAsync(() => api.listEvents(id), [id, role]);
   const provenanceState = useAsync(() => api.getProvenance(id), [id, role]);
+  const summaryState = useAsync(() => api.getReviewSummary(id), [id, role]);
   const document = docState.data;
   const uploadState = useAsync(
     () => (document?.file_id ? api.getUpload(document.file_id) : Promise.resolve(null)),
@@ -430,6 +345,7 @@ export function DocumentPage({ id }: { id: string }) {
     decisionsState.reload();
     eventsState.reload();
     provenanceState.reload();
+    summaryState.reload();
   };
 
   const rerun = async () => {
@@ -503,12 +419,13 @@ export function DocumentPage({ id }: { id: string }) {
     }
   };
 
-  const applyCorrection = (finding: Finding) => {
-    if (!finding.suggested_correction) return;
+  const applyCorrection = (finding: Finding, replacement?: string) => {
+    const nextText = (replacement ?? finding.suggested_correction ?? '').trim();
+    if (!nextText) return;
     if (document?.asset_type === 'pdf' && finding.page_number) {
       const index = finding.page_number - 1;
       const source = editorPages[index] ?? version?.page_texts?.[index] ?? '';
-      const updated = replaceAffected(source, finding, finding.suggested_correction);
+      const updated = replaceAffected(source, finding, nextText);
       if (updated === null) {
         toast('This finding’s exact text could not be located in the stored page. Edit the page manually.', 'error');
         setSelectedPage(finding.page_number);
@@ -521,7 +438,7 @@ export function DocumentPage({ id }: { id: string }) {
       setSelectedPage(finding.page_number);
     } else {
       const source = editorText || version?.content_text || '';
-      const updated = replaceAffected(source, finding, finding.suggested_correction);
+      const updated = replaceAffected(source, finding, nextText);
       if (updated === null) {
         toast('The affected text could not be found in the editor. Update it manually.', 'error');
         setTab('content');
@@ -1686,6 +1603,61 @@ export function DocumentPage({ id }: { id: string }) {
 
   const renderReview = () => (
     <div className="space-y-5">
+      {summaryState.data ? (
+        <Card className="p-4">
+          <SectionHeading
+            title={
+              <span className="inline-flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-slate-400" />
+                Review summary
+              </span>
+            }
+            description="Computed only from this content's stored versions, findings, and decisions."
+          />
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              { label: 'Version', value: `v${summaryState.data.version.current_version_number}` },
+              {
+                label: 'Approval',
+                value: summaryState.data.version.approval_stale
+                  ? 'Stale'
+                  : summaryState.data.status.replace('_', ' '),
+              },
+              { label: 'Unresolved high', value: summaryState.data.audit.unresolved_high_priority },
+              { label: 'Awaiting verify', value: summaryState.data.audit.awaiting_verification },
+              { label: 'Corrections', value: summaryState.data.audit.corrections_awaiting_review },
+              { label: 'Evidence limits', value: summaryState.data.audit.evidence_limitations },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-2">
+                <dt className="text-[9px] uppercase tracking-wide text-slate-400">{item.label}</dt>
+                <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-800">{item.value}</dd>
+              </div>
+            ))}
+          </div>
+
+          {summaryState.data.outstanding_actions.length ? (
+            <ul className="mt-3 space-y-1.5">
+              {summaryState.data.outstanding_actions.map((action) => (
+                <li
+                  key={action.id}
+                  className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] leading-5"
+                >
+                  <span className="font-medium text-slate-800">{action.label}</span>
+                  <span className="text-slate-500">{action.description}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <p className="mt-3 text-[10px] leading-4 text-slate-400">
+            {summaryState.data.audit.has_run
+              ? `Readiness ${summaryState.data.audit.overall_score}/100 · ${summaryState.data.audit.open_findings} open of ${summaryState.data.audit.total_findings} finding(s).`
+              : 'No compliance check has run on the current version.'}{' '}
+            {summaryState.data.data_sources[0]}
+          </p>
+        </Card>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <Card className="p-4">
           <SectionHeading
