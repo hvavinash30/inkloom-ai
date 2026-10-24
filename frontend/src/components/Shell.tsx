@@ -30,27 +30,33 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
   const groups = buildNavigation(session?.capabilities || []);
   const connected = health.data?.status === 'online';
 
+  const apiStatus = health.loading
+    ? 'Checking API…'
+    : connected
+      ? `API connected${health.data?.version ? ` · v${health.data.version.replace(/^v/i, '')}` : ''}`
+      : 'API unavailable';
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-[#0B1B33] text-slate-300">
-      <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-white/[0.07] px-4">
+    <div className="flex h-full flex-col overflow-y-auto bg-navy-900 text-slate-300">
+      <div className="flex h-16 shrink-0 items-center border-b border-white/[0.07] px-4">
         <button
           type="button"
           onClick={() => {
             window.location.hash = '#/';
             onNavigate();
           }}
-          className="flex min-w-0 items-center gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          className="flex min-w-0 items-center gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
         >
           <InkloomMark />
           <span className="min-w-0">
             <span className="block text-[15px] font-semibold leading-5 tracking-tight text-white">Inkloom</span>
-            <span className="block text-[10px] uppercase tracking-[0.12em] text-slate-400">Brand governance</span>
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-slate-400">Brand governance</span>
           </span>
         </button>
       </div>
 
       <div className="px-3 pt-4">
-        <div className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5">
+        <div className="rounded-lg border border-white/[0.09] bg-white/[0.05] px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <p
               className="line-clamp-2 min-w-0 break-words text-xs font-medium leading-4 text-slate-100"
@@ -62,14 +68,14 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
               Demo
             </span>
           </div>
-          <p className="mt-0.5 text-[10px] text-slate-400">Acme Cloud · fictional scenario</p>
+          <p className="mt-1 text-[11px] text-slate-400">Acme Cloud · fictional scenario</p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-5 px-3 py-5" aria-label="Main navigation">
+      <nav className="flex-1 space-y-6 px-3 py-6" aria-label="Main navigation">
         {groups.map((group) => (
           <div key={group.label}>
-            <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
               {group.label}
             </p>
             <div className="space-y-0.5">
@@ -86,9 +92,9 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
                     }}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
+                      'group relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900',
                       active
-                        ? 'bg-white/[0.09] text-white'
+                        ? 'bg-white/[0.09] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]'
                         : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-100'
                     )}
                   >
@@ -97,9 +103,10 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
                     ) : null}
                     <Icon
                       className={cn(
-                        'h-4 w-4 shrink-0',
+                        'h-4 w-4 shrink-0 transition-colors',
                         active ? 'text-blue-300' : 'text-slate-500 group-hover:text-slate-300'
                       )}
+                      aria-hidden
                     />
                     <span className="truncate">{item.label}</span>
                   </button>
@@ -112,30 +119,29 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
 
       <div className="shrink-0 space-y-2 border-t border-white/[0.07] p-3">
         {can('insights.read') ? (
-          <div className="rounded-lg bg-white/[0.04] p-3">
+          <div className="rounded-lg border border-white/[0.05] bg-white/[0.04] p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Evidence-first checks</p>
             <p className="mt-1 text-[11px] leading-4 text-slate-400">
               Findings come from deterministic rules and stored approved facts — no simulated AI.
             </p>
           </div>
         ) : (
-          <div className="rounded-lg bg-white/[0.04] p-3">
+          <div className="rounded-lg border border-white/[0.05] bg-white/[0.04] p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Human decisions stay human</p>
             <p className="mt-1 text-[11px] leading-4 text-slate-400">
               Scores are workflow aids, not legal risk ratings.
             </p>
           </div>
         )}
-        <div className="flex items-center gap-2 px-1 py-1">
+        <div className="flex items-center gap-2 px-2 py-1">
           <span
             className={cn(
               'h-1.5 w-1.5 rounded-full',
               health.loading ? 'bg-slate-500' : connected ? 'bg-emerald-400' : 'bg-amber-400'
             )}
+            aria-hidden
           />
-          <span className="text-[10px] text-slate-500">
-            {health.loading ? 'Checking API…' : connected ? 'API connected · v2.0.0' : 'API unavailable'}
-          </span>
+          <span className="text-[11px] text-slate-400">{apiStatus}</span>
         </div>
       </div>
     </div>
@@ -166,8 +172,8 @@ export function Shell({ route, children }: { route: Route; children: React.React
   }, [mobileOpen]);
 
   return (
-    <div className="min-h-screen bg-[#F6F8FB] lg:flex">
-      <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 lg:block">
+    <div className="min-h-screen bg-canvas lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
         <SidebarContent route={route} onNavigate={() => undefined} />
       </aside>
 
@@ -179,12 +185,12 @@ export function Shell({ route, children }: { route: Route; children: React.React
             className="absolute inset-0 bg-slate-950/50 backdrop-blur-[1px]"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-[286px] max-w-[85vw] shadow-elevated">
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] shadow-elevated">
             <SidebarContent route={route} onNavigate={() => setMobileOpen(false)} />
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute right-2 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white"
+              className="absolute right-2 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
               aria-label="Close navigation"
             >
               <X className="h-4 w-4" />
@@ -199,7 +205,7 @@ export function Shell({ route, children }: { route: Route; children: React.React
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:hidden"
               aria-label="Open navigation"
             >
               <Menu className="h-5 w-5" />
@@ -207,15 +213,15 @@ export function Shell({ route, children }: { route: Route; children: React.React
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="hidden text-xs text-slate-400 sm:inline">Acme Cloud Technologies</span>
-                <span className="hidden text-slate-300 sm:inline">/</span>
-                <h2 className="truncate text-sm font-semibold text-slate-800">{title}</h2>
+                <span className="hidden text-xs text-slate-500 sm:inline">Acme Cloud Technologies</span>
+                <span className="hidden text-slate-300 sm:inline" aria-hidden>/</span>
+                <h2 className="truncate text-sm font-semibold text-slate-900">{title}</h2>
               </div>
             </div>
 
             <div className="hidden items-center gap-2 md:flex">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-800">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
                 Fictional demo data
               </span>
             </div>
@@ -223,9 +229,9 @@ export function Shell({ route, children }: { route: Route; children: React.React
             <button
               type="button"
               onClick={() => openAssistant({ pageContext: window.location.hash.replace(/^#/, '') || '/' })}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#0B1B33] px-2.5 text-xs font-medium text-white shadow-subtle transition-colors hover:bg-slate-800 sm:px-3"
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-navy-900 px-2.5 text-xs font-medium text-white shadow-subtle transition-colors hover:bg-navy-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:px-3"
             >
-              <Sparkles className="h-3.5 w-3.5 text-blue-300" />
+              <Sparkles className="h-3.5 w-3.5 text-blue-300" aria-hidden />
               <span className="hidden sm:inline">Ask Inkloom</span>
               <span className="sr-only sm:hidden">Ask Inkloom</span>
             </button>
@@ -239,7 +245,7 @@ export function Shell({ route, children }: { route: Route; children: React.React
         </main>
 
         <footer className="mx-auto w-full max-w-[1440px] px-4 pb-6 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-4 text-[11px] text-slate-400">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-4 text-[11px] text-slate-500">
             <span>Inkloom AI · Evidence-first brand governance</span>
             <span>Demo workspace · Acme Cloud Technologies is fictional</span>
           </div>

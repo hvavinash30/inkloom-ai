@@ -32,7 +32,16 @@ export default {
           800: '#1e293b',
           900: '#0f172a',
           950: '#020617',
-        }
+        },
+        navy: {
+          50: '#f2f6fb',
+          100: '#e4ecf5',
+          700: '#162f52',
+          800: '#10243f',
+          900: '#0b1b33',
+          950: '#071426',
+        },
+        canvas: '#f5f7fa',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
@@ -41,6 +50,7 @@ export default {
         'subtle': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
         'card': '0 2px 6px -1px rgba(0, 0, 0, 0.06), 0 1px 4px -2px rgba(0, 0, 0, 0.04)',
         'elevated': '0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -4px rgba(15, 23, 42, 0.03)',
+        'panel': '0 1px 2px 0 rgba(11, 27, 51, 0.04), 0 10px 30px -18px rgba(11, 27, 51, 0.18)',
       }
     },
   },
