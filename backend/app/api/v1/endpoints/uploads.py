@@ -68,7 +68,8 @@ def get_upload(
     record = _get_upload(db, actor, upload_id)
     if not _can_read_upload(db, actor, record):
         raise HTTPException(status_code=403, detail="You do not have access to this file.")
-    return serialize_upload(record)
+    has_viewable = (settings.upload_path / record.stored_name).exists()
+    return serialize_upload(record, has_viewable_file=has_viewable)
 
 
 @router.get("/{upload_id}/file")

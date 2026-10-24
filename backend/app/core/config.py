@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
+from urllib.parse import urlsplit
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -38,6 +39,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./inkloom.db"
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
+    # Operator-declared durability. Leave unset to infer from the backend:
+    # Postgres is treated as durable, SQLite as ephemeral unless it sits on a
+    # mounted disk. Set these to true after attaching a Render disk or another
+    # persistent volume so health reporting stays honest.
+    DATABASE_PERSISTENT: Optional[bool] = None
+    UPLOADS_PERSISTENT: Optional[bool] = None
 
     # Demo identity. This build uses an explicit role switcher rather than
     # production authentication; see README for the integration boundary.
@@ -57,6 +64,12 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     LLM_MODEL: str = "gpt-4o-mini"
     LLM_TEMPERATURE: float = 0.0
+    # Request controls for AI-assisted operations. These bound cost and latency
+    # and keep the deterministic engine authoritative when a provider fails.
+    LLM_TIMEOUT_SECONDS: float = 20.0
+    LLM_MAX_OUTPUT_TOKENS: int = 700
+    LLM_MAX_INPUT_CHARS: int = 6000
+    AI_RATE_LIMIT_PER_MINUTE: int = 12
     OCR_PROVIDER: str = "none"  # none | tesseract (not bundled)
     TRANSCRIPTION_PROVIDER: str = "none"  # none | openai_whisper
     FFMPEG_PATH: str = ""
@@ -74,11 +87,103 @@ class Settings(BaseSettings):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    # ------------------------------------------------------------------
+    # Storage reporting. These helpers never include credentials; health
+    # endpoints and logs use them to state what actually persists.
+    # ------------------------------------------------------------------
+    @property
+    def database_scheme(self) -> str:
+        return (urlsplit(self.DATABASE_URL).scheme or "").split("+")[0].lower()
+
+    @property
+    def database_label(self) -> str:
+        """A redacted, human-readable database identifier safe to report."""
+        url = urlsplit(self.DATABASE_URL)
+        if self.database_scheme.startswith("sqlite"):
+            name = Path(url.path or "").name or "inkloom.db"
+            return f"sqlite:{name}"
+        host = url.hostname or "unknown-host"
+        database = (url.path or "").lstrip("/") or "database"
+        return f"{self.database_scheme}:{host}/{database}"
+
+    @property
+    def database_durable(self) -> bool:
+        if self.DATABASE_PERSISTENT is not None:
+            return bool(self.DATABASE_PERSISTENT)
+        return self.database_scheme.startswith("postgres")
+
+    @property
+    def database_durability_note(self) -> str:
+        if self.database_durable:
+            return (
+                "Records are stored in a persistent database and survive service "
+                "restarts and redeployments."
+            )
+        return (
+            "Records are stored in a local SQLite file. On an ephemeral instance the file "
+            "resets on restart or redeploy and the startup seed recreates the fictional "
+            "demo workspace. Configure a Postgres DATABASE_URL or attach a persistent disk "
+            "for durable records."
+        )
+
+    @property
+    def upload_dir_writable(self) -> bool:
+        try:
+            path = self.upload_path
+            probe = path / ".inkloom-write-probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return True
+        except Exception:
+            return False
+
+    @property
+    def uploads_durable(self) -> bool:
+        if self.UPLOADS_PERSISTENT is not None:
+            return bool(self.UPLOADS_PERSISTENT)
+        return False
+
+    @property
+    def upload_durability_note(self) -> str:
+        if self.uploads_durable:
+            return (
+                "Uploaded files are written to a persistent volume and survive restarts. "
+                "Database records and files should be backed up together."
+            )
+        return (
+            "Uploaded files are written to the server filesystem under UPLOAD_DIR. On an "
+            "ephemeral instance they are lost on restart or redeploy; the stored database "
+            "record then reports that the file is no longer available instead of serving "
+            "broken content. Attach a persistent disk or an object store for durable uploads."
+        )
+
     @property
     def llm_configured(self) -> bool:
         return bool(
             (self.LLM_PROVIDER == "openai" and self.OPENAI_API_KEY)
             or (self.LLM_PROVIDER == "gemini" and self.GEMINI_API_KEY)
+        )
+
+    @property
+    def ai_provider_name(self) -> str:
+        """The provider that will actually be called, or 'none'."""
+        if self.LLM_PROVIDER == "openai" and self.OPENAI_API_KEY:
+            return "openai"
+        if self.LLM_PROVIDER == "gemini" and self.GEMINI_API_KEY:
+            return "gemini"
+        return "none"
+
+    @property
+    def ai_status_reason(self) -> str:
+        if self.ai_provider_name != "none":
+            return (
+                f"{self.ai_provider_name} is configured. AI suggestions are reviewed by a "
+                "human and never replace the deterministic checks or the approval workflow."
+            )
+        return (
+            f"No AI provider is configured (LLM_PROVIDER={self.LLM_PROVIDER!r} with no matching API key). "
+            "AI-assisted suggestions are unavailable; deterministic rule-based suggestions and all "
+            "audit checks continue to work."
         )
 
     @property

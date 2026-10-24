@@ -58,6 +58,85 @@ export interface TranscriptSegment {
   [key: string]: unknown;
 }
 
+export interface CorrectionCitation {
+  kind: 'brand_rule' | 'approved_fact';
+  id: string;
+  label: string;
+  detail?: string | null;
+  source_reference?: string | null;
+}
+
+export interface CorrectionSuggestion {
+  finding_id: string;
+  document_id: string;
+  version_id: string;
+  version_number: number;
+  mode: 'ai' | 'rule_based';
+  provider?: string | null;
+  model?: string | null;
+  provider_error?: { kind: string; message: string } | null;
+  original_text: string;
+  original_is_exact_span: boolean;
+  suggested_text: string;
+  rationale: string;
+  citations: CorrectionCitation[];
+  cautions: string[];
+  limitations: string[];
+  evidence_status: string;
+  location_label?: string | null;
+  source_reference?: string | null;
+}
+
+export interface ReviewSummaryGroup {
+  id: string;
+  title: string;
+  count: number;
+  severities: string[];
+  finding_ids: string[];
+}
+
+export interface ReviewSummary {
+  document_id: string;
+  title: string;
+  asset_type: string;
+  content_type: string;
+  status: DocumentStatus;
+  version: {
+    current_version_number: number;
+    version_id?: string | null;
+    approved_version_id?: string | null;
+    approval_stale: boolean;
+    is_latest_audited: boolean;
+  };
+  audit: {
+    has_run: boolean;
+    overall_score?: number | null;
+    risk_level?: string | null;
+    verification_status: VerificationStatus;
+    score_method?: string | null;
+    total_findings: number;
+    open_findings: number;
+    resolved_findings: number;
+    unresolved_high_priority: number;
+    awaiting_verification: number;
+    evidence_limitations: number;
+    suggested_corrections_available: number;
+    corrections_awaiting_review: number;
+  };
+  groups: ReviewSummaryGroup[];
+  approval: {
+    decisions_count: number;
+    latest_decision?: string | null;
+    latest_decision_reviewer?: string | null;
+    latest_decision_version_number?: number | null;
+    latest_decision_at?: string | null;
+    latest_feedback?: string | null;
+  };
+  comments_count: number;
+  outstanding_actions: { id: string; label: string; description: string }[];
+  data_sources: string[];
+}
+
 export interface Finding {
   id: string;
   audit_run_id: string;
@@ -763,23 +842,52 @@ export interface UploadRecord {
   created_at: string;
 }
 
+export interface StorageDatabaseReport {
+  scheme: string;
+  label: string;
+  durable: boolean;
+  driver_available: boolean;
+  driver: string;
+  note: string;
+}
+
+export interface StorageUploadsReport {
+  mode: string;
+  durable: boolean;
+  writable: boolean;
+  note: string;
+}
+
 export interface HealthData {
   status: string;
   service: string;
   version: string;
   database: string;
+  database_error?: string | null;
   demo_mode: boolean;
   integrations: {
     audit_engine: string;
     llm_configured: boolean;
     llm_provider: string;
+    llm_active_provider?: string;
     ocr_configured: boolean;
     transcription_configured: boolean;
+  };
+  storage?: {
+    database: StorageDatabaseReport;
+    uploads: StorageUploadsReport;
+  };
+  ai?: {
+    configured: boolean;
+    provider: string;
+    model: string | null;
+    reason: string;
   };
   limits: {
     max_upload_mb: number;
     max_video_upload_mb: number;
     max_pdf_pages: number;
+    ai_requests_per_minute?: number;
   };
   checked_at: string;
 }

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.db.session import engine, Base, SessionLocal
+from app.db.session import engine, Base, SessionLocal, verify_connection
 from app.api.v1.api import api_router
 from app.services.seed_service import seed_demo_workspace
 
@@ -15,6 +15,33 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("inkloom")
+
+
+def _log_storage_state() -> None:
+    connected, error = verify_connection()
+    logger.info(
+        "Storage: database=%s durable=%s scheme=%s",
+        settings.database_label,
+        settings.database_durable,
+        settings.database_scheme,
+    )
+    if connected:
+        logger.info("Database connectivity check passed (SELECT 1).")
+    else:
+        logger.error(
+            "Database connectivity check failed (%s). The API will start in a degraded "
+            "state and /api/v1/health will report the failure.",
+            error or "unknown error",
+        )
+    if not settings.database_durable:
+        logger.warning(settings.database_durability_note)
+    if settings.upload_dir_writable:
+        logger.info("Upload storage ready at %s (durable=%s).", settings.UPLOAD_DIR, settings.uploads_durable)
+    else:
+        logger.error("Upload directory %s is not writable.", settings.UPLOAD_DIR)
+    if not settings.uploads_durable:
+        logger.warning(settings.upload_durability_note)
+    logger.info("AI provider: %s. %s", settings.ai_provider_name, settings.ai_status_reason)
 
 
 @asynccontextmanager
@@ -31,6 +58,8 @@ async def lifespan(app: FastAPI):
         logger.info("Database schema and demo workspace ready.")
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
+
+    _log_storage_state()
 
     yield
 

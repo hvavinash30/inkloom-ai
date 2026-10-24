@@ -31,14 +31,37 @@ import {
 } from '../components/ui';
 import { formatDate, titleCase } from '../lib/format';
 
+function DurabilityBadge({
+  durable,
+  durableLabel = 'Durable',
+  nonDurableLabel = 'Ephemeral',
+}: {
+  durable: boolean;
+  durableLabel?: string;
+  nonDurableLabel?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
+        durable ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'
+      )}
+    >
+      <span className={cn('h-1.5 w-1.5 rounded-full', durable ? 'bg-emerald-500' : 'bg-amber-500')} />
+      {durable ? durableLabel : nonDurableLabel}
+    </span>
+  );
+}
+
 export function SettingsPage() {
   const { toast } = useToast();
   const { data, loading, error, reload } = useAsync(
-    () => Promise.all([api.getOrgOverview(), api.getIntegrations()]),
+    () => Promise.all([api.getOrgOverview(), api.getIntegrations(), api.getHealth()]),
     []
   );
   const overview = data?.[0] || null;
   const integrations = data?.[1] || null;
+  const health = data?.[2] || null;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -251,6 +274,66 @@ export function SettingsPage() {
               </div>
             </dl>
           </Card>
+
+          {health ? (
+            <Card className="p-4">
+              <SectionHeading
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    <Database className="h-4 w-4 text-slate-400" />
+                    Storage durability
+                  </span>
+                }
+                description="What actually persists across a restart or redeploy."
+              />
+              <dl className="mt-3 divide-y divide-slate-100">
+                <div className="py-2 first:pt-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[11px] text-slate-500">Database</dt>
+                    <dd className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-slate-600">
+                        {health.storage?.database.label || health.database}
+                      </span>
+                      <DurabilityBadge durable={Boolean(health.storage?.database.durable)} />
+                    </dd>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">
+                    {health.storage?.database.note}
+                  </p>
+                </div>
+                <div className="py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[11px] text-slate-500">Uploaded files</dt>
+                    <dd className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-600">
+                        {health.storage?.uploads.writable ? 'Writable' : 'Not writable'}
+                      </span>
+                      <DurabilityBadge durable={Boolean(health.storage?.uploads.durable)} />
+                    </dd>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">
+                    {health.storage?.uploads.note}
+                  </p>
+                </div>
+                <div className="py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-[11px] text-slate-500">AI assistant</dt>
+                    <dd className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-600">
+                        {health.ai?.configured ? health.ai.provider : 'Not configured'}
+                      </span>
+                      <DurabilityBadge
+                        durable={Boolean(health.ai?.configured)}
+                        durableLabel="Active"
+                        nonDurableLabel="Not configured"
+                      />
+                    </dd>
+                  </div>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">{health.ai?.reason}</p>
+                </div>
+              </dl>
+            </Card>
+          ) : null}
 
           <Card className="p-4">
             <SectionHeading
