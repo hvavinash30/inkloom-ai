@@ -4,6 +4,12 @@ Inkloom AI is a full-stack demo of a brand-governance workspace. Writers submit 
 
 The demo workspace — **Acme Cloud Technologies** — is explicitly fictional. Every seeded rule, fact, document, campaign, research note, and evaluation case is labelled as demo data.
 
+**Live demo**
+- App: <https://inkloom-ai-rho.vercel.app>
+- API: <https://inkloom-api.onrender.com> (`/api/v1/health`)
+
+The Render free instance sleeps after inactivity, so the first request can take about a minute. Its filesystem is ephemeral: uploads and stored changes reset on restart or redeploy, and the fictional seed is recreated. See [Deploy](#deploy-vercel--render) for durable options.
+
 **What this build is**
 - A working React + FastAPI application with three server-enforced demo roles: Creator, Reviewer, and Organization Admin.
 - Deterministic content checks: literal/regex rule matching plus approved-fact contradiction and unsupported-claim detection.

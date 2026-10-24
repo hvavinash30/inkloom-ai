@@ -90,6 +90,18 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 
 The browser workflows ran against an isolated copy of the demo database and uploads. The delivered workspace remains as seeded.
 
+### Deployment
+
+| Component | Status | URL |
+| --- | --- | --- |
+| Frontend (Vercel, Vite) | Live | <https://inkloom-ai-rho.vercel.app> |
+| API (Render, FastAPI) | Live | <https://inkloom-api.onrender.com> |
+| GitHub source | Public | <https://github.com/hvavinash30/inkloom-ai> |
+
+The live smoke check loaded the Creator and Organization Admin dashboards from the Render API with no console errors. The Vercel build has `VITE_API_BASE_URL` set to the Render API; only that public URL is stored in Vercel.
+
+The Render service runs on the free plan. It sleeps after inactivity (cold start can take about a minute) and its filesystem is ephemeral, so uploaded files and stored changes reset on restart or redeploy. The startup seed recreates the fictional demo workspace. Durable deployment requires a paid instance with a disk, or Postgres plus object storage, as noted in `render.yaml`.
+
 ---
 
 ## Deliberate boundaries and deferred work

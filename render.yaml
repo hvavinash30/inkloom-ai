@@ -33,4 +33,4 @@ services:
       # Replace this with the final Vercel production origin if it differs.
       # Must be a JSON array because the setting is parsed as a list.
       - key: CORS_ORIGINS
-        value: '["https://inkloom-ai.vercel.app"]'
+        value: '["https://inkloom-ai-rho.vercel.app","https://inkloom-ai-team-shrey1.vercel.app"]'
