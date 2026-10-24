@@ -1,0 +1,36 @@
+# Render blueprint for the Inkloom FastAPI service.
+# The frontend is deployed separately on Vercel.
+#
+# Free plan notes:
+# - The instance sleeps after inactivity, so the first request can take ~30 s.
+# - Render's filesystem is ephemeral on the free plan. SQLite and uploaded
+#   files reset whenever the service restarts or redeploys. The startup seed
+#   recreates the fictional demo workspace, so the demo remains usable.
+# - For durable uploads and data, upgrade to a paid instance and attach a disk,
+#   then point DATABASE_URL and UPLOAD_DIR at the mount path.
+services:
+  - type: web
+    name: inkloom-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
+      - key: DEMO_MODE
+        value: "true"
+      - key: LLM_PROVIDER
+        value: mock
+      - key: OCR_PROVIDER
+        value: none
+      - key: TRANSCRIPTION_PROVIDER
+        value: none
+      # Replace this with the final Vercel production origin if it differs.
+      # Must be a JSON array because the setting is parsed as a list.
+      - key: CORS_ORIGINS
+        value: '["https://inkloom-ai.vercel.app"]'
