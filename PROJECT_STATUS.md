@@ -66,7 +66,8 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 - Responsive shell with a desktop sidebar and a mobile drawer.
 - White/soft-neutral surfaces, deep navy navigation, restrained blue accent, and status colors.
 - Loading, empty, error, and access-denied states.
-- Keyboard-focus styles, labelled controls, `aria-pressed` tabs, and dialog semantics.
+- Keyboard-focus styles, labelled controls, keyboard-operable tabs with tabpanel relationships, accessible field validation, and focus-trapped mobile navigation.
+- Exact PDF-page and transcript evidence highlights, with explicit unavailable-evidence states and no approximate matching.
 - Long workspace names, evidence text, and research details wrap instead of clipping.
 
 ### Deployment configuration — completed
@@ -82,8 +83,8 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 
 | Check | Result |
 | --- | --- |
-| Backend pytest suite | 17 passed, 0 failed (1 third-party deprecation warning) |
-| TypeScript check + Vite production build | 0 errors; 1,619 modules; JS 519.92 kB (gzip 135.00 kB), CSS 45.60 kB (gzip 8.15 kB); one chunk-size advisory |
+| Backend pytest suite | 21 passed, 0 failed (1 third-party deprecation warning) |
+| TypeScript check + Vite production build | 0 errors; 1,621 modules; JS 558.22 kB (gzip 144.45 kB), CSS 51.80 kB (gzip 9.21 kB); one chunk-size advisory |
 | Responsive sweep (1440 / 834 / 325 px) | 63 page loads; 0 console errors, 0 overflow, 0 HTTP ≥ 400, 0 invalid object rendering |
 | Creator + reviewer browser workflow | 9/9 checks passed, including fix → version → review → stale approval → compare, PDF, and transcript-only video |
 | Admin browser workflow | 10/10 checks passed, including brand-library CRUD, contrast, simulation, draft rule, conflict resolution, research edit, 5/5 evaluation cases, settings, team, mobile drawer |
