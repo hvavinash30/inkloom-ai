@@ -150,6 +150,61 @@ def test_video_without_a_file_uses_stored_transcript_timestamps(client):
     assert timestamped, "Transcript-based findings must carry stored timestamps"
     assert all(finding["location_label"] for finding in timestamped)
 
+    notes = detail["latest_audit"]["extraction_notes"] or ""
+    assert "No video file is stored" in notes
+    assert "playback and timestamp seeking are unavailable" in notes
+    assert "The video player" not in notes
+
+
+def test_mixed_transcript_checks_untimed_text_without_inventing_timestamps(client):
+    title = unique_title("Mixed transcript")
+    transcript = (
+        "[00:42] Our platform delivers 100% uptime.\n"
+        "In addition, AcmeCloud is the #1 fastest cloud!!!\n"
+    )
+    created = client.post(
+        "/api/v1/audits/submit-and-audit",
+        headers=CREATOR,
+        json={
+            "title": title,
+            "content_type": "video_script",
+            "asset_type": "video",
+            "content_text": transcript,
+            "transcript_segments": [
+                {
+                    "timestamp_seconds": 42,
+                    "text": "Our platform delivers 100% uptime.",
+                }
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    document = created.json()
+    findings = findings_for(client, document)
+
+    timestamped = next(
+        finding
+        for finding in findings
+        if finding["timestamp_seconds"] == 42 and "100% uptime" in finding["affected_text"]
+    )
+    assert timestamped["location_label"] == "Timestamp 00:42"
+
+    untimed = [
+        finding
+        for finding in findings
+        if finding["timestamp_seconds"] is None and finding["affected_text"] == "AcmeCloud"
+    ]
+    assert untimed, "Untimestamped transcript text must still be checked"
+    assert all(finding["location_label"] == "Transcript (no timestamp)" for finding in untimed)
+    assert not any(
+        finding["timestamp_seconds"] == 0 and "AcmeCloud" in finding["affected_text"]
+        for finding in findings
+    ), "Untimestamped text must not be assigned an invented timestamp"
+
+    notes = document["latest_audit"]["extraction_notes"] or ""
+    assert "Untimestamped transcript text was checked without timestamps." in notes
+    assert "No video file is stored" in notes
+
 
 def test_image_upload_records_ocr_boundary(client):
     png = base64.b64decode(

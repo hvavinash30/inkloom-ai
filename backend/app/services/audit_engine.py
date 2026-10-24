@@ -631,20 +631,126 @@ def _format_timestamp(seconds: float) -> str:
     return f"{total // 60:02d}:{total % 60:02d}"
 
 
-def parse_timestamped_transcript(text: str) -> List[dict]:
-    """Parse [mm:ss] or mm:ss lines without inventing timestamps."""
+_TIMESTAMP_PREFIX_RE = re.compile(
+    r"^\s*\[?(\d{1,2}(?::\d{1,2}){1,2}(?:[.,]\d+)?)\]?\s*(?:[-–—:]\s*)?(.*)$"
+)
+
+
+def _parse_timestamp_value(value: str) -> Optional[float]:
+    parts = value.strip().replace(",", ".").split(":")
+    if len(parts) not in (2, 3):
+        return None
+    try:
+        numbers = [float(part) for part in parts]
+    except ValueError:
+        return None
+    if any(number < 0 for number in numbers):
+        return None
+    if any(number >= 60 for number in numbers[-2:]):
+        return None
+    seconds = 0.0
+    for number in numbers:
+        seconds = seconds * 60 + number
+    return seconds
+
+
+def split_transcript_text(text: str) -> tuple[List[dict], str]:
+    """Split explicitly timestamped cues from untimestamped transcript text.
+
+    Only timestamps present in the source are returned. Lines without a
+    timestamp are returned separately so callers can check them without
+    inventing times, and cue text keeps its original wording and order.
+    """
     segments: List[dict] = []
-    pattern = re.compile(r"^\s*\[?(\d{1,2}):(\d{2})\]?\s*[-–—:]?\s*(.+)$", re.MULTILINE)
-    for match in pattern.finditer(text or ""):
-        seconds = int(match.group(1)) * 60 + int(match.group(2))
-        segments.append(
-            {
-                "timestamp_seconds": float(seconds),
-                "text": match.group(3).strip(),
-                "timestamp_label": _format_timestamp(seconds),
-            }
-        )
-    return segments
+    untimestamped: List[str] = []
+    lines = (
+        (text or "").replace("\ufeff", "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    )
+    cue_seconds: Optional[float] = None
+    cue_lines: List[str] = []
+    cue_is_block = False
+    skip_block = False
+    index = 0
+
+    def flush_cue() -> None:
+        nonlocal cue_seconds, cue_lines, cue_is_block
+        if cue_seconds is not None:
+            cue_text = " ".join(cue_lines).strip()
+            if cue_text:
+                segments.append(
+                    {
+                        "timestamp_seconds": cue_seconds,
+                        "text": cue_text,
+                        "timestamp_label": _format_timestamp(cue_seconds),
+                    }
+                )
+        cue_seconds = None
+        cue_lines = []
+        cue_is_block = False
+
+    while index < len(lines):
+        trimmed = lines[index].strip()
+        index += 1
+        if not trimmed:
+            flush_cue()
+            skip_block = False
+            continue
+        if skip_block:
+            continue
+        if re.match(r"^WEBVTT\b", trimmed, re.IGNORECASE):
+            continue
+        if re.match(r"^(NOTE|STYLE|REGION)\b", trimmed, re.IGNORECASE):
+            flush_cue()
+            skip_block = True
+            continue
+        if "-->" in trimmed:
+            flush_cue()
+            seconds = _parse_timestamp_value(trimmed.split("-->", 1)[0])
+            if seconds is not None:
+                cue_seconds = seconds
+                cue_is_block = True
+            continue
+        if cue_is_block:
+            cue_lines.append(trimmed)
+            continue
+
+        if (
+            trimmed.isdigit()
+            and index < len(lines)
+            and "-->" in lines[index]
+        ):
+            continue
+
+        match = _TIMESTAMP_PREFIX_RE.match(trimmed)
+        if match:
+            seconds = _parse_timestamp_value(match.group(1))
+            if seconds is not None:
+                flush_cue()
+                rest = match.group(2).strip()
+                if rest:
+                    segments.append(
+                        {
+                            "timestamp_seconds": seconds,
+                            "text": rest,
+                            "timestamp_label": _format_timestamp(seconds),
+                        }
+                    )
+                else:
+                    cue_seconds = seconds
+                continue
+
+        if cue_seconds is not None:
+            cue_lines.append(trimmed)
+        else:
+            untimestamped.append(trimmed)
+
+    flush_cue()
+    return segments, "\n".join(untimestamped).strip()
+
+
+def parse_timestamped_transcript(text: str) -> List[dict]:
+    """Parse explicit timestamps without inventing any."""
+    return split_transcript_text(text)[0]
 
 
 def _score(findings: Sequence[dict]) -> tuple[int, str, List[dict], str]:
@@ -816,6 +922,13 @@ def run_transcript_audit(
                 )
             )
             findings.extend(_dedupe(seg_findings))
+
+        parsed_cues, untimestamped_text = split_transcript_text(fallback_text)
+        if parsed_cues and untimestamped_text:
+            untimed_findings = run_text_audit(untimestamped_text, rules, facts).findings
+            for finding in untimed_findings:
+                finding["location_label"] = "Transcript (no timestamp)"
+            findings.extend(untimed_findings)
     else:
         findings = run_text_audit(fallback_text, rules, facts).findings
         for finding in findings:

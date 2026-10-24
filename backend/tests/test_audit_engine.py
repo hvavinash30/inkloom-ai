@@ -1,6 +1,53 @@
 from app.models.approved_fact import ApprovedFact
 from app.models.brand_rule import BrandRule
-from app.services.audit_engine import detect_fact_contradictions, scan_rules
+from app.services.audit_engine import (
+    detect_fact_contradictions,
+    parse_timestamped_transcript,
+    scan_rules,
+    split_transcript_text,
+)
+
+
+def test_transcript_split_keeps_untimed_lines_separate():
+    transcript = (
+        "[00:18] Welcome to the launch.\n"
+        "Our platform is #1.\n"
+        "\n"
+        "[00:42] Acme Cloud delivers 99.9% uptime.\n"
+        "No timestamps were invented for this line."
+    )
+    segments, untimestamped = split_transcript_text(transcript)
+
+    assert [segment["timestamp_seconds"] for segment in segments] == [18.0, 42.0]
+    assert segments[0]["text"] == "Welcome to the launch."
+    assert segments[1]["text"] == "Acme Cloud delivers 99.9% uptime."
+    assert "Our platform is #1." in untimestamped
+    assert "No timestamps were invented for this line." in untimestamped
+    assert "Welcome" not in untimestamped
+
+
+def test_transcript_split_reads_srt_cues_without_synthesizing_times():
+    transcript = (
+        "1\n"
+        "00:00:01,000 --> 00:00:04,000\n"
+        "Welcome to Acme Cloud.\n"
+        "This cue has two lines.\n"
+        "\n"
+        "Untimed context follows here.\n"
+    )
+    segments, untimestamped = split_transcript_text(transcript)
+
+    assert len(segments) == 1
+    assert segments[0]["timestamp_seconds"] == 1.0
+    assert segments[0]["text"] == "Welcome to Acme Cloud. This cue has two lines."
+    assert untimestamped == "Untimed context follows here."
+
+
+def test_transcript_parser_does_not_invent_timestamps():
+    assert parse_timestamped_transcript("Plain transcript without cues.") == []
+    assert split_transcript_text("Plain transcript without cues.")[1] == (
+        "Plain transcript without cues."
+    )
 
 
 def test_deterministic_engine_detects_prohibited_phrase():

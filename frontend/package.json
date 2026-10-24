@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:format": "node --experimental-strip-types --test scripts/format.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

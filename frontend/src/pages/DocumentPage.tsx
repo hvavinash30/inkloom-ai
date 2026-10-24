@@ -3,7 +3,10 @@ import {
   ArrowUpRight,
   BadgeCheck,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
+  Clock3,
   ExternalLink,
   Fingerprint,
   GitCompare,
@@ -69,9 +72,9 @@ import type {
 } from '../types';
 
 const VERIFICATION_LABEL: Record<VerificationStatus, string> = {
-  verified: 'Checks completed',
-  partially_verified: 'Partly checked',
-  unable_to_verify: 'Unable to verify',
+  verified: 'Automated checks completed',
+  partially_verified: 'Partially checked',
+  unable_to_verify: 'Inspection limited',
 };
 
 const VERIFICATION_STYLE: Record<VerificationStatus, string> = {
@@ -94,10 +97,82 @@ const DECISION_STYLE: Record<DecisionType, string> = {
 
 function verificationBadge(status: VerificationStatus) {
   return (
-    <Badge className={VERIFICATION_STYLE[status]}>
-      {VERIFICATION_LABEL[status] || titleCase(status)}
-    </Badge>
+    <span
+      title="Audit coverage only. This is not an approval decision."
+      className="inline-flex"
+    >
+      <Badge className={VERIFICATION_STYLE[status]}>
+        {VERIFICATION_LABEL[status] || titleCase(status)}
+      </Badge>
+    </span>
   );
+}
+
+type FindingGroup = {
+  id: string;
+  title: string;
+  description: string;
+  findings: Finding[];
+};
+
+function groupFindings(items: Finding[]): FindingGroup[] {
+  const priority: Finding[] = [];
+  const claims: Finding[] = [];
+  const review: Finding[] = [];
+  const limits: Finding[] = [];
+  const guidance: Finding[] = [];
+
+  for (const finding of items) {
+    if (finding.severity === 'critical' || finding.severity === 'high') {
+      priority.push(finding);
+    } else if (finding.category === 'unsupported_claim') {
+      claims.push(finding);
+    } else if (finding.category === 'needs_human_review') {
+      review.push(finding);
+    } else if (
+      finding.category === 'processing_issue' ||
+      finding.evidence_status === 'processing_limitation'
+    ) {
+      limits.push(finding);
+    } else {
+      guidance.push(finding);
+    }
+  }
+
+  return [
+    {
+      id: 'priority',
+      title: 'Critical and high severity',
+      description: 'Resolve these first. Severity comes from the stored finding record.',
+      findings: priority,
+    },
+    {
+      id: 'claims',
+      title: 'Unsupported claims',
+      description:
+        'Claim restrictions matched by the deterministic check. Review the evidence attached to each finding.',
+      findings: claims,
+    },
+    {
+      id: 'review',
+      title: 'Needs human review',
+      description:
+        'The check could not confirm or refute these claims. A finding is not proof that a claim is false.',
+      findings: review,
+    },
+    {
+      id: 'limits',
+      title: 'Inspection limits',
+      description: 'These record what automated checks could not inspect, not content violations.',
+      findings: limits,
+    },
+    {
+      id: 'guidance',
+      title: 'Policy, style, and accessibility',
+      description: 'Remaining rule matches and guidance from the deterministic check.',
+      findings: guidance,
+    },
+  ].filter((group) => group.findings.length > 0);
 }
 
 function replaceAffected(source: string, finding: Finding, replacement: string): string | null {
@@ -130,39 +205,63 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 function PageSelect({
-  pages,
+  id,
+  label,
+  pageCount,
   value,
   onChange,
   findings,
 }: {
-  pages: number[];
+  id: string;
+  label: string;
+  pageCount: number;
   value: number;
   onChange: (page: number) => void;
   findings: Finding[];
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {pages.map((page) => {
-        const count = findings.filter((finding) => finding.page_number === page).length;
-        return (
-          <button
-            key={page}
-            type="button"
-            onClick={() => onChange(page)}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors',
-              value === page
-                ? 'border-brand-300 bg-brand-50 text-brand-800'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-            )}
-          >
-            Page {page}
-            {count > 0 ? (
-              <span className="rounded-full bg-orange-100 px-1 text-[10px] font-semibold text-orange-800">{count}</span>
-            ) : null}
-          </button>
-        );
-      })}
+    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+      <label htmlFor={id} className="text-[11px] font-medium text-slate-600">
+        {label}
+      </label>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-11 w-11 px-0 sm:h-9 sm:w-9"
+          onClick={() => onChange(value - 1)}
+          disabled={value <= 1}
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Select
+          id={id}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="h-11 min-w-0 flex-1 sm:h-9 sm:min-w-[226px] sm:flex-none"
+        >
+          {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => {
+            const count = findings.filter((finding) => finding.page_number === page).length;
+            return (
+              <option key={page} value={page}>
+                Page {page} of {pageCount}
+                {count > 0 ? ` · ${count} finding${count === 1 ? '' : 's'}` : ' · no findings'}
+              </option>
+            );
+          })}
+        </Select>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="h-11 w-11 px-0 sm:h-9 sm:w-9"
+          onClick={() => onChange(value + 1)}
+          disabled={value >= pageCount}
+          aria-label="Next page"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -204,7 +303,6 @@ export function DocumentPage({ id }: { id: string }) {
 
   const [editorText, setEditorText] = useState('');
   const [editorPages, setEditorPages] = useState<string[]>([]);
-  const [editorPage, setEditorPage] = useState(1);
   const [editorSummary, setEditorSummary] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -224,6 +322,8 @@ export function DocumentPage({ id }: { id: string }) {
   const [decisionVersionId, setDecisionVersionId] = useState('');
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [decisionFeedbackError, setDecisionFeedbackError] = useState<string | null>(null);
+  const seekTimeoutRef = useRef<number | null>(null);
 
   const [fromVersion, setFromVersion] = useState('');
   const [toVersion, setToVersion] = useState('');
@@ -268,12 +368,19 @@ export function DocumentPage({ id }: { id: string }) {
     if (!version) return;
     setEditorText(version.content_text || '');
     setEditorPages(version.page_texts?.length ? [...version.page_texts] : []);
-    setEditorPage(1);
     setSelectedPage(1);
     setEditorSummary('');
+    setDecisionVersionId('');
     // Reset the editor only when a different version becomes current.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version?.id]);
+
+  useEffect(
+    () => () => {
+      if (seekTimeoutRef.current !== null) window.clearTimeout(seekTimeoutRef.current);
+    },
+    [id]
+  );
 
   useEffect(() => {
     if (!versions.length) return;
@@ -377,14 +484,12 @@ export function DocumentPage({ id }: { id: string }) {
       if (updated === null) {
         toast('This finding’s exact text could not be located in the stored page. Edit the page manually.', 'error');
         setSelectedPage(finding.page_number);
-        setEditorPage(finding.page_number);
         setTab('content');
         return;
       }
       const next = [...(editorPages.length ? editorPages : version?.page_texts || [])];
       next[index] = updated;
       setEditorPages(next);
-      setEditorPage(finding.page_number);
       setSelectedPage(finding.page_number);
     } else {
       const source = editorText || version?.content_text || '';
@@ -426,18 +531,24 @@ export function DocumentPage({ id }: { id: string }) {
     if (!version) return;
     setDecisionOpen(decision);
     setDecisionFeedback('');
-    setDecisionVersionId(version.id);
+    setDecisionVersionId((current) => current || version.id);
     setDecisionError(null);
+    setDecisionFeedbackError(null);
   };
 
   const recordDecision = async () => {
     if (!decisionOpen || !decisionVersionId) return;
     if (decisionOpen !== 'approved' && decisionFeedback.trim().length < 3) {
-      setDecisionError('Feedback is required when requesting changes or rejecting.');
+      setDecisionFeedbackError('Feedback of at least 3 characters is required when requesting changes or rejecting.');
+      window.requestAnimationFrame(() => {
+        const field = window.document.getElementById('decision-feedback') as HTMLTextAreaElement | null;
+        field?.focus();
+      });
       return;
     }
     setDecisionBusy(true);
     setDecisionError(null);
+    setDecisionFeedbackError(null);
     try {
       await api.recordDecision(id, {
         decision: decisionOpen,
@@ -446,6 +557,7 @@ export function DocumentPage({ id }: { id: string }) {
       });
       toast(`Decision recorded: ${DECISION_LABEL[decisionOpen]}.`, 'success');
       setDecisionOpen(null);
+      setDecisionVersionId('');
       docState.reload();
       decisionsState.reload();
       eventsState.reload();
@@ -516,13 +628,41 @@ export function DocumentPage({ id }: { id: string }) {
     version?.page_texts?.length || 0,
     uploadState.data?.page_count || 0
   );
-  const pageNumbers = Array.from({ length: pageCount }, (_, index) => index + 1);
+  const currentPage = Math.min(Math.max(1, selectedPage), pageCount);
   const selectedPageText =
-    editorPages[selectedPage - 1] ?? version?.page_texts?.[selectedPage - 1] ?? '';
+    editorPages[currentPage - 1] ?? version?.page_texts?.[currentPage - 1] ?? '';
   const transcript = version?.transcript_segments || [];
+  const hasStoredVideo =
+    document.asset_type === 'video' &&
+    Boolean(document.file_id) &&
+    uploadState.data?.kind !== 'transcript';
+  const isTranscriptOnly = document.asset_type === 'video' && !hasStoredVideo;
   const currentDecision = document.latest_decision;
   const approvedVersion = versions.find((item) => item.id === document.approved_version_id);
   const decisionVersion = versions.find((item) => item.id === decisionVersionId);
+  const decisionTitle =
+    decisionOpen === 'approved'
+      ? 'Approve this version'
+      : decisionOpen === 'changes_requested'
+        ? 'Request changes'
+        : decisionOpen === 'rejected'
+          ? 'Reject this version'
+          : 'Record decision';
+  const decisionRecordLabel =
+    decisionOpen === 'approved'
+      ? 'Record approval'
+      : decisionOpen === 'changes_requested'
+        ? 'Request changes'
+        : decisionOpen === 'rejected'
+          ? 'Record rejection'
+          : 'Record decision';
+  const canOpenDecision = Boolean(
+    canDecide &&
+      version &&
+      (document.status === 'in_review' ||
+        document.status === 'changes_requested' ||
+        document.approval_stale)
+  );
   const editorDirty = Boolean(
     version &&
       (isPdf
@@ -532,20 +672,32 @@ export function DocumentPage({ id }: { id: string }) {
   );
 
   const seekTo = (seconds: number) => {
+    if (!hasStoredVideo) return;
     setTab('content');
-    window.setTimeout(() => {
+    if (seekTimeoutRef.current !== null) window.clearTimeout(seekTimeoutRef.current);
+    let attempts = 0;
+    const attempt = () => {
       const player = videoRef.current;
-      if (!player) {
-        toast('No video file is stored for this item, so the player cannot seek. The transcript timestamp is shown instead.', 'info');
+      if (player) {
+        try {
+          player.currentTime = seconds;
+          void player.play().catch(() => undefined);
+        } catch {
+          toast('The video player could not seek to that timestamp.', 'error');
+        }
         return;
       }
-      try {
-        player.currentTime = seconds;
-        void player.play().catch(() => undefined);
-      } catch {
-        toast('The video player could not seek to that timestamp.', 'error');
+      attempts += 1;
+      if (attempts > 30) {
+        toast(
+          'The video player is still loading. Try the timestamp again when the stored video appears.',
+          'info'
+        );
+        return;
       }
-    }, 120);
+      seekTimeoutRef.current = window.setTimeout(attempt, 100);
+    };
+    seekTimeoutRef.current = window.setTimeout(attempt, 50);
   };
 
   const renderFindings = () => {
@@ -570,6 +722,8 @@ export function DocumentPage({ id }: { id: string }) {
         />
       );
     }
+
+    const groups = groupFindings(filteredFindings);
 
     return (
       <div className="space-y-4">
@@ -652,41 +806,83 @@ export function DocumentPage({ id }: { id: string }) {
             />
           )
         ) : (
-          <div className="space-y-3">
-            {filteredFindings.map((finding) => (
-              <div key={finding.id}>
-                {finding.timestamp_seconds !== null && finding.timestamp_seconds !== undefined ? (
-                  <button
-                    type="button"
-                    onClick={() => seekTo(finding.timestamp_seconds as number)}
-                    className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline"
-                  >
-                    <Play className="h-3 w-3" />
-                    Seek to {formatSeconds(finding.timestamp_seconds)}
-                  </button>
-                ) : null}
-                {finding.page_number ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPage(finding.page_number as number);
-                      setTab('content');
-                    }}
-                    className="mb-1 inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline"
-                  >
-                    <MapPin className="h-3 w-3" />
-                    Open page {finding.page_number}
-                  </button>
-                ) : null}
-                <FindingCard
-                  finding={finding}
-                  canEdit={canEdit}
-                  canDismiss={can('findings.dismiss')}
-                  onUpdated={refreshRelated}
-                  onApplyCorrection={applyCorrection}
-                  onAsk={(item) => askAbout(item)}
-                />
-              </div>
+          <div className="space-y-5">
+            {groups.map((group) => (
+              <section
+                key={group.id}
+                aria-labelledby={`finding-group-${group.id}`}
+                className="space-y-3"
+              >
+                <div className="px-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2
+                      id={`finding-group-${group.id}`}
+                      className="text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      {group.title}
+                    </h2>
+                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-500">
+                      {group.findings.length}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-5 text-slate-500">{group.description}</p>
+                </div>
+                <div className="space-y-3">
+                  {group.findings.map((finding) => {
+                    const hasTimestamp =
+                      finding.timestamp_seconds !== null && finding.timestamp_seconds !== undefined;
+                    return (
+                      <div key={finding.id}>
+                        {hasTimestamp || finding.page_number ? (
+                          <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                            {hasTimestamp ? (
+                              hasStoredVideo ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="min-h-11 px-2 sm:min-h-8"
+                                  onClick={() => seekTo(finding.timestamp_seconds as number)}
+                                >
+                                  <Play className="h-3 w-3" />
+                                  Play at {formatSeconds(finding.timestamp_seconds as number)}
+                                </Button>
+                              ) : (
+                                <span className="inline-flex min-h-11 items-center gap-1 px-2 text-[11px] text-slate-500 sm:min-h-0">
+                                  <Clock3 className="h-3 w-3" />
+                                  Transcript timestamp {formatSeconds(finding.timestamp_seconds as number)} · no video
+                                  attached
+                                </span>
+                              )
+                            ) : null}
+                            {finding.page_number ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="min-h-11 px-2 sm:min-h-8"
+                                onClick={() => {
+                                  setSelectedPage(finding.page_number as number);
+                                  setTab('content');
+                                }}
+                              >
+                                <MapPin className="h-3 w-3" />
+                                View page {finding.page_number} in evidence
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        <FindingCard
+                          finding={finding}
+                          canEdit={canEdit}
+                          canDismiss={can('findings.dismiss')}
+                          onUpdated={refreshRelated}
+                          onApplyCorrection={applyCorrection}
+                          onAsk={(item) => askAbout(item)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             ))}
           </div>
         )}
@@ -699,10 +895,18 @@ export function DocumentPage({ id }: { id: string }) {
       {run?.verification_status === 'unable_to_verify' || run?.extraction_notes ? (
         <InfoCallout
           tone={run?.verification_status === 'unable_to_verify' ? 'warning' : 'neutral'}
-          title={run?.verification_status === 'unable_to_verify' ? 'Automatic inspection was limited' : 'Extraction note'}
+          title={
+            run?.verification_status === 'unable_to_verify'
+              ? 'Automatic inspection was limited'
+              : isTranscriptOnly
+                ? 'Transcript-only evidence'
+                : 'Extraction note'
+          }
         >
-          {run?.extraction_notes ||
-            'The stored format did not provide enough text for the deterministic checks. Findings below describe the processing limitation, not an assessed violation.'}
+          {isTranscriptOnly
+            ? 'No video file is stored for this item. The check used the supplied transcript, and timestamps are transcript references only. No player, speech-to-text, or visual analysis is available for this record.'
+            : run?.extraction_notes ||
+              'The stored format did not provide enough text for the deterministic checks. Findings below describe the processing limitation, not an assessed violation.'}
         </InfoCallout>
       ) : null}
 
@@ -711,9 +915,11 @@ export function DocumentPage({ id }: { id: string }) {
           <SectionHeading
             title="Stored evidence"
             description={
-              document.file_id
-                ? 'The file is retrieved through an authenticated API request using your current role.'
-                : 'No media file was stored with this content.'
+              isTranscriptOnly
+                ? 'No video file is stored. The supplied transcript and its explicit timestamps are the stored evidence.'
+                : document.file_id
+                  ? 'The file is retrieved through an authenticated API request using your current role.'
+                  : 'No media file was stored with this content.'
             }
             action={
               uploadState.data ? (
@@ -723,25 +929,38 @@ export function DocumentPage({ id }: { id: string }) {
               ) : undefined
             }
           />
+          {uploadState.error ? (
+            <InfoCallout tone="warning" title="Upload record could not be loaded">
+              File metadata and extraction status may be unavailable. The stored file and findings are still checked by
+              the server. {uploadState.error}{' '}
+              <button
+                type="button"
+                onClick={uploadState.reload}
+                className="font-medium text-amber-900 underline underline-offset-2"
+              >
+                Retry
+              </button>
+            </InfoCallout>
+          ) : null}
           {isPdf ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <PageSelect
-                pages={pageNumbers}
-                value={selectedPage}
-                onChange={setSelectedPage}
-                findings={findings}
-              />
-            </div>
+            <PageSelect
+              id="evidence-page"
+              label="Evidence page"
+              pageCount={pageCount}
+              value={currentPage}
+              onChange={setSelectedPage}
+              findings={findings}
+            />
           ) : null}
           <EvidenceViewer
-            fileId={document.file_id}
+            fileId={isTranscriptOnly ? null : document.file_id}
             assetType={document.asset_type}
             title={document.title}
-            page={selectedPage}
+            page={currentPage}
             videoRef={videoRef}
             emptyMessage={
               document.asset_type === 'video'
-                ? 'No video file is stored for this item. This is a transcript-only check; the transcript and timestamps below came from the supplied record.'
+                ? 'No video file is stored for this item. This is a transcript-only check; the transcript and explicit timestamps below came from the supplied record. No player is shown.'
                 : undefined
             }
           />
@@ -761,16 +980,22 @@ export function DocumentPage({ id }: { id: string }) {
           <SectionHeading
             title={
               document.asset_type === 'video'
-                ? 'Timestamped transcript'
+                ? transcript.length > 0
+                  ? 'Timestamped transcript'
+                  : 'Transcript (no timestamps)'
                 : document.asset_type === 'pdf'
-                  ? `Page ${selectedPage} text`
+                  ? `Page ${currentPage} text`
                   : document.asset_type === 'image'
                     ? 'Image review note'
                     : 'Checked text'
             }
             description={
               document.asset_type === 'video'
-                ? 'These are the stored transcript segments used for the check. Select a segment to seek in the player when a file exists.'
+                ? transcript.length > 0
+                  ? hasStoredVideo
+                    ? 'Stored transcript segments used for the check. Select a timestamp to play that point in the stored video.'
+                    : 'Stored transcript segments used for the check. No video file is attached; timestamps are transcript references only.'
+                  : 'This transcript was checked as plain text. Findings have no timestamp or playback links.'
                 : document.asset_type === 'pdf'
                   ? 'Extracted text preserved per page. Page order reflects text extraction, not visual layout.'
                   : undefined
@@ -801,15 +1026,25 @@ export function DocumentPage({ id }: { id: string }) {
                 return (
                   <div key={`${seconds}-${index}`} className="border-b border-slate-100 p-3 last:border-0">
                     <div className="flex items-start gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => seekTo(seconds)}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-600 hover:bg-brand-50 hover:text-brand-700"
-                        title={document.file_id ? 'Seek video to this timestamp' : 'Transcript timestamp; no video file stored'}
-                      >
-                        <Play className="h-2.5 w-2.5" />
-                        {formatSeconds(seconds)}
-                      </button>
+                      {hasStoredVideo ? (
+                        <button
+                          type="button"
+                          onClick={() => seekTo(seconds)}
+                          className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-medium text-slate-600 hover:bg-brand-50 hover:text-brand-700 sm:min-h-0 sm:px-1.5 sm:py-0.5"
+                          title="Play the stored video from this timestamp"
+                        >
+                          <Play className="h-2.5 w-2.5" />
+                          {formatSeconds(seconds)}
+                        </button>
+                      ) : (
+                        <span
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-500"
+                          title="Transcript timestamp; no video file is stored"
+                        >
+                          <Clock3 className="h-2.5 w-2.5" />
+                          {formatSeconds(seconds)}
+                        </span>
+                      )}
                       <p className="min-w-0 flex-1 text-sm leading-6 text-slate-700">{String(segment.text || '')}</p>
                     </div>
                     {segmentFindings.length > 0 ? (
@@ -828,6 +1063,21 @@ export function DocumentPage({ id }: { id: string }) {
                 );
               })}
             </div>
+          ) : document.asset_type === 'video' ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              {version?.content_text ? (
+                <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
+                  {version.content_text}
+                </pre>
+              ) : (
+                <p className="text-sm text-slate-500">No transcript is stored for this version.</p>
+              )}
+              <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">
+                This transcript has no explicit timestamps. It was checked as plain text, so findings do not have
+                timestamp or playback links.
+                {isTranscriptOnly ? ' No video file is stored for this item.' : ''}
+              </p>
+            </div>
           ) : document.asset_type === 'pdf' ? (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               {selectedPageText ? (
@@ -836,19 +1086,19 @@ export function DocumentPage({ id }: { id: string }) {
                 </pre>
               ) : (
                 <div className="py-6 text-center">
-                  <p className="text-sm font-medium text-slate-700">No extractable text on page {selectedPage}</p>
+                  <p className="text-sm font-medium text-slate-700">No extractable text on page {currentPage}</p>
                   <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-500">
                     The stored PDF can still be reviewed visually. Automated checks require extracted text or a manual
                     transcription of the page.
                   </p>
                 </div>
               )}
-              {findings.filter((finding) => finding.page_number === selectedPage).length > 0 ? (
+              {findings.filter((finding) => finding.page_number === currentPage).length > 0 ? (
                 <div className="mt-3 border-t border-slate-100 pt-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Findings on this page</p>
                   <div className="mt-1.5 space-y-1">
                     {findings
-                      .filter((finding) => finding.page_number === selectedPage)
+                      .filter((finding) => finding.page_number === currentPage)
                       .map((finding) => (
                         <p key={finding.id} className="text-[11px] leading-5 text-slate-600">
                           <SeverityBadge severity={finding.severity} />{' '}
@@ -890,16 +1140,23 @@ export function DocumentPage({ id }: { id: string }) {
           <div className="mt-3 space-y-3">
             {isPdf && editorPages.length > 0 ? (
               <>
-                <PageSelect pages={pageNumbers} value={editorPage} onChange={setEditorPage} findings={findings} />
+                <PageSelect
+                  id="editor-page"
+                  label="Revision editor page"
+                  pageCount={pageCount}
+                  value={currentPage}
+                  onChange={setSelectedPage}
+                  findings={findings}
+                />
                 <Textarea
                   rows={10}
-                  value={editorPages[editorPage - 1] ?? ''}
+                  value={editorPages[currentPage - 1] ?? ''}
                   onChange={(event) => {
                     const next = [...editorPages];
-                    next[editorPage - 1] = event.target.value;
+                    next[currentPage - 1] = event.target.value;
                     setEditorPages(next);
                   }}
-                  aria-label={`Page ${editorPage} text editor`}
+                  aria-label={`Page ${currentPage} text editor`}
                   className="font-mono text-[12px] leading-5"
                 />
               </>
@@ -923,7 +1180,7 @@ export function DocumentPage({ id }: { id: string }) {
                 htmlFor="revision-text"
                 hint={
                   document.asset_type === 'video'
-                    ? 'Keep [mm:ss] timestamps in the transcript so the new version can still seek to findings.'
+                    ? 'Keep explicit timestamps (for example [01:05] or SRT/VTT cues) to preserve finding links. Plain text is checked without timestamps; no timestamps are invented.'
                     : undefined
                 }
               >
@@ -1035,7 +1292,7 @@ export function DocumentPage({ id }: { id: string }) {
                             {item.audit_summary.total_findings} finding{item.audit_summary.total_findings === 1 ? '' : 's'}
                           </Badge>
                           {item.audit_summary.verification_status === 'unable_to_verify' ? (
-                            <Badge className="border-amber-200 bg-amber-50 text-amber-800">Unable to verify</Badge>
+                            <Badge className="border-amber-200 bg-amber-50 text-amber-800">Inspection limited</Badge>
                           ) : null}
                         </>
                       ) : (
@@ -1191,7 +1448,14 @@ export function DocumentPage({ id }: { id: string }) {
             title="Review conversation"
             description={`${comments.length} comment${comments.length === 1 ? '' : 's'} stored with this content. Internal notes are visible only to reviewer roles.`}
           />
-          {commentsState.loading && !comments.length ? (
+          {commentsState.error ? (
+            <div className="mt-3">
+              <ErrorState
+                message={`Comments could not be loaded. ${commentsState.error}`}
+                retry={commentsState.reload}
+              />
+            </div>
+          ) : commentsState.loading && !comments.length ? (
             <div className="mt-3">
               <LoadingBlock rows={2} />
             </div>
@@ -1235,6 +1499,7 @@ export function DocumentPage({ id }: { id: string }) {
                 onChange={(event) => setCommentText(event.target.value)}
                 placeholder="Reference the exact version and evidence…"
                 maxLength={5000}
+                aria-invalid={Boolean(commentError)}
               />
             </Field>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -1261,7 +1526,11 @@ export function DocumentPage({ id }: { id: string }) {
                 Post comment
               </Button>
             </div>
-            {commentError ? <p className="mt-2 text-xs text-rose-600">{commentError}</p> : null}
+            {commentError ? (
+              <p role="alert" className="mt-2 text-xs text-rose-600">
+                {commentError}
+              </p>
+            ) : null}
           </div>
         </Card>
 
@@ -1271,7 +1540,14 @@ export function DocumentPage({ id }: { id: string }) {
               title="Decision record"
               description="Decisions are attached to a specific version and remain in the audit history."
             />
-            {decisionsState.loading && !decisions.length ? (
+            {decisionsState.error ? (
+              <div className="mt-3">
+                <ErrorState
+                  message={`Decisions could not be loaded. ${decisionsState.error}`}
+                  retry={decisionsState.reload}
+                />
+              </div>
+            ) : decisionsState.loading && !decisions.length ? (
               <div className="mt-3">
                 <LoadingBlock rows={2} />
               </div>
@@ -1343,51 +1619,60 @@ export function DocumentPage({ id }: { id: string }) {
               <div className="mt-3 border-t border-slate-100 pt-3">
                 {version ? (
                   <>
-                    <p className="text-[11px] font-medium text-slate-700">Record a decision on a version</p>
-                    <Select
-                      value={decisionVersionId || version.id}
-                      onChange={(event) => setDecisionVersionId(event.target.value)}
-                      className="mt-1.5"
-                      aria-label="Version being decided"
+                    <Field
+                      label="Version being decided"
+                      htmlFor="review-decision-version"
+                      hint="The decision is stored against this exact version. A newer version makes it stale."
                     >
-                      {versions.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          Version {item.version_number}
-                          {item.id === version.id ? ' · current' : ''}
-                        </option>
-                      ))}
-                    </Select>
+                      <Select
+                        id="review-decision-version"
+                        value={decisionVersionId || version.id}
+                        onChange={(event) => setDecisionVersionId(event.target.value)}
+                      >
+                        {versions.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            Version {item.version_number}
+                            {item.id === version.id ? ' · current' : ''}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
                     {decisionVersion && decisionVersion.id !== version.id ? (
                       <p className="mt-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
                         You selected a superseded version. The decision will be recorded against it without changing the
                         document’s current status.
                       </p>
                     ) : null}
-                    <div className="mt-2 grid grid-cols-3 gap-1.5">
+                    <div className="mt-3 grid gap-2">
                       <Button
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700"
+                        className="min-h-11 w-full bg-emerald-600 hover:bg-emerald-700 sm:min-h-9"
                         onClick={() => openDecision('approved')}
                         disabled={!run}
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Approve
+                        <CheckCircle2 className="h-4 w-4" />
+                        Approve version {decisionVersion?.version_number || version.version_number}
                       </Button>
                       <Button
-                        size="sm"
                         variant="secondary"
+                        className="min-h-11 w-full sm:min-h-9"
                         onClick={() => openDecision('changes_requested')}
                       >
-                        <Undo2 className="h-3.5 w-3.5" />
-                        Changes
+                        <Undo2 className="h-4 w-4" />
+                        Request changes
                       </Button>
-                      <Button size="sm" variant="danger" onClick={() => openDecision('rejected')}>
-                        <XCircle className="h-3.5 w-3.5" />
-                        Reject
+                      <Button
+                        variant="danger"
+                        className="min-h-11 w-full sm:min-h-9"
+                        onClick={() => openDecision('rejected')}
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Reject version {decisionVersion?.version_number || version.version_number}
                       </Button>
                     </div>
                     {!run ? (
-                      <p className="mt-1.5 text-[10px] text-amber-700">Run a check before approving this version.</p>
+                      <p className="mt-2 text-[10px] leading-4 text-amber-700">
+                        Run a check before approving this version.
+                      </p>
                     ) : null}
                   </>
                 ) : (
@@ -1589,6 +1874,16 @@ export function DocumentPage({ id }: { id: string }) {
                 Re-run check
               </Button>
             ) : null}
+            {canOpenDecision ? (
+              <Button
+                variant="secondary"
+                onClick={() => setTab('review')}
+                className="min-h-11 sm:min-h-9"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                Review decision
+              </Button>
+            ) : null}
             {canSubmit ? (
               <Button onClick={() => setSubmitOpen(true)} disabled={!run || submitting}>
                 <Send className="h-4 w-4" />
@@ -1600,9 +1895,24 @@ export function DocumentPage({ id }: { id: string }) {
       />
 
       {actionError ? (
-        <div className="mb-4">
+        <div className="mb-4" role="alert">
           <InfoCallout tone="danger" title="Action could not be completed">
             {actionError}
+          </InfoCallout>
+        </div>
+      ) : null}
+
+      {campaignState.error ? (
+        <div className="mb-4">
+          <InfoCallout tone="warning" title="Campaign details could not be loaded">
+            The content is still available, but its campaign badge is missing. {campaignState.error}{' '}
+            <button
+              type="button"
+              onClick={campaignState.reload}
+              className="font-medium text-amber-900 underline underline-offset-2"
+            >
+              Retry
+            </button>
           </InfoCallout>
         </div>
       ) : null}
@@ -1635,6 +1945,22 @@ export function DocumentPage({ id }: { id: string }) {
           <InfoCallout tone="warning" title="The approval does not cover the latest version">
             Version {approvedVersion?.version_number ?? '—'} was approved, but version {document.current_version_number} is
             current. Approve the latest version again if it is ready.
+          </InfoCallout>
+        </div>
+      ) : null}
+
+      {editorDirty && canEdit ? (
+        <div className="mb-4">
+          <InfoCallout tone="warning" title="Unsaved draft changes">
+            Your edits to version {version?.version_number} are not saved. Return to the editor to review them, then save
+            a new version to re-check the content.{' '}
+            <button
+              type="button"
+              onClick={() => setTab('content')}
+              className="font-medium text-amber-900 underline underline-offset-2"
+            >
+              Return to the editor
+            </button>
           </InfoCallout>
         </div>
       ) : null}
@@ -1736,7 +2062,8 @@ export function DocumentPage({ id }: { id: string }) {
                   <div className="mt-1.5 space-y-1 text-[10px] leading-4 text-slate-500">
                     <p>{run.score_method || 'Each open finding deducts points from 100 based on category and severity.'}</p>
                     <p>Engine: {run.model_used}</p>
-                    <p>Verification: {VERIFICATION_LABEL[run.verification_status]}</p>
+                    <p>Audit coverage: {VERIFICATION_LABEL[run.verification_status]}</p>
+                    <p>Coverage describes what the automated checks could inspect. It is not an approval decision.</p>
                     <p>This is a workflow aid, not a legal risk rating or an external benchmark.</p>
                   </div>
                 </details>
@@ -1789,17 +2116,6 @@ export function DocumentPage({ id }: { id: string }) {
               <p className="mt-3 text-[11px] leading-4 text-slate-400">
                 A check must run before this content can be submitted.
               </p>
-            ) : null}
-            {canDecide && (document.status === 'in_review' || document.status === 'changes_requested' || document.approval_stale) ? (
-              <Button
-                variant="secondary"
-                className="mt-2 w-full"
-                size="sm"
-                onClick={() => setTab('review')}
-              >
-                <ClipboardCheck className="h-3.5 w-3.5" />
-                Open review decision
-              </Button>
             ) : null}
           </Card>
 
@@ -1874,10 +2190,19 @@ export function DocumentPage({ id }: { id: string }) {
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setSubmitOpen(false)} disabled={submitting}>
+            <Button
+              variant="secondary"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setSubmitOpen(false)}
+              disabled={submitting}
+            >
               Cancel
             </Button>
-            <Button onClick={() => void submitForReview()} loading={submitting}>
+            <Button
+              className="min-h-11 sm:min-h-9"
+              onClick={() => void submitForReview()}
+              loading={submitting}
+            >
               <Send className="h-4 w-4" />
               Submit for review
             </Button>
@@ -1904,7 +2229,7 @@ export function DocumentPage({ id }: { id: string }) {
       <Modal
         open={Boolean(decisionOpen)}
         onClose={() => setDecisionOpen(null)}
-        title={decisionOpen ? DECISION_LABEL[decisionOpen] : 'Record decision'}
+        title={decisionTitle}
         description={
           decisionVersion
             ? `Version ${decisionVersion.version_number} · ${decisionVersion.id === version?.id ? 'current version' : 'superseded version'}`
@@ -1913,34 +2238,33 @@ export function DocumentPage({ id }: { id: string }) {
         size="md"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setDecisionOpen(null)} disabled={decisionBusy}>
+            <Button
+              variant="secondary"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setDecisionOpen(null)}
+              disabled={decisionBusy}
+            >
               Cancel
             </Button>
             <Button
-              variant={decisionOpen === 'approved' ? 'primary' : decisionOpen === 'rejected' ? 'danger' : 'primary'}
+              variant={decisionOpen === 'rejected' ? 'danger' : 'primary'}
+              className="min-h-11 sm:min-h-9"
               onClick={() => void recordDecision()}
               loading={decisionBusy}
             >
-              Record {decisionOpen ? DECISION_LABEL[decisionOpen].toLowerCase() : 'decision'}
+              {decisionRecordLabel}
             </Button>
           </>
         }
       >
         <div className="space-y-3">
-          <Field label="Version being decided" htmlFor="decision-version">
-            <Select
-              id="decision-version"
-              value={decisionVersionId}
-              onChange={(event) => setDecisionVersionId(event.target.value)}
-            >
-              {versions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  Version {item.version_number}
-                  {item.id === version?.id ? ' · current' : ''}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <span className="text-xs text-slate-500">Version being decided</span>
+            <span className="text-xs font-medium text-slate-800">
+              Version {decisionVersion?.version_number ?? '—'}
+              {decisionVersion?.id === version?.id ? ' · current' : ' · superseded'}
+            </span>
+          </div>
           {decisionVersion && decisionVersion.id !== version?.id ? (
             <InfoCallout tone="warning">
               This is not the current version. The decision will be stored against version {decisionVersion.version_number}{' '}
@@ -1952,31 +2276,55 @@ export function DocumentPage({ id }: { id: string }) {
             htmlFor="decision-feedback"
             required={decisionOpen !== 'approved'}
             hint={
-              decisionOpen === 'changes_requested'
-                ? 'Tell the creator exactly what to revise before resubmitting.'
-                : decisionOpen === 'rejected'
-                  ? 'Explain why this version cannot be approved.'
-                  : undefined
+              decisionOpen === 'changes_requested' ? (
+                <span id="decision-feedback-hint">
+                  Tell the creator exactly what to revise before resubmitting.
+                </span>
+              ) : decisionOpen === 'rejected' ? (
+                <span id="decision-feedback-hint">Explain why this version cannot be approved.</span>
+              ) : undefined
             }
           >
             <Textarea
               id="decision-feedback"
               rows={4}
               value={decisionFeedback}
-              onChange={(event) => setDecisionFeedback(event.target.value)}
+              onChange={(event) => {
+                setDecisionFeedback(event.target.value);
+                if (decisionFeedbackError) setDecisionFeedbackError(null);
+              }}
               placeholder={
                 decisionOpen === 'approved'
                   ? 'Approved as checked…'
                   : 'Reference the finding, evidence, and required change…'
               }
               maxLength={5000}
+              autoFocus={decisionOpen !== 'approved'}
+              aria-invalid={Boolean(decisionFeedbackError)}
+              aria-describedby={
+                [
+                  decisionOpen !== 'approved' ? 'decision-feedback-hint' : null,
+                  decisionFeedbackError ? 'decision-feedback-error' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
             />
           </Field>
+          {decisionFeedbackError ? (
+            <p id="decision-feedback-error" role="alert" className="text-xs text-rose-600">
+              {decisionFeedbackError}
+            </p>
+          ) : null}
           <p className="text-[10px] leading-4 text-slate-400">
             This decision is recorded under {session?.active_user.full_name || ROLE_LABEL[role]} and stays in the audit
             history. It does not alter the findings themselves.
           </p>
-          {decisionError ? <p className="text-xs text-rose-600">{decisionError}</p> : null}
+          {decisionError ? (
+            <p role="alert" className="text-xs text-rose-600">
+              {decisionError}
+            </p>
+          ) : null}
         </div>
       </Modal>
     </div>

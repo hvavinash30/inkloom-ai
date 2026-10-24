@@ -58,7 +58,7 @@ const MODES: { id: Mode; label: string; description: string; icon: typeof FileTe
   {
     id: 'video',
     label: 'Video',
-    description: 'Upload a video plus a timestamped transcript.',
+    description: 'Paste a transcript for checks; attach video for playback.',
     icon: Film,
   },
 ];
@@ -119,6 +119,7 @@ export function NewContentPage() {
   const [saveDraft, setSaveDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   const limits = health.data?.limits;
   const segments = useMemo(() => parseTranscript(transcript), [transcript]);
@@ -173,6 +174,11 @@ export function NewContentPage() {
     if (fileInput.current) fileInput.current.value = '';
   };
 
+  const showError = (message: string) => {
+    setError(message);
+    window.requestAnimationFrame(() => errorRef.current?.focus());
+  };
+
   const validate = (): string | null => {
     if (title.trim().length < 2) return 'Add a title with at least two characters.';
     if (mode === 'text' && text.trim().split(/\s+/).filter(Boolean).length < 3) {
@@ -198,7 +204,7 @@ export function NewContentPage() {
     setError(null);
     const validation = validate();
     if (validation) {
-      setError(validation);
+      showError(validation);
       return;
     }
     if (uploading) return;
@@ -237,7 +243,7 @@ export function NewContentPage() {
       );
       navigate(`/content/${document.id}`);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.detail : 'The content could not be created.');
+      showError(caught instanceof ApiError ? caught.detail : 'The content could not be created.');
     } finally {
       setSubmitting(false);
     }
@@ -252,11 +258,27 @@ export function NewContentPage() {
         description="Start with text, a PDF, an image, or a video. Checks are deterministic and compare only against active workspace rules and approved facts."
       />
 
+      {health.error ? (
+        <div className="mb-5">
+          <InfoCallout tone="warning" title="Workspace limits could not be loaded">
+            Upload limits and integration status may be unavailable, but the server still enforces them.{' '}
+            {health.error}{' '}
+            <button
+              type="button"
+              onClick={health.reload}
+              className="font-medium text-amber-900 underline underline-offset-2"
+            >
+              Retry
+            </button>
+          </InfoCallout>
+        </div>
+      ) : null}
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
           <Card className="p-4">
             <p className="text-xs font-semibold text-slate-900">1. Choose a content format</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
               {MODES.map((item) => {
                 const Icon = item.icon;
                 const active = mode === item.id;
@@ -317,7 +339,22 @@ export function NewContentPage() {
               <Field
                 label="Campaign (optional)"
                 htmlFor="content-campaign"
-                hint="Linking assets lets Inkloom compare claims across the campaign."
+                hint={
+                  campaigns.error ? (
+                    <span role="alert" className="text-amber-700">
+                      Campaigns could not be loaded. You can still create content without one.{' '}
+                      <button
+                        type="button"
+                        onClick={campaigns.reload}
+                        className="font-medium underline underline-offset-2"
+                      >
+                        Retry
+                      </button>
+                    </span>
+                  ) : (
+                    'Linking assets lets Inkloom compare claims across the campaign.'
+                  )
+                }
               >
                 <Select
                   id="content-campaign"
@@ -388,7 +425,9 @@ export function NewContentPage() {
                       </span>
                       <span className="mt-1 text-[11px] text-slate-400">
                         {limits
-                          ? `${limits.max_pdf_pages} PDF page limit · ${mode === 'video' ? limits.max_video_upload_mb : limits.max_upload_mb} MB maximum`
+                          ? mode === 'pdf'
+                            ? `${limits.max_pdf_pages} page limit · ${limits.max_upload_mb} MB maximum`
+                            : `${mode === 'video' ? limits.max_video_upload_mb : limits.max_upload_mb} MB maximum`
                           : 'Upload limits are reported by the server.'}
                       </span>
                     </button>
@@ -482,9 +521,9 @@ export function NewContentPage() {
                 {mode === 'video' ? (
                   <div className="space-y-3">
                     <Field
-                      label="Timestamped transcript"
+                      label="Transcript for checks"
                       htmlFor="video-transcript"
-                      hint="Paste plain text, [mm:ss] lines, SRT, or VTT. Transcript timestamps are preserved on findings."
+                      hint="Paste plain text, [mm:ss] lines, SRT, or VTT. Explicit timestamps stay linked to findings; plain text is checked without timestamps."
                       required={!saveDraft}
                     >
                       <Textarea
@@ -511,12 +550,12 @@ export function NewContentPage() {
                       </div>
                     ) : transcript.trim() ? (
                       <InfoCallout tone="neutral">
-                        No timestamps detected. The transcript can still be checked as text, but the player cannot seek
-                        to findings.
+                        No timestamps detected. Checks will treat this as plain transcript text; findings will not have
+                        timestamp or playback links.
                       </InfoCallout>
                     ) : (
                       <InfoCallout tone="warning" title="No transcription service is configured">
-                        Upload a video for playback and supply a transcript for checks. If you create the item without a
+                        Upload a video for playback and paste its transcript for checks. If you create the item without a
                         transcript, the check will honestly report that spoken content could not be inspected.
                       </InfoCallout>
                     )}
@@ -560,7 +599,12 @@ export function NewContentPage() {
               </div>
             </div>
             {error ? (
-              <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
+              <p
+                ref={errorRef}
+                role="alert"
+                tabIndex={-1}
+                className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
+              >
                 {error}
               </p>
             ) : null}

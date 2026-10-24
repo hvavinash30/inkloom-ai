@@ -1,4 +1,4 @@
-import React, { useEffect, useId } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import clsx, { type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -438,19 +438,82 @@ export function Modal({
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  // Capture the trigger during render, before an autoFocus child claims focus.
+  if (open && restoreFocusRef.current === null) {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
+    const focusableSelector =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    const focusableInPanel = () => {
+      const panel = panelRef.current;
+      if (!panel) return [];
+      return Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) =>
+          !element.hasAttribute('disabled') &&
+          element.getAttribute('aria-hidden') !== 'true' &&
+          element.offsetParent !== null
+      );
+    };
+
+    const frame = window.requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      if (!panel || panel.contains(document.activeElement)) return;
+      (focusableInPanel()[0] ?? panel).focus();
+    });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = focusableInPanel();
+      if (focusables.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !panel.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
     return () => {
+      window.cancelAnimationFrame(frame);
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
+      // StrictMode replays mount effects while the panel is still mounted; only restore on real close.
+      if (!panelRef.current) {
+        if (restoreFocusRef.current?.isConnected) restoreFocusRef.current.focus();
+        restoreFocusRef.current = null;
+      }
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   const widths = {
@@ -464,22 +527,29 @@ export function Modal({
       className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto bg-slate-950/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={cn(
-          'flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-elevated sm:rounded-2xl',
+          'flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-elevated focus:outline-none sm:rounded-2xl',
           widths[size]
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+            <h2 id={titleId} className="text-base font-semibold text-slate-950">
+              {title}
+            </h2>
             {description ? (
-              <div className="mt-1 text-sm leading-6 text-slate-500">{description}</div>
+              <div id={descriptionId} className="mt-1 text-sm leading-6 text-slate-500">
+                {description}
+              </div>
             ) : null}
           </div>
           <IconButton label="Close dialog" onClick={onClose} className="-mr-1 -mt-1">

@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Clock3,
   ExternalLink,
+  FileText,
   MapPin,
   PencilLine,
   Sparkles,
@@ -20,6 +21,39 @@ import {
   formatSeconds,
 } from '../lib/format';
 import type { Finding } from '../types';
+
+const EVIDENCE_STATUS: Record<string, { label: string; hint: string }> = {
+  contradicted: {
+    label: 'Direct contradiction',
+    hint: 'The content conflicts with an approved workspace fact.',
+  },
+  rule_violation: {
+    label: 'Rule match',
+    hint: 'The content matched an active brand policy.',
+  },
+  missing_required_text: {
+    label: 'Required text missing',
+    hint: 'Required approved wording was not found in the content.',
+  },
+  uncertain: {
+    label: 'Needs verification',
+    hint: 'No approved fact confirmed this. The content is not asserted to be false.',
+  },
+  processing_limitation: {
+    label: 'Inspection limit',
+    hint: 'Automated inspection could not cover this content. This is not a content violation.',
+  },
+  potential_violation: {
+    label: 'Potential issue',
+    hint: 'No specific evidence status was recorded for this finding.',
+  },
+};
+
+const evidenceStatusFor = (finding: Finding) =>
+  EVIDENCE_STATUS[finding.evidence_status] ?? {
+    label: finding.evidence_status.replace(/_/g, ' '),
+    hint: 'The backend recorded this evidence status for the finding.',
+  };
 
 export function FindingCard({
   finding,
@@ -51,6 +85,15 @@ export function FindingCard({
       : 'Whole document');
 
   const isOpen = finding.status === 'open';
+  const evidence = evidenceStatusFor(finding);
+
+  const locationIcon = finding.page_number ? (
+    <MapPin className="h-3 w-3" />
+  ) : finding.timestamp_seconds !== null && finding.timestamp_seconds !== undefined ? (
+    <Clock3 className="h-3 w-3" />
+  ) : (
+    <FileText className="h-3 w-3" />
+  );
 
   const run = async (
     action: 'accept' | 'dismiss' | 'edit',
@@ -62,10 +105,10 @@ export function FindingCard({
       await api.updateFinding(finding.id, { action, ...payload });
       toast(
         action === 'accept'
-          ? 'Suggestion accepted on this finding.'
+          ? 'Finding marked accepted. The content draft was not changed.'
           : action === 'dismiss'
             ? 'Finding dismissed with a recorded reason.'
-            : 'Replacement wording saved on this finding.',
+            : 'Suggested wording updated on this finding. The document was not changed.',
         'success'
       );
       setMode('idle');
@@ -89,7 +132,7 @@ export function FindingCard({
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
           <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
-            {finding.page_number ? <MapPin className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}
+            {locationIcon}
             {location}
           </span>
         </div>
@@ -147,14 +190,19 @@ export function FindingCard({
               {finding.suggested_correction}
             </p>
             {canEdit && isOpen ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-2 border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50"
-                onClick={() => onApplyCorrection(finding)}
-              >
-                Apply in editor
-              </Button>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="min-h-11 border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50 sm:min-h-8"
+                  onClick={() => onApplyCorrection(finding)}
+                >
+                  Apply correction to draft
+                </Button>
+                <span className="text-[10px] leading-4 text-emerald-800/80">
+                  Changes the editable draft only. It does not mark this finding accepted.
+                </span>
+              </div>
             ) : null}
           </div>
         ) : (
@@ -164,33 +212,49 @@ export function FindingCard({
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-          <div className="flex items-center gap-2 text-[10px] text-slate-400">
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-500">
-              Match confidence {Math.round(finding.confidence_score * 100)}%
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-[10px] text-slate-400">
+            <span
+              title={evidence.hint}
+              className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600"
+            >
+              Evidence: {evidence.label}
             </span>
-            <span className="hidden sm:inline">Workflow aid, not a legal risk rating</span>
+            <span className="hidden sm:inline">{evidence.hint}</span>
+            <span className="hidden md:inline">This status is not a probability score.</span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button variant="ghost" size="sm" onClick={() => onAsk(finding)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-11 sm:min-h-8"
+              onClick={() => onAsk(finding)}
+            >
               <Sparkles className="h-3.5 w-3.5" />
               Ask about this
             </Button>
             {isOpen && canEdit ? (
               <>
-                <Button variant="ghost" size="sm" onClick={() => run('accept')} loading={busy && mode === 'idle'}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="min-h-11 sm:min-h-8"
+                  onClick={() => run('accept')}
+                  loading={busy && mode === 'idle'}
+                >
                   <Check className="h-3.5 w-3.5" />
-                  Accept
+                  Mark accepted
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="min-h-11 sm:min-h-8"
                   onClick={() => {
                     setMode(mode === 'edit' ? 'idle' : 'edit');
                     setCorrection(finding.suggested_correction || '');
                   }}
                 >
                   <PencilLine className="h-3.5 w-3.5" />
-                  Edit wording
+                  Edit suggested wording
                 </Button>
               </>
             ) : null}
@@ -198,11 +262,11 @@ export function FindingCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-500 hover:text-rose-700"
+                className="min-h-11 text-slate-500 hover:text-rose-700 sm:min-h-8"
                 onClick={() => setMode(mode === 'dismiss' ? 'idle' : 'dismiss')}
               >
                 <XCircle className="h-3.5 w-3.5" />
-                Dismiss
+                Dismiss finding
               </Button>
             ) : null}
           </div>
@@ -221,19 +285,26 @@ export function FindingCard({
               className="mt-1.5 bg-white"
             />
             <p className="mt-1 text-[10px] text-slate-500">
-              This records the decision on the finding. Use “Apply in editor” to change the document text itself.
+              This only changes the suggested wording on the finding. Use “Apply correction to draft” to change the
+              document text.
             </p>
             <div className="mt-2 flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setMode('idle')}>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="min-h-11 sm:min-h-8"
+                onClick={() => setMode('idle')}
+              >
                 Cancel
               </Button>
               <Button
                 size="sm"
+                className="min-h-11 sm:min-h-8"
                 disabled={!correction.trim()}
                 loading={busy}
                 onClick={() => run('edit', { custom_correction: correction.trim() })}
               >
-                Save wording
+                Save suggested wording
               </Button>
             </div>
           </div>
@@ -253,12 +324,18 @@ export function FindingCard({
               className="mt-1.5 bg-white"
             />
             <div className="mt-2 flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setMode('idle')}>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="min-h-11 sm:min-h-8"
+                onClick={() => setMode('idle')}
+              >
                 Cancel
               </Button>
               <Button
                 variant="danger"
                 size="sm"
+                className="min-h-11 sm:min-h-8"
                 disabled={reason.trim().length < 3}
                 loading={busy}
                 onClick={() => run('dismiss', { dismissal_reason: reason.trim() })}
@@ -270,7 +347,9 @@ export function FindingCard({
         ) : null}
 
         {error ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p>
+          <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+            {error}
+          </p>
         ) : null}
 
         {!isOpen ? (
@@ -289,15 +368,16 @@ export function FindingCard({
               <span className="w-full text-slate-600">Reason: {finding.dismissal_reason}</span>
             ) : null}
             {finding.status === 'dismissed' && canDismiss ? (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
+              <Button
+                variant="secondary"
+                size="sm"
+                className="ml-auto min-h-11 sm:min-h-8"
                 onClick={() => run('accept')}
-                disabled={busy}
+                loading={busy}
               >
                 <Undo2 className="h-3 w-3" />
                 Reopen as accepted
-              </button>
+              </Button>
             ) : null}
           </div>
         ) : null}

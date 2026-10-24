@@ -267,10 +267,12 @@ export const RISK_STYLE: Record<RiskLevel, string> = {
   critical: 'bg-rose-50 text-rose-800 border-rose-200',
 };
 
+/** Returns only explicitly timestamped cues. It never synthesizes timestamps. */
 export function parseTranscript(raw: string): { timestamp_seconds: number; text: string }[] {
   const segments: { timestamp_seconds: number; text: string }[] = [];
-  const lines = raw.replace(/\r/g, '').split('\n');
-  let pendingSeconds: number | null = null;
+  const lines = raw.replace(/^\uFEFF/, '').replace(/\r/g, '').split('\n');
+  let pending: { timestamp_seconds: number; lines: string[] } | null = null;
+  let inBlock = false;
 
   const parseStamp = (value: string): number | null => {
     const parts = value.split(':').map((part) => Number.parseFloat(part.replace(',', '.')));
@@ -280,44 +282,55 @@ export function parseTranscript(raw: string): { timestamp_seconds: number; text:
     return null;
   };
 
+  const flush = () => {
+    if (!pending) return;
+    const text = pending.lines.join(' ').trim();
+    if (text) segments.push({ timestamp_seconds: pending.timestamp_seconds, text });
+    pending = null;
+  };
+
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || /^WEBVTT/i.test(trimmed) || /^\d+$/.test(trimmed)) continue;
+    if (!trimmed) {
+      flush();
+      inBlock = false;
+      continue;
+    }
+    if (inBlock) continue;
+    if (/^WEBVTT\b/i.test(trimmed)) continue;
+    if (/^(NOTE|STYLE|REGION)\b/i.test(trimmed)) {
+      flush();
+      inBlock = true;
+      continue;
+    }
 
     if (trimmed.includes('-->')) {
-      const start = trimmed.split('-->')[0].trim();
-      pendingSeconds = parseStamp(start);
+      flush();
+      const seconds = parseStamp(trimmed.split('-->')[0].trim());
+      pending = seconds !== null ? { timestamp_seconds: seconds, lines: [] } : null;
       continue;
     }
 
     const bracketMatch = trimmed.match(/^\[?(\d{1,2}(?::\d{1,2}){1,2}(?:[.,]\d+)?)\]?\s*(.*)$/);
     if (bracketMatch) {
+      flush();
       const seconds = parseStamp(bracketMatch[1]);
-      const rest = bracketMatch[2].trim();
       if (seconds !== null) {
-        pendingSeconds = seconds;
+        pending = { timestamp_seconds: seconds, lines: [] };
+        const rest = bracketMatch[2].trim();
         if (rest) {
-          segments.push({ timestamp_seconds: seconds, text: rest });
-          pendingSeconds = null;
+          pending.lines.push(rest);
+          flush();
         }
-        continue;
       }
+      continue;
     }
 
-    if (pendingSeconds !== null) {
-      segments.push({ timestamp_seconds: pendingSeconds, text: trimmed });
-      pendingSeconds = null;
-    } else if (segments.length > 0 && !segments[segments.length - 1].text.endsWith('.')) {
-      segments[segments.length - 1].text = `${segments[segments.length - 1].text} ${trimmed}`;
-    } else {
-      segments.push({ timestamp_seconds: segments.length * 5, text: trimmed });
-    }
+    if (pending) pending.lines.push(trimmed);
   }
 
-  return segments
-    .filter((segment) => segment.text.trim())
-    .sort((a, b) => a.timestamp_seconds - b.timestamp_seconds)
-    .map((segment) => ({ ...segment, text: segment.text.trim() }));
+  flush();
+  return segments;
 }
 
 export function splitLines(text: string): string[] {

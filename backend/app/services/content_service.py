@@ -21,6 +21,7 @@ from app.services.audit_engine import (
     run_page_audit,
     run_text_audit,
     run_transcript_audit,
+    split_transcript_text,
 )
 
 
@@ -305,18 +306,28 @@ def _resolve_audit_payload(
         if not segments:
             segments = parse_timestamped_transcript(version.content_text)
         if segments:
-            notes = (
-                upload.extraction_message
-                if upload and upload.extraction_status == "needs_transcription"
-                else "Checks used the supplied transcript. The video player seeks to transcript timestamps."
-            )
+            source_upload = upload or document.file
+            has_video_file = bool(source_upload and source_upload.kind == "video")
+            if has_video_file:
+                notes = (
+                    "Checks used the supplied transcript. Timestamped findings link to the "
+                    "stored video player."
+                )
+            else:
+                notes = (
+                    "Checks used the supplied timestamped transcript. No video file is stored, "
+                    "so playback and timestamp seeking are unavailable."
+                )
+            parsed_cues, untimestamped_text = split_transcript_text(version.content_text)
+            if parsed_cues and untimestamped_text:
+                notes += " Untimestamped transcript text was checked without timestamps."
             return run_transcript_audit(
                 segments,
                 version.content_text,
                 rules,
                 facts,
                 extraction_notes=notes,
-            ), notes or ""
+            ), notes
         if version.content_text.strip() and version.content_text.strip() != "No transcript supplied.":
             notes = (
                 "Checks used the supplied transcript without timestamps. Timestamp seeking is "
