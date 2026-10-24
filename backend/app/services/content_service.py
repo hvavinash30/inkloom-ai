@@ -50,6 +50,15 @@ def latest_audit_for_version(db: Session, version_id: str) -> Optional[AuditRun]
     )
 
 
+def approval_is_stale(document, version) -> bool:
+    """True when a recorded approval applies to a version older than the latest one."""
+    return bool(
+        document.approved_version_id
+        and version
+        and document.approved_version_id != version.id
+    )
+
+
 def attach_audit_findings(db: Session, run: AuditRun, *, include_findings: bool) -> dict:
     payload = {
         "id": run.id,
@@ -172,11 +181,7 @@ def serialize_document(
         "comments_count": comments_count,
         "current_version": None,
         "latest_audit": attach_audit_findings(db, run, include_findings=include_findings) if run else None,
-        "approval_stale": bool(
-            document.approved_version_id
-            and version
-            and document.approved_version_id != version.id
-        ),
+        "approval_stale": approval_is_stale(document, version),
         "latest_decision": latest_decision,
     }
     if include_current_version and version:

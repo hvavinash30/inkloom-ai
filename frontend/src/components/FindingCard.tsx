@@ -7,8 +7,10 @@ import {
   FileText,
   MapPin,
   PencilLine,
+  ShieldQuestion,
   Sparkles,
   Undo2,
+  Wand2,
   XCircle,
 } from 'lucide-react';
 import { api, ApiError } from '../services/api';
@@ -20,7 +22,7 @@ import {
   formatDateTime,
   formatSeconds,
 } from '../lib/format';
-import type { Finding } from '../types';
+import type { CorrectionSuggestion, Finding } from '../types';
 
 const EVIDENCE_STATUS: Record<string, { label: string; hint: string }> = {
   contradicted: {
@@ -67,15 +69,18 @@ export function FindingCard({
   canEdit: boolean;
   canDismiss: boolean;
   onUpdated: () => void;
-  onApplyCorrection: (finding: Finding) => void;
+  onApplyCorrection: (finding: Finding, replacement?: string) => void;
   onAsk: (finding: Finding) => void;
 }) {
   const { toast } = useToast();
-  const [mode, setMode] = useState<'idle' | 'edit' | 'dismiss'>('idle');
+  const [mode, setMode] = useState<'idle' | 'edit' | 'dismiss' | 'suggest'>('idle');
   const [correction, setCorrection] = useState(finding.suggested_correction || '');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [suggestion, setSuggestion] = useState<CorrectionSuggestion | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
 
   const location =
     finding.location_label ||
@@ -118,6 +123,29 @@ export function FindingCard({
     } finally {
       setBusy(false);
     }
+  };
+
+  const requestSuggestion = async () => {
+    setSuggesting(true);
+    setError(null);
+    setSuggestion(null);
+    try {
+      const result = await api.suggestCorrection(finding.id, notes.trim() || undefined);
+      setSuggestion(result);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.detail
+          : 'A correction suggestion could not be prepared right now.'
+      );
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const openSuggest = () => {
+    setMode(mode === 'suggest' ? 'idle' : 'suggest');
+    setError(null);
   };
 
   return (
@@ -238,6 +266,16 @@ export function FindingCard({
                   variant="ghost"
                   size="sm"
                   className="min-h-11 sm:min-h-8"
+                  onClick={openSuggest}
+                  aria-expanded={mode === 'suggest'}
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  Suggest correction
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="min-h-11 sm:min-h-8"
                   onClick={() => run('accept')}
                   loading={busy && mode === 'idle'}
                 >
@@ -271,6 +309,159 @@ export function FindingCard({
             ) : null}
           </div>
         </div>
+
+        {mode === 'suggest' ? (
+          <div className="rounded-lg border border-brand-200 bg-brand-50/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                <Wand2 className="h-3.5 w-3.5 text-brand-700" />
+                Correction suggestion
+              </p>
+              <span className="text-[10px] text-slate-500">
+                Advisory only. Preparing a suggestion never changes the content.
+              </span>
+            </div>
+
+            {suggestion ? (
+              <span
+                className={cn(
+                  'mt-2 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
+                  suggestion.mode === 'ai'
+                    ? 'border-brand-200 bg-white text-brand-800'
+                    : 'border-slate-200 bg-white text-slate-600'
+                )}
+              >
+                {suggestion.mode === 'ai'
+                  ? `AI-assisted${suggestion.provider ? ` · ${suggestion.provider}` : ''}`
+                  : 'Deterministic rule engine'}
+              </span>
+            ) : null}
+
+            <label htmlFor={`notes-${finding.id}`} className="mt-2 block text-[11px] text-slate-600">
+              Optional note for the suggestion (for example, preferred wording)
+            </label>
+            <div className="mt-1 flex flex-wrap items-start gap-2">
+              <Textarea
+                id={`notes-${finding.id}`}
+                rows={2}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="e.g. keep the price approved in the Brand Library"
+                className="flex-1 bg-white"
+              />
+              <Button
+                size="sm"
+                className="min-h-11 sm:min-h-8"
+                loading={suggesting}
+                onClick={requestSuggestion}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {suggestion ? 'Regenerate' : 'Generate suggestion'}
+              </Button>
+            </div>
+
+            {suggestion ? (
+              <div className="mt-3 space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Original
+                      {!suggestion.original_is_exact_span ? ' (as recorded)' : ''}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-slate-700">
+                      {suggestion.original_text || '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50/60 px-2.5 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Suggested</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-emerald-950">
+                      {suggestion.suggested_text || 'No replacement wording was produced.'}
+                    </p>
+                  </div>
+                </div>
+
+                {suggestion.rationale ? (
+                  <p className="text-xs leading-5 text-slate-700">{suggestion.rationale}</p>
+                ) : null}
+
+                {suggestion.citations.length ? (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Grounded in stored records
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                      {suggestion.citations.map((citation) => (
+                        <li
+                          key={`${citation.kind}-${citation.id}`}
+                          className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-5 text-slate-700"
+                        >
+                          <span className="font-medium">
+                            {citation.kind === 'brand_rule' ? 'Brand rule' : 'Approved fact'}:
+                          </span>{' '}
+                          {citation.label}
+                          {citation.detail ? <span className="text-slate-500"> — {citation.detail}</span> : null}
+                          {citation.source_reference ? (
+                            <span className="block text-[10px] text-slate-400">{citation.source_reference}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-800">
+                    No stored rule or approved fact was cited, so verify this wording against the Brand Library.
+                  </p>
+                )}
+
+                {suggestion.provider_error && suggestion.mode !== 'ai' ? (
+                  <p className="flex items-start gap-1.5 rounded border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-5 text-slate-600">
+                    <ShieldQuestion className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span>{suggestion.provider_error.message}</span>
+                  </p>
+                ) : null}
+
+                {suggestion.cautions.length ? (
+                  <ul className="space-y-1 rounded border border-amber-200 bg-amber-50/60 px-2.5 py-2 text-[11px] leading-5 text-amber-900">
+                    {suggestion.cautions.map((note) => (
+                      <li key={note}>• {note}</li>
+                    ))}
+                  </ul>
+                ) : null}
+
+                <ul className="space-y-1 text-[10px] leading-4 text-slate-500">
+                  {suggestion.limitations.map((note) => (
+                    <li key={note}>• {note}</li>
+                  ))}
+                </ul>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="min-h-11 border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50 sm:min-h-8"
+                    disabled={!suggestion.suggested_text.trim()}
+                    onClick={() => onApplyCorrection(finding, suggestion.suggested_text.trim())}
+                  >
+                    Apply to draft
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-11 sm:min-h-8"
+                    disabled={!suggestion.suggested_text.trim()}
+                    loading={busy}
+                    onClick={() => run('edit', { custom_correction: suggestion.suggested_text.trim() })}
+                  >
+                    Record as suggested wording
+                  </Button>
+                  <span className="text-[10px] text-slate-500">
+                    Applying stages the text in the editor; you still save a new version to re-check it.
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {mode === 'edit' ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">

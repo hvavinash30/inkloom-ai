@@ -80,6 +80,39 @@ class FindingActionRequest(BaseModel):
     dismissal_reason: Optional[str] = None
 
 
+class CorrectionSuggestionRequest(BaseModel):
+    reviewer_notes: Optional[str] = Field(default=None, max_length=600)
+
+
+class CorrectionCitationOut(BaseModel):
+    kind: Literal["brand_rule", "approved_fact"]
+    id: str
+    label: str
+    detail: Optional[str] = None
+    source_reference: Optional[str] = None
+
+
+class CorrectionSuggestionOut(BaseModel):
+    finding_id: str
+    document_id: str
+    version_id: str
+    version_number: int
+    mode: Literal["ai", "rule_based"]
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    provider_error: Optional[Dict[str, Any]] = None
+    original_text: str
+    original_is_exact_span: bool = False
+    suggested_text: str = ""
+    rationale: str = ""
+    citations: List[CorrectionCitationOut] = []
+    cautions: List[str] = []
+    limitations: List[str] = []
+    evidence_status: str = "potential_violation"
+    location_label: Optional[str] = None
+    source_reference: Optional[str] = None
+
+
 class AuditRunOut(BaseModel):
     id: str
     document_id: str
@@ -201,3 +234,51 @@ class ContentProvenancePassportOut(BaseModel):
     approved_at: Optional[datetime] = None
     verification_status: str
     audit_history_timeline: List[Dict[str, Any]] = []
+
+
+class ReviewSummaryVersionOut(BaseModel):
+    current_version_number: int
+    version_id: Optional[str] = None
+    approved_version_id: Optional[str] = None
+    approval_stale: bool = False
+    is_latest_audited: bool = False
+
+
+class ReviewSummaryAuditOut(BaseModel):
+    has_run: bool
+    overall_score: Optional[int] = None
+    risk_level: Optional[str] = None
+    verification_status: str
+    score_method: Optional[str] = None
+    total_findings: int = 0
+    open_findings: int = 0
+    resolved_findings: int = 0
+    unresolved_high_priority: int = 0
+    awaiting_verification: int = 0
+    evidence_limitations: int = 0
+    suggested_corrections_available: int = 0
+    corrections_awaiting_review: int = 0
+
+
+class ReviewSummaryApprovalOut(BaseModel):
+    decisions_count: int = 0
+    latest_decision: Optional[str] = None
+    latest_decision_reviewer: Optional[str] = None
+    latest_decision_version_number: Optional[int] = None
+    latest_decision_at: Optional[datetime] = None
+    latest_feedback: Optional[str] = None
+
+
+class ReviewSummaryOut(BaseModel):
+    document_id: str
+    title: str
+    asset_type: str
+    content_type: str
+    status: DocumentStatus
+    version: ReviewSummaryVersionOut
+    audit: ReviewSummaryAuditOut
+    groups: List[Dict[str, Any]] = []
+    approval: ReviewSummaryApprovalOut
+    comments_count: int = 0
+    outstanding_actions: List[Dict[str, Any]] = []
+    data_sources: List[str] = []

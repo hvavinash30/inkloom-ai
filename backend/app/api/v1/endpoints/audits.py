@@ -23,12 +23,15 @@ from app.schemas.audit import (
     ContentDocumentOut,
     ContentProvenancePassportOut,
     ContentSubmissionRequest,
+    CorrectionSuggestionOut,
+    CorrectionSuggestionRequest,
     CreateNewVersionRequest,
     FindingActionRequest,
     FindingOut,
     OverviewStatsOut,
+    ReviewSummaryOut,
 )
-from app.services import content_service
+from app.services import content_service, correction_service, review_summary_service
 from app.services.audit_engine import CATEGORY_LABELS
 
 router = APIRouter()
@@ -293,6 +296,30 @@ def rerun_audit(
         db.commit()
     return content_service.serialize_document(
         db, document, include_findings=True, include_current_version=True
+    )
+
+
+@router.get("/documents/{document_id}/review-summary", response_model=ReviewSummaryOut)
+def review_summary(
+    document_id: str,
+    actor: Actor = Depends(require_caps("content.create")),
+    db: Session = Depends(get_db),
+):
+    """Stored-data-only review summary: versions, findings, groups, decisions."""
+    document = _get_document(db, actor, document_id)
+    return review_summary_service.build_review_summary(db, actor, document)
+
+
+@router.post("/findings/{finding_id}/suggest-correction", response_model=CorrectionSuggestionOut)
+def suggest_correction(
+    finding_id: str,
+    payload: Optional[CorrectionSuggestionRequest] = None,
+    actor: Actor = Depends(require_caps("content.create")),
+    db: Session = Depends(get_db),
+):
+    """Prepare a grounded correction suggestion. Advisory only; never mutates content."""
+    return correction_service.suggest_correction(
+        db, actor, finding_id, reviewer_notes=payload.reviewer_notes if payload else None
     )
 
 

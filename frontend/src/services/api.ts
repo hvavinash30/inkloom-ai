@@ -12,6 +12,7 @@ import type {
   ContentDocument,
   ContentVersion,
   ContrastResult,
+  CorrectionSuggestion,
   DashboardData,
   EvaluationSummary,
   HealthData,
@@ -26,6 +27,7 @@ import type {
   ResearchRecord,
   ResearchResponse,
   ReviewComment,
+  ReviewSummary,
   Role,
   RuleSuggestion,
   SessionPayload,
@@ -195,6 +197,13 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
+  suggestCorrection: (findingId: string, reviewerNotes?: string) =>
+    request<CorrectionSuggestion>(
+      `/audits/findings/${encodeURIComponent(findingId)}/suggest-correction`,
+      { method: 'POST', body: JSON.stringify({ reviewer_notes: reviewerNotes || null }) }
+    ),
+  getReviewSummary: (id: string) =>
+    request<ReviewSummary>(`/audits/documents/${encodeURIComponent(id)}/review-summary`),
 
   getReviewQueue: () => request<ContentDocument[]>('/reviews/queue'),
   submitForReview: (id: string, notes?: string) =>
