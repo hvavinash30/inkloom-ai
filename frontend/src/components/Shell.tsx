@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Menu, Sparkles, X } from 'lucide-react';
 import { useSession } from '../context/SessionContext';
 import { useAsync } from '../lib/router';
@@ -151,6 +151,9 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
 export function Shell({ route, children }: { route: Route; children: React.ReactNode }) {
   const { openAssistant } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileDialogRef = useRef<HTMLDivElement>(null);
+  const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const title = routeTitle(route);
 
   useEffect(() => {
@@ -160,14 +163,54 @@ export function Shell({ route, children }: { route: Route; children: React.React
 
   useEffect(() => {
     if (!mobileOpen) return;
+    const dialog = mobileDialogRef.current;
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusables = () =>
+      Array.from(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter(
+        (element) => element.getClientRects().length > 0
+      );
+    const focusFrame = window.requestAnimationFrame(() => {
+      (mobileCloseRef.current ?? focusables()[0] ?? dialog)?.focus();
+    });
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileOpen(false);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) {
+        event.preventDefault();
+        dialog?.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!dialog?.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
+      window.cancelAnimationFrame(focusFrame);
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      const target = restoreFocusRef.current;
+      if (target?.isConnected) target.focus();
+      restoreFocusRef.current = null;
     };
   }, [mobileOpen]);
 
@@ -178,7 +221,15 @@ export function Shell({ route, children }: { route: Route; children: React.React
       </aside>
 
       {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+        <div
+          ref={mobileDialogRef}
+          id="mobile-navigation"
+          tabIndex={-1}
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation"
+        >
           <button
             type="button"
             aria-label="Close navigation"
@@ -188,6 +239,7 @@ export function Shell({ route, children }: { route: Route; children: React.React
           <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] shadow-elevated">
             <SidebarContent route={route} onNavigate={() => setMobileOpen(false)} />
             <button
+              ref={mobileCloseRef}
               type="button"
               onClick={() => setMobileOpen(false)}
               className="absolute right-2 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
@@ -205,8 +257,10 @@ export function Shell({ route, children }: { route: Route; children: React.React
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:hidden"
               aria-label="Open navigation"
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-navigation"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>

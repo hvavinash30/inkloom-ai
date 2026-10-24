@@ -28,6 +28,7 @@ import { useAsync, navigate } from '../lib/router';
 import { api, ApiError } from '../services/api';
 import { useToast } from '../components/Toast';
 import { EvidenceViewer } from '../components/EvidenceViewer';
+import { HighlightedText, MissingEvidenceNote } from '../components/EvidenceText';
 import { FindingCard } from '../components/FindingCard';
 import {
   Badge,
@@ -61,8 +62,10 @@ import {
   formatSeconds,
   parseTranscript,
   relativeTime,
+  splitTranscriptText,
   titleCase,
 } from '../lib/format';
+import { analyzeExactEvidence } from '../lib/evidence';
 import type {
   ContentType,
   DecisionType,
@@ -299,6 +302,8 @@ export function DocumentPage({ id }: { id: string }) {
   const [findingsQuery, setFindingsQuery] = useState('');
 
   const [selectedPage, setSelectedPage] = useState(1);
+  const [activeFindingId, setActiveFindingId] = useState<string | null>(null);
+  const previousTabRef = useRef(tab);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [editorText, setEditorText] = useState('');
@@ -316,6 +321,7 @@ export function DocumentPage({ id }: { id: string }) {
   const [commentVisibility, setCommentVisibility] = useState<'shared' | 'internal'>('shared');
   const [commentBusy, setCommentBusy] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [commentFieldError, setCommentFieldError] = useState<string | null>(null);
 
   const [decisionOpen, setDecisionOpen] = useState<DecisionType | null>(null);
   const [decisionFeedback, setDecisionFeedback] = useState('');
@@ -364,6 +370,11 @@ export function DocumentPage({ id }: { id: string }) {
     });
   }, [findings, severityFilter, statusFilter, findingsQuery]);
 
+  const transcriptSplit = useMemo(
+    () => splitTranscriptText(version?.content_text || ''),
+    [version?.content_text]
+  );
+
   useEffect(() => {
     if (!version) return;
     setEditorText(version.content_text || '');
@@ -371,9 +382,26 @@ export function DocumentPage({ id }: { id: string }) {
     setSelectedPage(1);
     setEditorSummary('');
     setDecisionVersionId('');
+    setActiveFindingId(null);
     // Reset the editor only when a different version becomes current.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version?.id]);
+
+  useEffect(() => {
+    if (tab !== 'content' || !activeFindingId) {
+      previousTabRef.current = tab;
+      return;
+    }
+    const switchedToContent = previousTabRef.current !== 'content';
+    previousTabRef.current = tab;
+    if (!switchedToContent) return;
+    const frame = window.requestAnimationFrame(() => {
+      const banner = window.document.getElementById('selected-evidence');
+      banner?.scrollIntoView({ block: 'center' });
+      banner?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [tab, activeFindingId]);
 
   useEffect(
     () => () => {
@@ -506,9 +534,16 @@ export function DocumentPage({ id }: { id: string }) {
   };
 
   const addComment = async () => {
-    if (commentText.trim().length < 2) return;
+    if (commentText.trim().length < 2) {
+      setCommentFieldError('Write at least two characters before posting.');
+      window.requestAnimationFrame(() => {
+        window.document.getElementById('review-comment')?.focus();
+      });
+      return;
+    }
     setCommentBusy(true);
     setCommentError(null);
+    setCommentFieldError(null);
     try {
       await api.addComment(id, {
         comment_text: commentText.trim(),
@@ -629,9 +664,41 @@ export function DocumentPage({ id }: { id: string }) {
     uploadState.data?.page_count || 0
   );
   const currentPage = Math.min(Math.max(1, selectedPage), pageCount);
-  const selectedPageText =
-    editorPages[currentPage - 1] ?? version?.page_texts?.[currentPage - 1] ?? '';
+  const selectedPageText = version?.page_texts?.[currentPage - 1] ?? '';
+  const pageFindings = isPdf
+    ? findings.filter((finding) => finding.page_number === currentPage)
+    : [];
+  const highlightedPageFindingIds = new Set(
+    analyzeExactEvidence(selectedPageText, pageFindings).parts.flatMap((part) => part.findingIds)
+  );
+  const evidencePageEdited =
+    isPdf &&
+    canEdit &&
+    editorPages.length > 0 &&
+    (editorPages[currentPage - 1] ?? '') !== selectedPageText;
   const transcript = version?.transcript_segments || [];
+  const untimestampedTranscript = transcriptSplit.untimestamped;
+  const untimedFindings = findings.filter(
+    (finding) =>
+      (finding.timestamp_seconds === null || finding.timestamp_seconds === undefined) &&
+      (finding.page_number === null || finding.page_number === undefined)
+  );
+  const activeFinding = activeFindingId
+    ? findings.find((finding) => finding.id === activeFindingId) ?? null
+    : null;
+  const activeFindingLocation = activeFinding
+    ? activeFinding.location_label ||
+      (activeFinding.page_number
+        ? `Page ${activeFinding.page_number}`
+        : activeFinding.timestamp_seconds !== null && activeFinding.timestamp_seconds !== undefined
+          ? `Timestamp ${formatSeconds(activeFinding.timestamp_seconds)}`
+          : 'Whole document')
+    : '';
+  const focusEvidence = (finding: Finding) => {
+    setActiveFindingId(finding.id);
+    if (finding.page_number) setSelectedPage(finding.page_number);
+    setTab('content');
+  };
   const hasStoredVideo =
     document.asset_type === 'video' &&
     Boolean(document.file_id) &&
@@ -833,7 +900,7 @@ export function DocumentPage({ id }: { id: string }) {
                       finding.timestamp_seconds !== null && finding.timestamp_seconds !== undefined;
                     return (
                       <div key={finding.id}>
-                        {hasTimestamp || finding.page_number ? (
+                        {hasTimestamp || finding.page_number || finding.affected_text ? (
                           <div className="mb-1 flex flex-wrap items-center gap-1.5">
                             {hasTimestamp ? (
                               hasStoredVideo ? (
@@ -841,17 +908,25 @@ export function DocumentPage({ id }: { id: string }) {
                                   variant="ghost"
                                   size="sm"
                                   className="min-h-11 px-2 sm:min-h-8"
-                                  onClick={() => seekTo(finding.timestamp_seconds as number)}
+                                  onClick={() => {
+                                    setActiveFindingId(finding.id);
+                                    seekTo(finding.timestamp_seconds as number);
+                                  }}
                                 >
                                   <Play className="h-3 w-3" />
                                   Play at {formatSeconds(finding.timestamp_seconds as number)}
                                 </Button>
                               ) : (
-                                <span className="inline-flex min-h-11 items-center gap-1 px-2 text-[11px] text-slate-500 sm:min-h-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="min-h-11 px-2 text-[11px] text-slate-500 sm:min-h-8"
+                                  onClick={() => focusEvidence(finding)}
+                                >
                                   <Clock3 className="h-3 w-3" />
-                                  Transcript timestamp {formatSeconds(finding.timestamp_seconds as number)} · no video
+                                  View transcript timestamp {formatSeconds(finding.timestamp_seconds as number)} · no video
                                   attached
-                                </span>
+                                </Button>
                               )
                             ) : null}
                             {finding.page_number ? (
@@ -859,13 +934,21 @@ export function DocumentPage({ id }: { id: string }) {
                                 variant="ghost"
                                 size="sm"
                                 className="min-h-11 px-2 sm:min-h-8"
-                                onClick={() => {
-                                  setSelectedPage(finding.page_number as number);
-                                  setTab('content');
-                                }}
+                                onClick={() => focusEvidence(finding)}
                               >
                                 <MapPin className="h-3 w-3" />
                                 View page {finding.page_number} in evidence
+                              </Button>
+                            ) : null}
+                            {!hasTimestamp && !finding.page_number && finding.affected_text ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="min-h-11 px-2 sm:min-h-8"
+                                onClick={() => focusEvidence(finding)}
+                              >
+                                <Search className="h-3 w-3" />
+                                View in checked text
                               </Button>
                             ) : null}
                           </div>
@@ -977,6 +1060,39 @@ export function DocumentPage({ id }: { id: string }) {
         </div>
 
         <div className="min-w-0 space-y-3">
+          {activeFinding ? (
+            <div
+              id="selected-evidence"
+              tabIndex={-1}
+              role="status"
+              className="rounded-xl border border-orange-200 bg-orange-50/70 p-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-700">
+                    Selected evidence
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium leading-5 text-orange-950">{activeFinding.title}</p>
+                  <p className="mt-0.5 text-[11px] text-orange-800/80">
+                    {SEVERITY_LABEL[activeFinding.severity]} · {activeFindingLocation}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="min-h-11 shrink-0 px-2 text-orange-800 hover:bg-orange-100 sm:min-h-8"
+                  onClick={() => setActiveFindingId(null)}
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Clear
+                </Button>
+              </div>
+              <p className="mt-1.5 text-[10px] leading-4 text-orange-800/80">
+                Verbatim affected text is highlighted below when it exists in the stored source. Findings without an
+                exact match are listed explicitly instead of being approximated.
+              </p>
+            </div>
+          ) : null}
           <SectionHeading
             title={
               document.asset_type === 'video'
@@ -997,7 +1113,7 @@ export function DocumentPage({ id }: { id: string }) {
                     : 'Stored transcript segments used for the check. No video file is attached; timestamps are transcript references only.'
                   : 'This transcript was checked as plain text. Findings have no timestamp or playback links.'
                 : document.asset_type === 'pdf'
-                  ? 'Extracted text preserved per page. Page order reflects text extraction, not visual layout.'
+                  ? 'Extracted text preserved per page. Page order reflects text extraction, not visual layout. Highlights mark exact recorded wording only.'
                   : undefined
             }
           />
@@ -1017,6 +1133,7 @@ export function DocumentPage({ id }: { id: string }) {
             <div className="max-h-[540px] overflow-y-auto rounded-xl border border-slate-200 bg-white">
               {transcript.map((segment, index) => {
                 const seconds = Number(segment.timestamp_seconds || 0);
+                const segmentText = String(segment.text || '');
                 const segmentFindings = findings.filter(
                   (finding) =>
                     finding.timestamp_seconds !== null &&
@@ -1045,30 +1162,91 @@ export function DocumentPage({ id }: { id: string }) {
                           {formatSeconds(seconds)}
                         </span>
                       )}
-                      <p className="min-w-0 flex-1 text-sm leading-6 text-slate-700">{String(segment.text || '')}</p>
+                      <p className="min-w-0 flex-1 text-sm leading-6 text-slate-700">
+                        <HighlightedText
+                          source={segmentText}
+                          findings={segmentFindings}
+                          activeFindingId={activeFindingId}
+                        />
+                      </p>
                     </div>
                     {segmentFindings.length > 0 ? (
-                      <div className="ml-12 mt-1.5 flex flex-wrap gap-1.5">
+                      <div className="ml-0 mt-1.5 flex flex-wrap gap-1.5 sm:ml-12">
                         {segmentFindings.map((finding) => (
-                          <span
+                          <button
                             key={finding.id}
-                            className="inline-flex items-center gap-1 rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-800"
+                            type="button"
+                            aria-pressed={activeFindingId === finding.id}
+                            onClick={() => setActiveFindingId(finding.id)}
+                            className={cn(
+                              'inline-flex min-h-11 items-center gap-1 rounded border px-1.5 py-0.5 text-left text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:min-h-0',
+                              activeFindingId === finding.id
+                                ? 'border-orange-400 bg-orange-200 text-orange-950'
+                                : 'border-orange-200 bg-orange-50 text-orange-800 hover:bg-orange-100'
+                            )}
                           >
                             {SEVERITY_LABEL[finding.severity]} · {finding.title}
-                          </span>
+                          </button>
                         ))}
+                      </div>
+                    ) : null}
+                    {segmentFindings.length > 0 ? (
+                      <div className="mt-2">
+                        <MissingEvidenceNote
+                          source={segmentText}
+                          findings={segmentFindings}
+                          contextLabel={`transcript line at ${formatSeconds(seconds)}`}
+                        />
                       </div>
                     ) : null}
                   </div>
                 );
               })}
+              {untimestampedTranscript ? (
+                <div className="border-t border-slate-200 bg-slate-50/60 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    Untimestamped transcript text
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-5 text-slate-500">
+                    These stored lines have no explicit timestamps. They were checked as plain text without inventing
+                    times.
+                  </p>
+                  <pre className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
+                    <HighlightedText
+                      source={untimestampedTranscript}
+                      findings={untimedFindings}
+                      activeFindingId={activeFindingId}
+                    />
+                  </pre>
+                  <div className="mt-2">
+                    <MissingEvidenceNote
+                      source={untimestampedTranscript}
+                      findings={untimedFindings}
+                      contextLabel="untimestamped transcript text"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : document.asset_type === 'video' ? (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               {version?.content_text ? (
-                <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
-                  {version.content_text}
-                </pre>
+                <>
+                  <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
+                    <HighlightedText
+                      source={version.content_text}
+                      findings={untimedFindings}
+                      activeFindingId={activeFindingId}
+                    />
+                  </pre>
+                  <div className="mt-2">
+                    <MissingEvidenceNote
+                      source={version.content_text}
+                      findings={untimedFindings}
+                      contextLabel="plain transcript"
+                    />
+                  </div>
+                </>
               ) : (
                 <p className="text-sm text-slate-500">No transcript is stored for this version.</p>
               )}
@@ -1081,9 +1259,22 @@ export function DocumentPage({ id }: { id: string }) {
           ) : document.asset_type === 'pdf' ? (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               {selectedPageText ? (
-                <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
-                  {selectedPageText}
-                </pre>
+                <>
+                  <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
+                    <HighlightedText
+                      source={selectedPageText}
+                      findings={pageFindings}
+                      activeFindingId={activeFindingId}
+                    />
+                  </pre>
+                  <div className="mt-2">
+                    <MissingEvidenceNote
+                      source={selectedPageText}
+                      findings={pageFindings}
+                      contextLabel={`page ${currentPage} text`}
+                    />
+                  </div>
+                </>
               ) : (
                 <div className="py-6 text-center">
                   <p className="text-sm font-medium text-slate-700">No extractable text on page {currentPage}</p>
@@ -1093,27 +1284,72 @@ export function DocumentPage({ id }: { id: string }) {
                   </p>
                 </div>
               )}
-              {findings.filter((finding) => finding.page_number === currentPage).length > 0 ? (
+              {evidencePageEdited ? (
+                <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-[10px] leading-4 text-amber-800">
+                  This evidence panel shows the checked version. Your unsaved edits on this page remain in the revision
+                  editor below and are not used for highlighting.
+                </p>
+              ) : null}
+              {pageFindings.length > 0 ? (
                 <div className="mt-3 border-t border-slate-100 pt-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Findings on this page</p>
                   <div className="mt-1.5 space-y-1">
-                    {findings
-                      .filter((finding) => finding.page_number === currentPage)
-                      .map((finding) => (
-                        <p key={finding.id} className="text-[11px] leading-5 text-slate-600">
-                          <SeverityBadge severity={finding.severity} />{' '}
-                          <span className="ml-1">{finding.title}</span>
-                        </p>
-                      ))}
+                    {pageFindings.map((finding) => {
+                      const exactMatch = highlightedPageFindingIds.has(finding.id);
+                      return (
+                        <button
+                          key={finding.id}
+                          type="button"
+                          aria-pressed={activeFindingId === finding.id}
+                          onClick={() => setActiveFindingId(finding.id)}
+                          className={cn(
+                            'flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-[11px] leading-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:min-h-0',
+                            activeFindingId === finding.id
+                              ? 'border-orange-300 bg-orange-50 text-orange-950'
+                              : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50'
+                          )}
+                        >
+                          <SeverityBadge severity={finding.severity} />
+                          <span className="min-w-0 flex-1">{finding.title}</span>
+                          <span
+                            className={cn(
+                              'rounded px-1.5 py-0.5 text-[9px] font-medium',
+                              exactMatch
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-slate-100 text-slate-500'
+                            )}
+                          >
+                            {exactMatch ? 'Highlighted' : 'Exact text unavailable'}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
             </div>
           ) : (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <pre className="max-h-[540px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
-                {version?.content_text || 'No text stored for this version.'}
-              </pre>
+              {version?.content_text ? (
+                <>
+                  <pre className="max-h-[540px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
+                    <HighlightedText
+                      source={version.content_text}
+                      findings={untimedFindings}
+                      activeFindingId={activeFindingId}
+                    />
+                  </pre>
+                  <div className="mt-2">
+                    <MissingEvidenceNote
+                      source={version.content_text}
+                      findings={untimedFindings}
+                      contextLabel="checked text"
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">No text stored for this version.</p>
+              )}
             </div>
           )}
 
@@ -1219,6 +1455,14 @@ export function DocumentPage({ id }: { id: string }) {
             ) : null}
           </div>
         </Card>
+      ) : null}
+
+      {document.asset_type === 'image' ? (
+        <InfoCallout tone="neutral" title="Image revision and OCR limits">
+          This deployment does not extract text from images or edit image pixels. To revise an image, create a new
+          content item with the revised file. Automated checks record the inspection limit; they never invent OCR or
+          visual results.
+        </InfoCallout>
       ) : null}
 
       {!canEdit ? (
@@ -1491,15 +1735,26 @@ export function DocumentPage({ id }: { id: string }) {
           )}
 
           <div className="mt-4 border-t border-slate-100 pt-3">
-            <Field label="Add a comment" htmlFor="review-comment">
+            <Field label="Add a comment" htmlFor="review-comment" error={commentFieldError}>
               <Textarea
                 id="review-comment"
                 rows={3}
                 value={commentText}
-                onChange={(event) => setCommentText(event.target.value)}
+                onChange={(event) => {
+                  setCommentText(event.target.value);
+                  if (commentFieldError) setCommentFieldError(null);
+                }}
                 placeholder="Reference the exact version and evidence…"
                 maxLength={5000}
-                aria-invalid={Boolean(commentError)}
+                aria-invalid={Boolean(commentFieldError || commentError)}
+                aria-describedby={
+                  [
+                    commentFieldError ? 'review-comment-error' : null,
+                    commentError ? 'review-comment-server-error' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
               />
             </Field>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -1518,16 +1773,16 @@ export function DocumentPage({ id }: { id: string }) {
               )}
               <Button
                 size="sm"
+                className="min-h-11 sm:min-h-8"
                 onClick={() => void addComment()}
                 loading={commentBusy}
-                disabled={commentText.trim().length < 2}
               >
                 <MessageSquare className="h-3.5 w-3.5" />
                 Post comment
               </Button>
             </div>
             {commentError ? (
-              <p role="alert" className="mt-2 text-xs text-rose-600">
+              <p id="review-comment-server-error" role="alert" className="mt-2 text-xs text-rose-600">
                 {commentError}
               </p>
             ) : null}
@@ -1978,9 +2233,17 @@ export function DocumentPage({ id }: { id: string }) {
             ]}
             active={tab}
             onChange={setTab}
-            className="bg-white"
+            idBase="document-tabs"
+            label="Content detail"
+            className="rounded-t-xl bg-white"
           />
-          <div className="min-w-0">
+          <div
+            id="document-tabs-panel"
+            role="tabpanel"
+            aria-labelledby={`document-tabs-tab-${tab}`}
+            tabIndex={0}
+            className="min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+          >
             {tab === 'findings'
               ? renderFindings()
               : tab === 'content'
@@ -2164,7 +2427,7 @@ export function DocumentPage({ id }: { id: string }) {
             </InfoCallout>
           ) : null}
 
-          {uploadState.data?.extraction_status === 'needs_ocr' ? (
+          {document.asset_type === 'pdf' && uploadState.data?.extraction_status === 'needs_ocr' ? (
             <InfoCallout tone="warning" title="This PDF needs OCR">
               <p>{uploadState.data.extraction_message}</p>
               <p className="mt-1">No OCR service is configured, so page-linked automated findings are unavailable.</p>

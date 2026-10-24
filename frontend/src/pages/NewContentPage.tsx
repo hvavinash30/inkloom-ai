@@ -36,6 +36,16 @@ import type { ContentType, UploadRecord } from '../types';
 
 type Mode = 'text' | 'pdf' | 'image' | 'video';
 
+type FieldErrors = Partial<Record<'title' | 'content' | 'file' | 'transcript' | 'source', string>>;
+
+const FIRST_INVALID_ID: Record<keyof FieldErrors, string> = {
+  title: 'content-title',
+  content: 'content-text',
+  file: 'content-upload',
+  transcript: 'video-transcript',
+  source: 'content-source',
+};
+
 const MODES: { id: Mode; label: string; description: string; icon: typeof FileText }[] = [
   {
     id: 'text',
@@ -119,6 +129,7 @@ export function NewContentPage() {
   const [saveDraft, setSaveDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const errorRef = useRef<HTMLParagraphElement>(null);
 
   const limits = health.data?.limits;
@@ -132,6 +143,7 @@ export function NewContentPage() {
     setUpload(null);
     setUploadError(null);
     setError(null);
+    setFieldErrors({});
     setPdfFallback('');
     setTranscript('');
     setShowFallback(false);
@@ -144,6 +156,7 @@ export function NewContentPage() {
     setFile(selected);
     setUpload(null);
     setUploadError(null);
+    clearFieldError('file');
     setUploading(true);
     if (!title.trim()) {
       setTitle(selected.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 120));
@@ -179,34 +192,53 @@ export function NewContentPage() {
     window.requestAnimationFrame(() => errorRef.current?.focus());
   };
 
-  const validate = (): string | null => {
-    if (title.trim().length < 2) return 'Add a title with at least two characters.';
+  const clearFieldError = (key: keyof FieldErrors) => {
+    setFieldErrors((current) => (current[key] ? { ...current, [key]: undefined } : current));
+  };
+
+  const validate = (): FieldErrors => {
+    const errors: FieldErrors = {};
+    if (title.trim().length < 2) errors.title = 'Add a title with at least two characters.';
     if (mode === 'text' && text.trim().split(/\s+/).filter(Boolean).length < 3) {
-      return 'Enter at least a few words of content.';
+      errors.content = 'Enter at least a few words of content.';
     }
     if (mode === 'pdf' && !upload && fallbackPages.length === 0) {
-      return 'Upload a PDF or paste at least one page of extracted text.';
+      errors.file = 'Upload a PDF or paste at least one page of extracted text.';
     }
-    if (mode === 'image' && !upload) return 'Upload an image to store it for review.';
+    if (mode === 'image' && !upload) {
+      errors.file = 'Upload an image to store it for review.';
+    }
     if (mode === 'video' && !upload && !transcript.trim()) {
-      return 'Upload a video, paste a transcript, or both. A video without either cannot be checked.';
-    }
-    if (!saveDraft && mode === 'video' && !transcript.trim()) {
-      return 'Add a transcript before running a check. Without one, the check can only record a processing limitation.';
+      errors.transcript = 'Upload a video, paste a transcript, or both. A video without either cannot be checked.';
+    } else if (!saveDraft && mode === 'video' && !transcript.trim()) {
+      errors.transcript =
+        'Add a transcript before running a check. Without one, the check can only record a processing limitation.';
     }
     if (sourceUrl.trim() && !/^https?:\/\//i.test(sourceUrl.trim())) {
-      return 'Source URLs must start with http:// or https://.';
+      errors.source = 'Source URLs must start with http:// or https://.';
     }
-    return null;
+    return errors;
+  };
+
+  const focusFirstInvalid = (errors: FieldErrors) => {
+    const firstKey = (Object.keys(FIRST_INVALID_ID) as (keyof FieldErrors)[]).find(
+      (key) => errors[key]
+    );
+    if (!firstKey) return;
+    window.requestAnimationFrame(() => {
+      window.document.getElementById(FIRST_INVALID_ID[firstKey])?.focus();
+    });
   };
 
   const submit = async (draft: boolean) => {
     setError(null);
     const validation = validate();
-    if (validation) {
-      showError(validation);
+    if (Object.keys(validation).length > 0) {
+      setFieldErrors(validation);
+      focusFirstInvalid(validation);
       return;
     }
+    setFieldErrors({});
     if (uploading) return;
     setSubmitting(true);
     try {
@@ -314,13 +346,25 @@ export function NewContentPage() {
           <Card className="p-4 sm:p-5">
             <p className="text-xs font-semibold text-slate-900">2. Describe the content</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <Field label="Title" htmlFor="content-title" required className="sm:col-span-2">
+              <Field
+                label="Title"
+                htmlFor="content-title"
+                required
+                error={fieldErrors.title}
+                className="sm:col-span-2"
+              >
                 <Input
                   id="content-title"
                   value={title}
-                  onChange={(event) => setTitle(event.target.value)}
+                  onChange={(event) => {
+                    setTitle(event.target.value);
+                    clearFieldError('title');
+                  }}
                   placeholder="e.g. Q4 launch LinkedIn post"
                   maxLength={255}
+                  aria-required="true"
+                  aria-invalid={Boolean(fieldErrors.title)}
+                  aria-describedby={fieldErrors.title ? 'content-title-error' : undefined}
                 />
               </Field>
               <Field label="Content type" htmlFor="content-type">
@@ -380,24 +424,42 @@ export function NewContentPage() {
                 <Field
                   label="Content text"
                   htmlFor="content-text"
+                  required
+                  error={fieldErrors.content}
                   hint={`${text.trim() ? text.trim().split(/\s+/).length : 0} words · Checks are rule and fact matching, not a grammar score.`}
                 >
                   <Textarea
                     id="content-text"
                     rows={12}
                     value={text}
-                    onChange={(event) => setText(event.target.value)}
+                    onChange={(event) => {
+                      setText(event.target.value);
+                      clearFieldError('content');
+                    }}
                     placeholder="Paste the copy you want to check…"
+                    aria-required="true"
+                    aria-invalid={Boolean(fieldErrors.content)}
+                    aria-describedby={fieldErrors.content ? 'content-text-error' : undefined}
                   />
                 </Field>
                 <div className="mt-3">
-                  <Field label="Source URL (optional)" htmlFor="content-source" hint="Only add a link you can vouch for.">
+                  <Field
+                    label="Source URL (optional)"
+                    htmlFor="content-source"
+                    error={fieldErrors.source}
+                    hint="Only add a link you can vouch for."
+                  >
                     <Input
                       id="content-source"
                       value={sourceUrl}
-                      onChange={(event) => setSourceUrl(event.target.value)}
+                      onChange={(event) => {
+                        setSourceUrl(event.target.value);
+                        clearFieldError('source');
+                      }}
                       placeholder="https://…"
                       inputMode="url"
+                      aria-invalid={Boolean(fieldErrors.source)}
+                      aria-describedby={fieldErrors.source ? 'content-source-error' : undefined}
                     />
                   </Field>
                 </div>
@@ -413,67 +475,107 @@ export function NewContentPage() {
                     onChange={(event) => void handleFile(event.target.files?.[0] || null)}
                     aria-label={`Upload ${mode} file`}
                   />
-                  {!file ? (
-                    <button
-                      type="button"
-                      onClick={() => fileInput.current?.click()}
-                      className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-5 py-9 text-center transition-colors hover:border-brand-300 hover:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-                    >
-                      <UploadCloud className="h-6 w-6 text-slate-400" />
-                      <span className="mt-2 text-sm font-medium text-slate-700">
-                        Choose a {mode === 'pdf' ? 'PDF' : mode === 'image' ? 'PNG, JPEG, or WebP image' : 'MP4, WebM, or MOV video'}
-                      </span>
-                      <span className="mt-1 text-[11px] text-slate-400">
-                        {limits
-                          ? mode === 'pdf'
-                            ? `${limits.max_pdf_pages} page limit · ${limits.max_upload_mb} MB maximum`
-                            : `${mode === 'video' ? limits.max_video_upload_mb : limits.max_upload_mb} MB maximum`
-                          : 'Upload limits are reported by the server.'}
-                      </span>
-                    </button>
-                  ) : (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-500 shadow-subtle">
-                          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                  <div
+                    id="content-upload"
+                    tabIndex={-1}
+                    aria-describedby={
+                      fieldErrors.file
+                        ? 'content-file-error'
+                        : uploadError
+                          ? 'content-upload-error'
+                          : undefined
+                    }
+                    className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+                  >
+                    {!file ? (
+                      <button
+                        type="button"
+                        onClick={() => fileInput.current?.click()}
+                        aria-describedby={
+                          fieldErrors.file
+                            ? 'content-file-error'
+                            : uploadError
+                              ? 'content-upload-error'
+                              : undefined
+                        }
+                        className={cn(
+                          'flex w-full flex-col items-center justify-center rounded-xl border border-dashed bg-slate-50/60 px-5 py-9 text-center transition-colors hover:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+                          fieldErrors.file
+                            ? 'border-rose-300 hover:border-rose-400'
+                            : 'border-slate-300 hover:border-brand-300'
+                        )}
+                      >
+                        <UploadCloud className="h-6 w-6 text-slate-400" />
+                        <span className="mt-2 text-sm font-medium text-slate-700">
+                          Choose a {mode === 'pdf' ? 'PDF' : mode === 'image' ? 'PNG, JPEG, or WebP image' : 'MP4, WebM, or MOV video'}
                         </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-800">{file.name}</p>
-                          <p className="text-[11px] text-slate-400">
-                            {formatFileSize(file.size)}
-                            {upload ? ` · stored as ${upload.kind}` : ''}
-                          </p>
+                        <span className="mt-1 text-[11px] text-slate-400">
+                          {limits
+                            ? mode === 'pdf'
+                              ? `${limits.max_pdf_pages} page limit · ${limits.max_upload_mb} MB maximum`
+                              : `${mode === 'video' ? limits.max_video_upload_mb : limits.max_upload_mb} MB maximum`
+                            : 'Upload limits are reported by the server.'}
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-500 shadow-subtle">
+                            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-slate-800">{file.name}</p>
+                            <p className="text-[11px] text-slate-400">
+                              {formatFileSize(file.size)}
+                              {upload ? ` · stored as ${upload.kind}` : ''}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={clearFile}
+                            disabled={uploading}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700"
+                            aria-label="Remove selected file"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={clearFile}
-                          disabled={uploading}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700"
-                          aria-label="Remove selected file"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+
+                        {upload ? (
+                          <div className="mt-2.5 rounded-lg border border-slate-200 bg-white p-2.5 text-[11px] leading-5 text-slate-600">
+                            <p className="flex items-center gap-1.5 font-medium text-slate-700">
+                              {upload.extraction_status === 'processed' ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                              ) : (
+                                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                              )}
+                              Extraction status: {upload.extraction_status.replace(/_/g, ' ')}
+                              {upload.page_count ? ` · ${upload.page_count} pages` : ''}
+                            </p>
+                            <p className="mt-1 text-slate-500">{upload.extraction_message}</p>
+                          </div>
+                        ) : null}
+
                       </div>
-
-                      {upload ? (
-                        <div className="mt-2.5 rounded-lg border border-slate-200 bg-white p-2.5 text-[11px] leading-5 text-slate-600">
-                          <p className="flex items-center gap-1.5 font-medium text-slate-700">
-                            {upload.extraction_status === 'processed' ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                            ) : (
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                            )}
-                            Extraction status: {upload.extraction_status.replace(/_/g, ' ')}
-                            {upload.page_count ? ` · ${upload.page_count} pages` : ''}
-                          </p>
-                          <p className="mt-1 text-slate-500">{upload.extraction_message}</p>
-                        </div>
-                      ) : null}
-
-                    </div>
-                  )}
+                    )}
+                  </div>
                   {uploadError ? (
-                    <p role="alert" className="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-[11px] text-rose-700">{uploadError}</p>
+                    <p
+                      id="content-upload-error"
+                      role="alert"
+                      className="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-[11px] text-rose-700"
+                    >
+                      {uploadError}
+                    </p>
+                  ) : null}
+                  {fieldErrors.file ? (
+                    <p
+                      id="content-file-error"
+                      role="alert"
+                      className="mt-2 text-xs leading-5 text-rose-600"
+                    >
+                      {fieldErrors.file}
+                    </p>
                   ) : null}
                 </div>
 
@@ -501,7 +603,10 @@ export function NewContentPage() {
                             id="pdf-fallback"
                             rows={7}
                             value={pdfFallback}
-                            onChange={(event) => setPdfFallback(event.target.value)}
+                            onChange={(event) => {
+                              setPdfFallback(event.target.value);
+                              if (event.target.value.trim()) clearFieldError('file');
+                            }}
                             placeholder="Page 1 text…"
                           />
                         </Field>
@@ -523,6 +628,7 @@ export function NewContentPage() {
                     <Field
                       label="Transcript for checks"
                       htmlFor="video-transcript"
+                      error={fieldErrors.transcript}
                       hint="Paste plain text, [mm:ss] lines, SRT, or VTT. Explicit timestamps stay linked to findings; plain text is checked without timestamps."
                       required={!saveDraft}
                     >
@@ -530,8 +636,14 @@ export function NewContentPage() {
                         id="video-transcript"
                         rows={10}
                         value={transcript}
-                        onChange={(event) => setTranscript(event.target.value)}
+                        onChange={(event) => {
+                          setTranscript(event.target.value);
+                          clearFieldError('transcript');
+                        }}
                         placeholder={'[00:18] Welcome to the Q4 launch…\n[00:42] Our platform delivers 100% uptime…'}
+                        aria-required={saveDraft ? undefined : 'true'}
+                        aria-invalid={Boolean(fieldErrors.transcript)}
+                        aria-describedby={fieldErrors.transcript ? 'video-transcript-error' : undefined}
                       />
                     </Field>
                     {segments.length > 0 ? (

@@ -396,7 +396,13 @@ export function Field({
       ) : null}
       {children}
       {error ? (
-        <p className="text-xs text-rose-600">{error}</p>
+        <p
+          id={htmlFor ? `${htmlFor}-error` : undefined}
+          role="alert"
+          className="text-xs leading-5 text-rose-600"
+        >
+          {error}
+        </p>
       ) : hint ? (
         <p className="text-xs leading-5 text-slate-500">{hint}</p>
       ) : null}
@@ -613,25 +619,62 @@ export function Tabs({
   active,
   onChange,
   className,
+  idBase,
+  label = 'Sections',
 }: {
   tabs: { id: string; label: string; count?: number }[];
   active: string;
   onChange: (id: string) => void;
   className?: string;
+  idBase?: string;
+  label?: string;
 }) {
+  const generatedId = useId().replace(/:/g, '');
+  const base = idBase || `tabs-${generatedId}`;
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const selectTab = (index: number) => {
+    const next = tabs[(index + tabs.length) % tabs.length];
+    if (!next) return;
+    onChange(next.id);
+    window.requestAnimationFrame(() => refs.current[next.id]?.focus());
+  };
+
   return (
-    <div className={cn('overflow-x-auto border-b border-slate-200', className)}>
-      <div className="flex min-w-max gap-1">
-        {tabs.map((tab) => {
+    <div className={cn('tab-scroll overflow-x-auto overscroll-x-contain border-b border-slate-200', className)}>
+      <div role="tablist" aria-label={label} aria-orientation="horizontal" className="flex min-w-max gap-1">
+        {tabs.map((tab, index) => {
           const selected = tab.id === active;
           return (
             <button
               key={tab.id}
+              ref={(element) => {
+                refs.current[tab.id] = element;
+              }}
               type="button"
-              aria-pressed={selected}
+              role="tab"
+              id={`${base}-tab-${tab.id}`}
+              aria-selected={selected}
+              aria-controls={`${base}-panel`}
+              tabIndex={selected ? 0 : -1}
               onClick={() => onChange(tab.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowRight') {
+                  event.preventDefault();
+                  selectTab(index + 1);
+                } else if (event.key === 'ArrowLeft') {
+                  event.preventDefault();
+                  selectTab(index - 1);
+                } else if (event.key === 'Home') {
+                  event.preventDefault();
+                  selectTab(0);
+                } else if (event.key === 'End') {
+                  event.preventDefault();
+                  selectTab(tabs.length - 1);
+                }
+              }}
               className={cn(
-                'relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500',
+                'relative flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 sm:min-h-0',
                 selected ? 'text-brand-700' : 'text-slate-500 hover:text-slate-900'
               )}
             >

@@ -683,8 +683,17 @@ export function BrandLibraryPage() {
           ]}
           active={tab}
           onChange={(next) => setTab(next as TabId)}
+          idBase="brand-library-tabs"
+          label="Brand library sections"
           className="px-3 pt-1"
         />
+        <div
+          id="brand-library-tabs-panel"
+          role="tabpanel"
+          aria-labelledby={`brand-library-tabs-tab-${tab}`}
+          tabIndex={0}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        >
         <div className="flex flex-col gap-3 border-b border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 flex-col gap-2 sm:flex-row">
             <div className="relative min-w-0 flex-1 sm:max-w-xs">
@@ -948,6 +957,7 @@ export function BrandLibraryPage() {
             ))}
           </div>
         )}
+        </div>
       </Card>
 
       {!canManageFacts ? (

@@ -43,6 +43,18 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+  .tab-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+  .tab-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: #cbd5e1;
+  }
   .text-balance {
     text-wrap: balance;
   }

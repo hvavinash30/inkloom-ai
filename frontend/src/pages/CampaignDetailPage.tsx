@@ -388,9 +388,18 @@ export function CampaignDetailPage({ id }: { id: string }) {
               ]}
               active={tab}
               onChange={setTab}
+              idBase="campaign-tabs"
+              label="Campaign detail"
               className="px-3 pt-1"
             />
 
+            <div
+              id="campaign-tabs-panel"
+              role="tabpanel"
+              aria-labelledby={`campaign-tabs-tab-${tab}`}
+              tabIndex={0}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+            >
             {tab === 'assets' ? (
               campaign.assets.length === 0 ? (
                 <div className="p-5">
@@ -690,6 +699,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
                 ) : null}
               </div>
             ) : null}
+            </div>
           </Card>
         </div>
 

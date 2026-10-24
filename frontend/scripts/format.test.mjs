@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseTranscript } from '../src/lib/format.ts';
+import { parseTranscript, splitTranscriptText } from '../src/lib/format.ts';
 
 test('plain text never receives invented timestamps', () => {
   assert.deepEqual(parseTranscript('Line one.\nLine two.'), []);
@@ -65,4 +65,36 @@ test('untimestamped trailing text is not attached to a previous cue', () => {
 
 test('a malformed timing line does not produce a cue', () => {
   assert.deepEqual(parseTranscript('not-a-time --> 00:00:04,000\nIgnored text.'), []);
+});
+
+test('plain transcript text is returned separately without timestamps', () => {
+  const { segments, untimestamped } = splitTranscriptText('Line one.\nLine two.');
+  assert.deepEqual(segments, []);
+  assert.equal(untimestamped, 'Line one.\nLine two.');
+});
+
+test('mixed transcripts keep untimed lines separate from cues', () => {
+  const { segments, untimestamped } = splitTranscriptText(
+    '[00:42] Our platform delivers 100% uptime.\n\nIn addition, AcmeCloud is the #1 fastest cloud!!!'
+  );
+  assert.deepEqual(segments, [
+    { timestamp_seconds: 42, text: 'Our platform delivers 100% uptime.' },
+  ]);
+  assert.equal(untimestamped, 'In addition, AcmeCloud is the #1 fastest cloud!!!');
+});
+
+test('SRT cue ids and cue text are not reported as untimed transcript text', () => {
+  const srt = [
+    '1',
+    '00:00:02,000 --> 00:00:04,000',
+    'Hello.',
+    '',
+    '2',
+    '00:00:07,500 --> 00:00:09,000',
+    'A two-line',
+    'cue.',
+  ].join('\n');
+  const { segments, untimestamped } = splitTranscriptText(srt);
+  assert.equal(segments.length, 2);
+  assert.equal(untimestamped, '');
 });

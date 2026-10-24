@@ -267,9 +267,16 @@ export const RISK_STYLE: Record<RiskLevel, string> = {
   critical: 'bg-rose-50 text-rose-800 border-rose-200',
 };
 
-/** Returns only explicitly timestamped cues. It never synthesizes timestamps. */
-export function parseTranscript(raw: string): { timestamp_seconds: number; text: string }[] {
+/**
+ * Splits explicitly timestamped cues from untimestamped transcript text.
+ * It never synthesizes timestamps and keeps both parts in source order.
+ */
+export function splitTranscriptText(raw: string): {
+  segments: { timestamp_seconds: number; text: string }[];
+  untimestamped: string;
+} {
   const segments: { timestamp_seconds: number; text: string }[] = [];
+  const untimestamped: string[] = [];
   const lines = raw.replace(/^\uFEFF/, '').replace(/\r/g, '').split('\n');
   let pending: { timestamp_seconds: number; lines: string[] } | null = null;
   let inBlock = false;
@@ -277,6 +284,8 @@ export function parseTranscript(raw: string): { timestamp_seconds: number; text:
   const parseStamp = (value: string): number | null => {
     const parts = value.split(':').map((part) => Number.parseFloat(part.replace(',', '.')));
     if (parts.some((part) => Number.isNaN(part))) return null;
+    if (parts.some((part) => part < 0)) return null;
+    if (parts.slice(-2).some((part) => part >= 60)) return null;
     if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
     if (parts.length === 2) return parts[0] * 60 + parts[1];
     return null;
@@ -289,8 +298,8 @@ export function parseTranscript(raw: string): { timestamp_seconds: number; text:
     pending = null;
   };
 
-  for (const line of lines) {
-    const trimmed = line.trim();
+  for (let index = 0; index < lines.length; index += 1) {
+    const trimmed = lines[index].trim();
     if (!trimmed) {
       flush();
       inBlock = false;
@@ -326,11 +335,25 @@ export function parseTranscript(raw: string): { timestamp_seconds: number; text:
       continue;
     }
 
+    if (
+      /^\d+$/.test(trimmed) &&
+      index + 1 < lines.length &&
+      lines[index + 1].includes('-->')
+    ) {
+      continue;
+    }
+
     if (pending) pending.lines.push(trimmed);
+    else untimestamped.push(trimmed);
   }
 
   flush();
-  return segments;
+  return { segments, untimestamped: untimestamped.join('\n').trim() };
+}
+
+/** Returns only explicitly timestamped cues. It never synthesizes timestamps. */
+export function parseTranscript(raw: string): { timestamp_seconds: number; text: string }[] {
+  return splitTranscriptText(raw).segments;
 }
 
 export function splitLines(text: string): string[] {
