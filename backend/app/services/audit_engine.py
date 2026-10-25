@@ -218,6 +218,7 @@ def scan_rules(text: str, rules: Sequence[BrandRule], *, page_number: Optional[i
             )
             continue
 
+        guidance = (rule.replacement_or_guidance or "").strip().rstrip(".")
         try:
             matches = list(_pattern_regex(pattern).finditer(text))
         except re.error:
@@ -247,8 +248,8 @@ def scan_rules(text: str, rules: Sequence[BrandRule], *, page_number: Optional[i
                     explanation=(
                         f"{rule.description or rule.name} "
                         + (
-                            f"Approved replacement: “{rule.replacement_or_guidance}”."
-                            if rule.replacement_or_guidance
+                            f"Approved replacement: “{guidance}”."
+                            if guidance
                             else ""
                         )
                     ),

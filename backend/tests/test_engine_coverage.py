@@ -119,6 +119,25 @@ def test_naming_detector_does_not_duplicate_a_matching_rule_finding():
     assert len(naming_findings) == 1, "The rule match and the naming detector must dedupe to one finding."
 
 
+def test_rule_explanation_does_not_double_the_final_period():
+    rule = BrandRule(
+        id="rule-tone",
+        workspace_id="ws-1",
+        name="Measured punctuation",
+        rule_type="tone_guideline",
+        pattern_or_phrase="!!!",
+        replacement_or_guidance="Use a single period and a calm, factual tone.",
+        severity="medium",
+        is_active=True,
+        status="active",
+    )
+    result = run_text_audit("Ship it now!!!", [rule], [])
+    finding = next(f for f in result.findings if f["affected_text"] == "!!!")
+    assert finding["explanation"].endswith("calm, factual tone”.")
+    assert ".”." not in finding["explanation"]
+    assert finding["suggested_correction"] == "Use a single period and a calm, factual tone."
+
+
 def test_grouping_assigns_one_group_per_finding():
     result = run_text_audit(
         "AcmeCloud is the #1 fastest platform with 100% uptime and ACME SHOUTING!!!",
