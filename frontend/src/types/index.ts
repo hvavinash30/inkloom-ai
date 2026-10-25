@@ -34,13 +34,36 @@ export interface UserProfile {
   is_demo: boolean;
 }
 
+export interface WorkspaceCounts {
+  documents: number;
+  rules: number;
+  facts: number;
+  campaigns: number;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   slug?: string;
   description?: string;
   is_demo: boolean;
+  counts?: Partial<WorkspaceCounts>;
+  created_at?: string;
+  updated_at?: string;
   mode_notice?: string;
+}
+
+export interface WorkspaceCreatePayload {
+  name: string;
+  owner_name: string;
+  description?: string;
+  industry?: string;
+  audience?: string;
+  voice?: string;
+  guidelines?: string;
+  approved_claims: { claim: string; value: string; category?: string }[];
+  restricted_claims: string[];
+  terminology: { preferred: string; avoid: string }[];
 }
 
 export interface SessionPayload {
@@ -49,6 +72,7 @@ export interface SessionPayload {
   capabilities: string[];
   users: UserProfile[];
   workspace: Workspace;
+  workspaces: Workspace[];
   demo_mode: boolean;
 }
 

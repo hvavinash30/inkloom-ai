@@ -121,10 +121,28 @@ export function titleCase(value: string): string {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const NAIVE_DATETIME_RE = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/;
+
+/**
+ * API datetimes are stored as naive UTC. Date-only values are calendar dates.
+ * Parsing both without this distinction shifts timestamps by the local offset.
+ */
+export function parseApiDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const dateOnly = DATE_ONLY_RE.exec(trimmed);
+  if (dateOnly) {
+    return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+  }
+  const naive = NAIVE_DATETIME_RE.exec(trimmed);
+  const date = new Date(naive ? `${naive[1]}T${naive[2]}Z` : trimmed);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function formatDate(value?: string | null): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  const date = parseApiDate(value);
+  if (!date) return '—';
   return new Intl.DateTimeFormat('en', {
     day: 'numeric',
     month: 'short',
@@ -133,9 +151,8 @@ export function formatDate(value?: string | null): string {
 }
 
 export function formatDateTime(value?: string | null): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  const date = parseApiDate(value);
+  if (!date) return '—';
   return new Intl.DateTimeFormat('en', {
     day: 'numeric',
     month: 'short',
@@ -146,9 +163,8 @@ export function formatDateTime(value?: string | null): string {
 }
 
 export function relativeTime(value?: string | null): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  const date = parseApiDate(value);
+  if (!date) return '—';
   const diffSeconds = Math.round((date.getTime() - Date.now()) / 1000);
   const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
   const divisions: { amount: number; unit: Intl.RelativeTimeFormatUnit }[] = [

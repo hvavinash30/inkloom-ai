@@ -4,8 +4,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.security import Actor, require_caps
+from app.services.workspace_service import workspace_is_demo
 from app.db.session import get_db
 from app.models.assets import BrandAsset, UploadedFile
 from app.schemas.assets import (
@@ -111,7 +111,7 @@ def create_brand_asset(
         notes=payload.notes,
         status="active",
         owner_name=actor.name,
-        is_demo=settings.DEMO_MODE,
+        is_demo=workspace_is_demo(db, actor.workspace_id),
     )
     db.add(asset)
     db.commit()

@@ -47,6 +47,7 @@ import {
   SEVERITY_LABEL,
   formatDate,
   formatFileSize,
+  parseApiDate,
   titleCase,
 } from '../lib/format';
 import type {
@@ -661,7 +662,10 @@ export function BrandLibraryPage() {
         <Card className="p-4">
           <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Review attention</p>
           <p className="mt-1.5 text-2xl font-semibold tabular-nums text-amber-700">
-            {facts.filter((fact) => fact.status === 'needs_review' || (fact.next_review_at && new Date(fact.next_review_at) < new Date())).length}
+            {facts.filter((fact) => {
+              const reviewDue = parseApiDate(fact.next_review_at);
+              return fact.status === 'needs_review' || Boolean(reviewDue && reviewDue.getTime() < Date.now());
+            }).length}
           </p>
           <p className="mt-1 text-xs text-slate-500">Facts flagged or past review date</p>
         </Card>
@@ -753,7 +757,8 @@ export function BrandLibraryPage() {
           ) : (
             <div className="divide-y divide-slate-100">
               {filteredFacts.map((fact) => {
-                const overdue = fact.next_review_at ? new Date(fact.next_review_at) < new Date() : false;
+                const dueAt = parseApiDate(fact.next_review_at)?.getTime() ?? Infinity;
+                const isOverdue = dueAt < Date.now();
                 return (
                   <div key={fact.id} className="px-4 py-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -763,7 +768,7 @@ export function BrandLibraryPage() {
                             {fact.category}
                           </span>
                           <FactBadge status={fact.status} />
-                          {overdue && fact.status === 'verified' ? (
+                          {isOverdue && fact.status === 'verified' ? (
                             <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800">
                               <CalendarClock className="h-2.5 w-2.5" />
                               Review due

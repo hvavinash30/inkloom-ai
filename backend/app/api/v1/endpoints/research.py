@@ -4,8 +4,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.security import Actor, require_caps
+from app.services.workspace_service import workspace_is_demo
 from app.db.session import get_db
 from app.models.assets import ResearchRecord
 from app.schemas.assets import ResearchRecordCreate, ResearchRecordOut, ResearchRecordUpdate
@@ -78,7 +78,7 @@ def create_research_record(
         details=json.dumps(payload.details),
         sources=json.dumps(payload.sources),
         owner_name=actor.name,
-        is_demo=settings.DEMO_MODE,
+        is_demo=workspace_is_demo(db, actor.workspace_id),
     )
     db.add(record)
     db.commit()

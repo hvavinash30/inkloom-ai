@@ -4,8 +4,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.security import Actor, require_caps
+from app.services.workspace_service import workspace_is_demo
 from app.db.session import get_db
 from app.models.approved_fact import ApprovedFact
 from app.schemas.approved_fact import (
@@ -84,7 +84,7 @@ def create_approved_fact(
         next_review_at=payload.next_review_at,
         last_reviewed_at=now,
         version=1,
-        is_demo=settings.DEMO_MODE,
+        is_demo=workspace_is_demo(db, actor.workspace_id),
     )
     db.add(fact)
     db.commit()

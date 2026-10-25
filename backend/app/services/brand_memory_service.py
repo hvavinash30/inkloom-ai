@@ -12,13 +12,13 @@ from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.models.approved_fact import ApprovedFact
 from app.models.audit import AuditFinding
 from app.models.brand_rule import BrandRule
 from app.models.content import ContentDocument
 from app.services import content_service
 from app.services.audit_engine import _pattern_regex, scan_rules
+from app.services.workspace_service import workspace_is_demo
 
 
 CURRENCY_RE = re.compile(r"(?<![A-Za-z])(?:₹|\$|€|£|Rs\.?|INR)\s?\d[\d,]*", re.IGNORECASE)
@@ -327,7 +327,7 @@ def create_rule_from_suggestion(
         is_active=False,
         status="draft",
         owner_name=actor.name,
-        is_demo=settings.DEMO_MODE,
+        is_demo=workspace_is_demo(db, actor.workspace_id),
     )
     db.add(rule)
     db.commit()

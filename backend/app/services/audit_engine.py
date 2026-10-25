@@ -67,8 +67,24 @@ AMBIGUOUS_PHRASES = [
 REQUIRED_MISSING_TEXT = "Required statement missing"
 
 CURRENCY_AMOUNT_RE = re.compile(
-    r"(?<![A-Za-z])(?:₹|\$|€|£|Rs\.?|INR)\s?\d[\d,]*", re.IGNORECASE
+    r"(?<![A-Za-z])"
+    r"(?:₹|\$|€|£|Rs\.?|INR|USD|EUR|GBP|AUD|CAD|SGD|AED|JPY|CHF)"
+    r"\s?\d[\d,]*(?:\.\d+)?",
+    re.IGNORECASE,
 )
+
+PRICE_UNIT_TAIL_RE = re.compile(
+    r"(?i)(?:[ \t]*(?:per|/|a|an)[ \t]*"
+    r"(?:user|seat|month|year|organization|org|workspace|licen[cs]e|annum|member)\b)+"
+)
+
+
+def _amount_key(value: str) -> str:
+    """Normalize an amount for comparison without treating 49.00 and 49 as different."""
+    digits = re.sub(r"[^\d.]", "", value)
+    if "." in digits:
+        digits = digits.rstrip("0").rstrip(".")
+    return digits or value
 
 
 @dataclass
@@ -308,9 +324,7 @@ def detect_fact_contradictions(
                         evidence=fact.approved_value,
                         source_reference=fact.source_reference,
                         source_url=fact.source_url,
-                        suggestion=(
-                            f"Use the approved commitment: {fact.approved_value}"
-                        ),
+                        suggestion=fact.approved_value,
                         fact_id=fact.id,
                         page_number=page_number,
                         timestamp_seconds=timestamp_seconds,
@@ -326,31 +340,35 @@ def detect_fact_contradictions(
     ]
     if price_facts and re.search(r"(?i)(price|pricing|per month|/month|per seat|starting at|INR|Rs\.?)", lowered):
         approved_amounts = {
-            re.sub(r"[^\d]", "", amount)
+            _amount_key(amount)
             for f in price_facts
             for amount in CURRENCY_AMOUNT_RE.findall(f.approved_value)
         }
         for match in CURRENCY_AMOUNT_RE.finditer(text):
-            claimed_amount = re.sub(r"[^\d]", "", match.group(0))
+            claimed_amount = _amount_key(match.group(0))
             if approved_amounts and claimed_amount not in approved_amounts:
                 fact = price_facts[0]
+                tail = PRICE_UNIT_TAIL_RE.match(text, match.end())
+                span_end = tail.end() if tail else match.end()
+                affected_text = text[match.start():span_end].rstrip()
+                span_end = match.start() + len(affected_text)
                 findings.append(
                     _make_finding(
                         title=f"Price does not match the approved commercial record: {match.group(0)}",
                         category="confirmed_contradiction",
                         severity="high",
-                        affected_text=match.group(0),
+                        affected_text=affected_text,
                         start=match.start(),
-                        end=match.end(),
+                        end=span_end,
                         explanation=(
-                            f"The content states {match.group(0)}, while the approved commercial record states "
+                            f"The content states {affected_text}, while the approved commercial record states "
                             f"“{fact.approved_value}”. If this is a different tier or a temporary promotion, "
                             "record that approved fact before publishing."
                         ),
                         evidence=fact.approved_value,
                         source_reference=fact.source_reference,
                         source_url=fact.source_url,
-                        suggestion=f"Use the approved price: {fact.approved_value}",
+                        suggestion=fact.approved_value,
                         fact_id=fact.id,
                         page_number=page_number,
                         timestamp_seconds=timestamp_seconds,

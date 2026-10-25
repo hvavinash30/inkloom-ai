@@ -6,7 +6,6 @@ from typing import Optional, Sequence
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.security import Actor
 from app.models.approved_fact import ApprovedFact
 from app.models.assets import UploadedFile
@@ -23,6 +22,7 @@ from app.services.audit_engine import (
     run_transcript_audit,
     split_transcript_text,
 )
+from app.services.workspace_service import workspace_is_demo
 
 
 def content_hash(text: str, page_texts: Optional[list[str]] = None) -> str:
@@ -487,6 +487,7 @@ def create_document(
 
         raise HTTPException(status_code=400, detail="Enter at least a few words of content to check.")
 
+    is_demo = workspace_is_demo(db, actor.workspace_id)
     doc = ContentDocument(
         workspace_id=actor.workspace_id,
         campaign_id=campaign_id,
@@ -498,7 +499,7 @@ def create_document(
         file_hash=content_hash(content_text, pages) if content_text else upload.sha256 if upload else None,
         provenance_metadata={
             "engine": "deterministic-rules-v2",
-            "demo": settings.DEMO_MODE,
+            "demo": is_demo,
             "upload_name": upload.original_name if upload else None,
             "extraction_status": upload.extraction_status if upload else None,
         },
@@ -506,7 +507,7 @@ def create_document(
         current_version_number=1,
         created_by=actor.id,
         created_by_name=actor.name,
-        is_demo=settings.DEMO_MODE,
+        is_demo=is_demo,
     )
     if upload and not upload.uploaded_by_name:
         upload.uploaded_by_name = actor.name

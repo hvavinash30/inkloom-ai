@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAsync } from '../lib/router';
+import { useSession } from '../context/SessionContext';
 import { api, ApiError } from '../services/api';
 import { useToast } from '../components/Toast';
 import {
@@ -55,6 +56,7 @@ function DurabilityBadge({
 
 export function SettingsPage() {
   const { toast } = useToast();
+  const { reload: reloadSession } = useSession();
   const { data, loading, error, reload } = useAsync(
     () => Promise.all([api.getOrgOverview(), api.getIntegrations(), api.getHealth()]),
     []
@@ -117,6 +119,7 @@ export function SettingsPage() {
       toast('Workspace details saved.', 'success');
       setSavedAt(new Date().toISOString());
       reload();
+      reloadSession();
     } catch (caught) {
       setSaveError(caught instanceof ApiError ? caught.detail : 'The workspace could not be updated.');
     } finally {

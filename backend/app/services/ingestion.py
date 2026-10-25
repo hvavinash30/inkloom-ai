@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import Actor
 from app.models.assets import UploadedFile
+from app.services.workspace_service import workspace_is_demo
 
 
 PDF_EXTENSIONS = {".pdf"}
@@ -290,7 +291,7 @@ def save_upload(
         extracted_text=extraction["extracted_text"],
         uploaded_by_id=actor.id,
         uploaded_by_name=actor.name,
-        is_demo=settings.DEMO_MODE,
+        is_demo=workspace_is_demo(db, actor.workspace_id),
     )
     db.add(record)
     db.commit()

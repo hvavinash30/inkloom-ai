@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseTranscript, splitTranscriptText } from '../src/lib/format.ts';
+import { parseApiDate, parseTranscript, splitTranscriptText } from '../src/lib/format.ts';
 
 test('plain text never receives invented timestamps', () => {
   assert.deepEqual(parseTranscript('Line one.\nLine two.'), []);
@@ -97,4 +97,25 @@ test('SRT cue ids and cue text are not reported as untimed transcript text', () 
   const { segments, untimestamped } = splitTranscriptText(srt);
   assert.equal(segments.length, 2);
   assert.equal(untimestamped, '');
+});
+
+test('naive API datetimes are parsed as UTC rather than local time', () => {
+  const parsed = parseApiDate('2026-10-25T03:12:04.492');
+  assert.ok(parsed);
+  assert.equal(parsed.toISOString(), '2026-10-25T03:12:04.492Z');
+  assert.equal(parseApiDate('2026-10-25 03:12:04')?.toISOString(), '2026-10-25T03:12:04.000Z');
+});
+
+test('date-only API values keep their calendar date', () => {
+  const parsed = parseApiDate('2026-10-25');
+  assert.ok(parsed);
+  assert.equal(parsed.getFullYear(), 2026);
+  assert.equal(parsed.getMonth(), 9);
+  assert.equal(parsed.getDate(), 25);
+});
+
+test('timezone-qualified and invalid timestamps parse predictably', () => {
+  assert.equal(parseApiDate('2026-10-25T03:12:04Z')?.toISOString(), '2026-10-25T03:12:04.000Z');
+  assert.equal(parseApiDate('not-a-date'), null);
+  assert.equal(parseApiDate(''), null);
 });

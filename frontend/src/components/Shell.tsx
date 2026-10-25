@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Menu, Sparkles, X } from 'lucide-react';
 import { useSession } from '../context/SessionContext';
-import { useAsync } from '../lib/router';
+import { navigate, useAsync } from '../lib/router';
 import { api } from '../services/api';
 import { buildNavigation, isItemActive, routeTitle } from '../lib/navigation';
 import type { Route } from '../lib/router';
 import { cn } from './ui';
 import { RoleSwitcher } from './RoleSwitcher';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 function InkloomMark({ size = 30 }: { size?: number }) {
   return (
@@ -56,7 +57,15 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
       </div>
 
       <div className="px-3 pt-4">
-        <div className="rounded-lg border border-white/[0.09] bg-white/[0.05] px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => {
+            navigate('/welcome');
+            onNavigate();
+          }}
+          className="w-full rounded-lg border border-white/[0.09] bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+          aria-label={`Workspace: ${session?.workspace.name || 'loading'}. Open the workspace selector.`}
+        >
           <div className="flex items-center justify-between gap-2">
             <p
               className="line-clamp-2 min-w-0 break-words text-xs font-medium leading-4 text-slate-100"
@@ -64,12 +73,22 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
             >
               {session?.workspace.name || 'Loading workspace'}
             </p>
-            <span className="shrink-0 rounded border border-amber-300/20 bg-amber-300/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
-              Demo
-            </span>
+            {session?.workspace.is_demo ? (
+              <span className="shrink-0 rounded border border-amber-300/20 bg-amber-300/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
+                Demo
+              </span>
+            ) : (
+              <span className="shrink-0 rounded border border-blue-300/20 bg-blue-300/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-200">
+                Yours
+              </span>
+            )}
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">Acme Cloud · fictional scenario</p>
-        </div>
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
+            {session?.workspace.is_demo ? 'Fictional demo data' : 'Custom brand workspace'}
+            <span aria-hidden>·</span>
+            <span className="font-medium text-slate-300">Switch</span>
+          </p>
+        </button>
       </div>
 
       <nav className="flex-1 space-y-6 px-3 py-6" aria-label="Main navigation">
@@ -149,7 +168,7 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
 }
 
 export function Shell({ route, children }: { route: Route; children: React.ReactNode }) {
-  const { openAssistant } = useSession();
+  const { openAssistant, session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileDialogRef = useRef<HTMLDivElement>(null);
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
@@ -267,16 +286,33 @@ export function Shell({ route, children }: { route: Route; children: React.React
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="hidden text-xs text-slate-500 sm:inline">Acme Cloud Technologies</span>
+                <span className="hidden max-w-[14rem] truncate text-xs text-slate-500 sm:inline">
+                  {session?.workspace.name || 'Workspace'}
+                </span>
                 <span className="hidden text-slate-300 sm:inline" aria-hidden>/</span>
                 <h2 className="truncate text-sm font-semibold text-slate-900">{title}</h2>
               </div>
             </div>
 
-            <div className="hidden items-center gap-2 md:flex">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
-                Fictional demo data
+            <WorkspaceSwitcher className="shrink-0" />
+
+            <div className="hidden items-center gap-2 xl:flex">
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium',
+                  session?.workspace.is_demo
+                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : 'border-slate-200 bg-slate-50 text-slate-600'
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    session?.workspace.is_demo ? 'bg-amber-500' : 'bg-slate-400'
+                  )}
+                  aria-hidden
+                />
+                {session?.workspace.is_demo ? 'Fictional demo data' : 'Custom brand data'}
               </span>
             </div>
 
@@ -301,7 +337,11 @@ export function Shell({ route, children }: { route: Route; children: React.React
         <footer className="mx-auto w-full max-w-[1440px] px-4 pb-6 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-4 text-[11px] text-slate-500">
             <span>Inkloom AI · Evidence-first brand governance</span>
-            <span>Demo workspace · Acme Cloud Technologies is fictional</span>
+            <span>
+              {session?.workspace.is_demo
+                ? 'Demo workspace · Acme Cloud Technologies is fictional'
+                : `${session?.workspace.name || 'Brand workspace'} · saved rules and facts drive every audit`}
+            </span>
           </div>
         </footer>
       </div>

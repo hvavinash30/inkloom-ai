@@ -21,6 +21,8 @@ import { ResearchPage } from './pages/ResearchPage';
 import { EvaluationPage } from './pages/EvaluationPage';
 import { TeamPage } from './pages/TeamPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { WelcomePage } from './pages/WelcomePage';
+import { OnboardingPage } from './pages/OnboardingPage';
 import { AccessDeniedPage, NotFoundPage } from './pages/Errors';
 
 function LoadingScreen() {
@@ -70,6 +72,9 @@ function ApiUnavailable({ message, retry }: { message: string; retry: () => void
 
 function renderRoute(route: Route) {
   switch (route.key) {
+    case 'welcome':
+    case 'onboarding':
+      return null;
     case 'dashboard':
       return <DashboardPage />;
     case 'content':
@@ -107,11 +112,14 @@ function renderRoute(route: Route) {
 
 function AppContent() {
   const route = useHashRoute();
-  const { session, loading, error, reload, can } = useSession();
+  const { session, loading, error, reload, can, workspaceId } = useSession();
 
   if (loading) return <LoadingScreen />;
 
-  if (error || !session) {
+  if (!session) {
+    if (!error && !workspaceId) {
+      return <LoadingScreen />;
+    }
     return (
       <ApiUnavailable
         message={error || 'A demo session could not be established. The workspace may not be seeded yet.'}
@@ -119,6 +127,10 @@ function AppContent() {
       />
     );
   }
+
+  if (route.key === 'welcome') return <WelcomePage />;
+  if (route.key === 'onboarding') return <OnboardingPage />;
+  if (!workspaceId) return <WelcomePage />;
 
   const requirement = routeRequirement(route);
   const permitted = !requirement || can(requirement);

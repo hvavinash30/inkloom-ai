@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../services/api';
 
 export type Route =
+  | { key: 'welcome' }
+  | { key: 'onboarding' }
   | { key: 'dashboard' }
   | { key: 'content' }
   | { key: 'new-content' }
@@ -25,6 +27,10 @@ export function parseRoute(hash: string): Route {
   if (segments.length === 0) return { key: 'dashboard' };
   const [first, second] = segments;
   switch (first) {
+    case 'welcome':
+      return { key: 'welcome' };
+    case 'onboarding':
+      return { key: 'onboarding' };
     case 'content':
       if (second === 'new') return { key: 'new-content' };
       if (second) return { key: 'document', id: decodeURIComponent(second) };

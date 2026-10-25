@@ -33,6 +33,7 @@ import {
 import {
   ASSET_TYPE_LABEL,
   CONTENT_TYPE_LABEL,
+  parseApiDate,
   relativeTime,
   titleCase,
 } from '../lib/format';
@@ -75,7 +76,11 @@ export function ReviewsPage() {
           .toLowerCase()
           .includes(deferredQuery);
       })
-      .sort((a, b) => new Date(b.submitted_at || b.updated_at).getTime() - new Date(a.submitted_at || a.updated_at).getTime());
+      .sort(
+        (a, b) =>
+          (parseApiDate(b.submitted_at || b.updated_at)?.getTime() ?? 0) -
+          (parseApiDate(a.submitted_at || a.updated_at)?.getTime() ?? 0)
+      );
   }, [queue, assetFilter, priorityFilter, deferredQuery]);
 
   const highRisk = queue.filter((doc) => openHighFindings(doc) > 0).length;

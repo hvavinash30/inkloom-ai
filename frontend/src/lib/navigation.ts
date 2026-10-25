@@ -97,6 +97,10 @@ export function isItemActive(item: NavItem, route: Route): boolean {
 
 export function routeTitle(route: Route): string {
   switch (route.key) {
+    case 'welcome':
+      return 'Workspaces';
+    case 'onboarding':
+      return 'Create your brand';
     case 'dashboard':
       return 'Overview';
     case 'content':

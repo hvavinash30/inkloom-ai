@@ -33,14 +33,26 @@ import type {
   SessionPayload,
   TeamResponse,
   UploadRecord,
+  Workspace,
+  WorkspaceCreatePayload,
 } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
 let activeRole: Role = 'creator';
+let activeWorkspace: string | null = null;
 
 export function setApiRole(role: Role) {
   activeRole = role;
+}
+
+export function setApiWorkspace(workspaceId: string | null) {
+  activeWorkspace = workspaceId;
+}
+
+function identityHeaders(headers: Headers) {
+  headers.set('X-Inkloom-Role', activeRole);
+  if (activeWorkspace) headers.set('X-Inkloom-Workspace', activeWorkspace);
 }
 
 export class ApiError extends Error {
@@ -73,7 +85,7 @@ function extractError(payload: unknown): string {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
-  headers.set('X-Inkloom-Role', activeRole);
+  identityHeaders(headers);
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -116,7 +128,7 @@ function qs(params?: Record<string, string | number | boolean | undefined | null
 
 async function fetchFile(path: string): Promise<{ blob: Blob; contentType: string }> {
   const headers = new Headers();
-  headers.set('X-Inkloom-Role', activeRole);
+  identityHeaders(headers);
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, { headers });
@@ -134,9 +146,21 @@ async function fetchFile(path: string): Promise<{ blob: Blob; contentType: strin
 
 export const api = {
   setRole: setApiRole,
+  setWorkspace: setApiWorkspace,
   getSession: () => request<SessionPayload>('/session'),
   getHealth: () => request<HealthData>('/health'),
   getDashboard: () => request<DashboardData>('/dashboard/'),
+
+  listWorkspaces: () => request<Workspace[]>('/workspaces/'),
+  getWorkspaceById: (id: string) =>
+    request<Workspace>(`/workspaces/${encodeURIComponent(id)}`),
+  createWorkspace: (payload: WorkspaceCreatePayload) =>
+    request<Workspace>('/workspaces/', { method: 'POST', body: JSON.stringify(payload) }),
+  updateWorkspaceById: (id: string, payload: { name?: string; description?: string }) =>
+    request<Workspace>(`/workspaces/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
 
   getOverviewStats: () => request<OverviewStats>('/audits/overview-stats'),
 

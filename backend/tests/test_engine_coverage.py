@@ -18,6 +18,7 @@ from app.models.brand_rule import BrandRule
 from app.services.audit_engine import (
     assign_finding_group,
     detect_all_caps_runs,
+    detect_fact_contradictions,
     detect_inconsistent_product_naming,
     group_findings,
     run_text_audit,
@@ -218,3 +219,58 @@ def test_review_summary_tracks_decisions_and_stale_approval(client: TestClient):
     assert stale_summary["version"]["approval_stale"] is True
     assert any(action["id"] == "stale" for action in stale_summary["outstanding_actions"])
     assert stale_summary["approval"]["latest_decision"] == "approved"
+
+def price_fact() -> ApprovedFact:
+    return ApprovedFact(
+        id="fact-price-1",
+        workspace_id="ws-1",
+        category="Pricing",
+        claim_statement="Enterprise list price",
+        approved_value="USD 49 per user per month",
+        source_reference="Commercial schedule v3 (fictional source)",
+        is_active=True,
+        status="verified",
+    )
+
+
+def test_price_contradiction_supports_iso_currency_codes():
+    text = "Our enterprise list price is USD 99 per user per month."
+    findings = detect_fact_contradictions(text, [price_fact()])
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["category"] == "confirmed_contradiction"
+    assert finding["affected_text"] == "USD 99 per user per month"
+    assert text[finding["start_index"] : finding["end_index"]] == finding["affected_text"]
+    assert finding["evidence_status"] == "contradicted"
+    assert "USD 49" in finding["supporting_evidence"]
+    assert finding["suggested_correction"] == "USD 49 per user per month"
+    applied = text[: finding["start_index"]] + finding["suggested_correction"] + text[finding["end_index"]:]
+    assert applied == "Our enterprise list price is USD 49 per user per month."
+
+
+def test_price_correction_replaces_the_whole_currency_unit_phrase():
+    fact = ApprovedFact(
+        id="fact-price-inr",
+        workspace_id="ws-1",
+        category="Pricing",
+        claim_statement="Enterprise list price",
+        approved_value="INR 12,999 per month per organization",
+        source_reference="Commercial schedule v3 (fictional source)",
+        is_active=True,
+        status="verified",
+    )
+    text = "Enterprise plans start at INR 11,499 per month with onboarding included."
+    findings = detect_fact_contradictions(text, [fact])
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["affected_text"] == "INR 11,499 per month"
+    applied = text[: finding["start_index"]] + finding["suggested_correction"] + text[finding["end_index"]:]
+    assert applied == "Enterprise plans start at INR 12,999 per month per organization with onboarding included."
+
+
+def test_matching_iso_price_with_decimal_formatting_is_not_flagged():
+    assert detect_fact_contradictions("Enterprise list price: USD 49.00.", [price_fact()]) == []
+
+
+def test_price_check_does_not_invent_a_currency_amount():
+    assert detect_fact_contradictions("Our enterprise list price is competitive.", [price_fact()]) == []

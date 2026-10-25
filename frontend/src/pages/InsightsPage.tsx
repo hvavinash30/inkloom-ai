@@ -29,7 +29,7 @@ import {
   StatCard,
   cn,
 } from '../components/ui';
-import { CAPABILITY_LABEL, SEVERITY_LABEL, titleCase } from '../lib/format';
+import { CAPABILITY_LABEL, SEVERITY_LABEL, formatDateTime, titleCase } from '../lib/format';
 import type { InsightsData, Severity } from '../types';
 
 const SEVERITY_BAR: Record<string, string> = {
@@ -486,7 +486,7 @@ export function InsightsPage() {
                   <li>• Scores aid workflow; they are not legal risk ratings.</li>
                 </ul>
                 <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] text-slate-400">
-                  Generated {new Date(data.generated_at).toLocaleString()}
+                  Generated {formatDateTime(data.generated_at)}
                   {data.is_demo ? ' · demo workspace data' : ''}
                 </p>
               </Card>
