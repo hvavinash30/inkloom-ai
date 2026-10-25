@@ -290,66 +290,6 @@ export function NewContentPage() {
         description="Start with text, a PDF, an image, or a video. Checks are deterministic and compare only against active workspace rules and approved facts."
       />
 
-      {session ? (
-        <div className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-subtle sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
-              <FileText className="h-3.5 w-3.5" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-800">
-                Auditing for {session.workspace.name}
-                <span
-                  className={cn(
-                    'rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
-                    session.workspace.is_demo
-                      ? 'border-amber-200 bg-amber-50 text-amber-800'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                  )}
-                >
-                  {session.workspace.is_demo ? 'Demo workspace' : 'Custom workspace'}
-                </span>
-              </p>
-              <p className="mt-0.5 text-[11px] leading-5 text-slate-500">
-                {session.workspace.counts?.rules ?? 0} active rule
-                {(session.workspace.counts?.rules ?? 0) === 1 ? '' : 's'} ·{' '}
-                {session.workspace.counts?.facts ?? 0} approved fact
-                {(session.workspace.counts?.facts ?? 0) === 1 ? '' : 's'} ·{' '}
-                {session.workspace.counts?.documents ?? 0} existing document
-                {(session.workspace.counts?.documents ?? 0) === 1 ? '' : 's'} in this workspace.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/brand')}
-            className="inline-flex shrink-0 items-center gap-1 self-start rounded-md text-[11px] font-medium text-brand-700 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:self-auto"
-          >
-            Review brand rules
-            <ArrowRight className="h-3 w-3" aria-hidden />
-          </button>
-        </div>
-      ) : null}
-
-      {session &&
-      !session.workspace.is_demo &&
-      (session.workspace.counts?.rules ?? 0) + (session.workspace.counts?.facts ?? 0) === 0 ? (
-        <div className="mb-5">
-          <InfoCallout tone="warning" title="This brand has no saved rules or approved facts yet">
-            The check will still run built-in content heuristics, but it cannot verify product claims or
-            enforce brand-specific rules until you add them in the{' '}
-            <button
-              type="button"
-              onClick={() => navigate('/brand')}
-              className="font-medium text-amber-900 underline underline-offset-2"
-            >
-              brand library
-            </button>
-            .
-          </InfoCallout>
-        </div>
-      ) : null}
-
       {health.error ? (
         <div className="mb-5">
           <InfoCallout tone="warning" title="Workspace limits could not be loaded">

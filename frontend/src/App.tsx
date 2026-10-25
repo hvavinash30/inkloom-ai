@@ -21,7 +21,6 @@ import { ResearchPage } from './pages/ResearchPage';
 import { EvaluationPage } from './pages/EvaluationPage';
 import { TeamPage } from './pages/TeamPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { WelcomePage } from './pages/WelcomePage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { AccessDeniedPage, NotFoundPage } from './pages/Errors';
 
@@ -37,7 +36,7 @@ function LoadingScreen() {
           </svg>
         </span>
         <p className="mt-4 text-sm font-semibold text-slate-800">Loading the Inkloom workspace</p>
-        <p className="mt-1 text-xs text-slate-400">Checking the session and server capabilities…</p>
+        <p className="mt-1 text-xs text-slate-400">Preparing your workspace…</p>
       </div>
     </div>
   );
@@ -52,12 +51,11 @@ function ApiUnavailable({ message, retry }: { message: string; retry: () => void
             <ServerOff className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-slate-950">The Inkloom API is not reachable</h1>
+            <h1 className="text-base font-semibold text-slate-950">Inkloom is not reachable</h1>
             <p className="mt-1.5 text-sm leading-6 text-slate-600">{message}</p>
             <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-500">
-              This interface reads workspace records from the FastAPI server. Start the backend on port 8000, then
-              retry. The frontend is configured with <code className="font-mono text-slate-700">VITE_API_BASE_URL</code>{' '}
-              and a development proxy.
+              Workspace records could not be loaded. Make sure the Inkloom service is running, then retry. If the
+              problem continues, contact your workspace administrator.
             </div>
             <Button className="mt-4" onClick={retry}>
               <RefreshCw className="h-4 w-4" />
@@ -72,7 +70,6 @@ function ApiUnavailable({ message, retry }: { message: string; retry: () => void
 
 function renderRoute(route: Route) {
   switch (route.key) {
-    case 'welcome':
     case 'onboarding':
       return null;
     case 'dashboard':
@@ -117,9 +114,7 @@ function AppContent() {
   if (loading) return <LoadingScreen />;
 
   if (!session) {
-    if (!error && !workspaceId) {
-      return <LoadingScreen />;
-    }
+    if (!error && !workspaceId) return <LoadingScreen />;
     return (
       <ApiUnavailable
         message={error || 'A demo session could not be established. The workspace may not be seeded yet.'}
@@ -128,9 +123,7 @@ function AppContent() {
     );
   }
 
-  if (route.key === 'welcome') return <WelcomePage />;
   if (route.key === 'onboarding') return <OnboardingPage />;
-  if (!workspaceId) return <WelcomePage />;
 
   const requirement = routeRequirement(route);
   const permitted = !requirement || can(requirement);

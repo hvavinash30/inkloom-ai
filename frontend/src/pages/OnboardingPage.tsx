@@ -211,11 +211,11 @@ export function OnboardingPage() {
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <button
             type="button"
-            onClick={() => navigate('/welcome')}
+            onClick={() => navigate('/')}
             className="inline-flex items-center gap-2 rounded-lg text-sm font-medium text-slate-600 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
-            All workspaces
+            Back to Overview
           </button>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600">
             <Users className="h-3 w-3 text-slate-400" aria-hidden />

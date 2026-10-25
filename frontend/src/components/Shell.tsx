@@ -7,7 +7,6 @@ import { buildNavigation, isItemActive, routeTitle } from '../lib/navigation';
 import type { Route } from '../lib/router';
 import { cn } from './ui';
 import { RoleSwitcher } from './RoleSwitcher';
-import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 function InkloomMark({ size = 30 }: { size?: number }) {
   return (
@@ -32,10 +31,10 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
   const connected = health.data?.status === 'online';
 
   const apiStatus = health.loading
-    ? 'Checking API…'
+    ? 'Checking connection…'
     : connected
-      ? `API connected${health.data?.version ? ` · v${health.data.version.replace(/^v/i, '')}` : ''}`
-      : 'API unavailable';
+      ? `Connected${health.data?.version ? ` · v${health.data.version.replace(/^v/i, '')}` : ''}`
+      : 'Service unavailable';
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-navy-900 text-slate-300">
@@ -57,15 +56,7 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
       </div>
 
       <div className="px-3 pt-4">
-        <button
-          type="button"
-          onClick={() => {
-            navigate('/welcome');
-            onNavigate();
-          }}
-          className="w-full rounded-lg border border-white/[0.09] bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
-          aria-label={`Workspace: ${session?.workspace.name || 'loading'}. Open the workspace selector.`}
-        >
+        <div className="rounded-lg border border-white/[0.09] bg-white/[0.05] px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <p
               className="line-clamp-2 min-w-0 break-words text-xs font-medium leading-4 text-slate-100"
@@ -77,17 +68,21 @@ function SidebarContent({ route, onNavigate }: { route: Route; onNavigate: () =>
               <span className="shrink-0 rounded border border-amber-300/20 bg-amber-300/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
                 Demo
               </span>
-            ) : (
-              <span className="shrink-0 rounded border border-blue-300/20 bg-blue-300/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-200">
-                Yours
-              </span>
-            )}
+            ) : null}
           </div>
-          <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
-            {session?.workspace.is_demo ? 'Fictional demo data' : 'Custom brand workspace'}
-            <span aria-hidden>·</span>
-            <span className="font-medium text-slate-300">Switch</span>
+          <p className="mt-1 text-[11px] text-slate-400">
+            {session?.workspace.is_demo ? 'Acme Cloud · fictional scenario' : 'Custom brand workspace'}
           </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            navigate('/onboarding');
+            onNavigate();
+          }}
+          className="mt-2 flex w-full items-center justify-center rounded-lg border border-white/[0.09] bg-white/[0.05] px-3 py-2 text-[12px] font-medium text-slate-200 transition-colors hover:border-white/20 hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+        >
+          + Create Your Own Brand
         </button>
       </div>
 
@@ -284,19 +279,20 @@ export function Shell({ route, children }: { route: Route; children: React.React
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="hidden max-w-[14rem] truncate text-xs text-slate-500 sm:inline">
-                  {session?.workspace.name || 'Workspace'}
-                </span>
-                <span className="hidden text-slate-300 sm:inline" aria-hidden>/</span>
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+              <span className="order-1 hidden max-w-[9rem] truncate text-xs text-slate-500 sm:inline lg:max-w-[14rem]">
+                {session?.workspace.name || 'Workspace'}
+              </span>
+              <div className="order-2 shrink-0">
+                <RoleSwitcher compact />
+              </div>
+              <div className="order-1 flex min-w-0 items-center gap-2 sm:order-3">
+                <span className="hidden shrink-0 text-slate-300 sm:inline" aria-hidden>/</span>
                 <h2 className="truncate text-sm font-semibold text-slate-900">{title}</h2>
               </div>
             </div>
 
-            <WorkspaceSwitcher className="shrink-0" />
-
-            <div className="hidden items-center gap-2 xl:flex">
+            <div className="hidden items-center gap-2 md:flex">
               <span
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium',
@@ -325,8 +321,6 @@ export function Shell({ route, children }: { route: Route; children: React.React
               <span className="hidden sm:inline">Ask Inkloom</span>
               <span className="sr-only sm:hidden">Ask Inkloom</span>
             </button>
-
-            <RoleSwitcher compact />
           </div>
         </header>
 

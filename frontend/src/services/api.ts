@@ -97,7 +97,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   } catch {
     throw new ApiError(
       0,
-      'Cannot reach the Inkloom API. Make sure the backend is running, then try again.'
+      'Cannot reach Inkloom. Make sure the service is running, then try again.'
     );
   }
 

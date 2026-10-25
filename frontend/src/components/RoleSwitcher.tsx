@@ -16,7 +16,7 @@ const ROLE_ICON: Record<Role, typeof Users> = {
 
 const ROLE_RING: Record<Role, string> = {
   creator: 'bg-slate-700 text-slate-100',
-  reviewer: 'bg-blue-500/20 text-blue-100',
+  reviewer: 'bg-blue-100 text-blue-700',
   admin: 'bg-amber-400/20 text-amber-100',
 };
 
@@ -47,7 +47,7 @@ export function RoleSwitcher({ compact = false }: { compact?: boolean }) {
   const roles: Role[] = ['creator', 'reviewer', 'admin'];
   const roleUsers = (candidate: Role) =>
     session?.users.find((user) => user.role === candidate)?.full_name ||
-    `${ROLE_LABEL[candidate]} demo identity`;
+    (candidate === 'creator' ? 'Jordan Patel' : candidate === 'reviewer' ? 'Alex Rivera' : 'Sarah Chen');
 
   return (
     <div className="relative" ref={ref}>
@@ -56,8 +56,6 @@ export function RoleSwitcher({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Switch role. Current role: ${ROLE_LABEL[role]}`}
-        title={`Current role: ${ROLE_LABEL[role]}`}
         className={cn(
           'flex items-center gap-2 rounded-lg border border-slate-200 bg-white py-1.5 pl-1.5 pr-2.5 text-left shadow-subtle transition-colors hover:border-slate-300 hover:bg-slate-50',
           compact ? '' : 'sm:min-w-[196px]'
@@ -78,14 +76,12 @@ export function RoleSwitcher({ compact = false }: { compact?: boolean }) {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-[302px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-elevated"
+          className="fixed inset-x-4 top-16 z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-elevated sm:absolute sm:left-0 sm:right-auto sm:top-auto sm:mt-2 sm:w-[302px]"
         >
           <div className="border-b border-slate-100 bg-slate-50/70 px-3.5 py-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Role switcher</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Demo role switcher</p>
             <p className="mt-0.5 text-xs leading-5 text-slate-500">
-              {session?.workspace.is_demo
-                ? 'Demo roles in the fictional Acme Cloud workspace. Navigation and server permissions change with the selected role.'
-                : `Demo identities in ${session?.workspace.name || 'this workspace'}. Navigation and server permissions change with the selected role.`}
+              Navigation and server permissions change with the selected role.
             </p>
           </div>
           <div className="p-1.5">
@@ -136,8 +132,7 @@ export function RoleSwitcher({ compact = false }: { compact?: boolean }) {
             })}
           </div>
           <p className="border-t border-slate-100 px-3.5 py-2 text-[10px] leading-4 text-slate-400">
-            Roles are demo identities sent as request headers and re-checked by the API. Production
-            deployments need an authentication provider.
+            Demo identities are used only for this preview, and every action is permission-checked.
           </p>
         </div>
       ) : null}

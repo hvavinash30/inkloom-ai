@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -20,7 +20,6 @@ import { useSession } from '../context/SessionContext';
 import { useAsync, navigate } from '../lib/router';
 import { api } from '../services/api';
 import {
-  Badge,
   Button,
   EmptyState,
   ErrorState,
@@ -491,125 +490,9 @@ function QueueEmpty({
   );
 }
 
-function CustomWorkspaceSetup() {
-  const { session } = useSession();
-  if (!session || session.workspace.is_demo) return null;
-  const counts = session.workspace.counts || {};
-  const steps = [
-    {
-      key: 'rules',
-      label: 'Brand rules',
-      description: 'Restricted claims and terminology that audits enforce.',
-      done: (counts.rules || 0) > 0,
-      path: '/brand',
-      action: 'Open brand library',
-      icon: ShieldAlert,
-    },
-    {
-      key: 'facts',
-      label: 'Approved facts',
-      description: 'Values reviewers can cite when checking claims.',
-      done: (counts.facts || 0) > 0,
-      path: '/brand',
-      action: 'Add approved facts',
-      icon: FileText,
-    },
-    {
-      key: 'documents',
-      label: 'First audit',
-      description: 'Upload or paste content and check it against this brand.',
-      done: (counts.documents || 0) > 0,
-      path: '/content/new',
-      action: 'Start an audit',
-      icon: FilePlus2,
-    },
-    {
-      key: 'campaigns',
-      label: 'Campaign grouping',
-      description: 'Group related content and detect cross-asset conflicts.',
-      done: (counts.campaigns || 0) > 0,
-      path: '/campaigns',
-      action: 'Create a campaign',
-      icon: Layers,
-    },
-  ];
-  if (steps.every((step) => step.done)) return null;
-  const completed = steps.filter((step) => step.done).length;
-
-  return (
-    <section
-      aria-labelledby="brand-setup-heading"
-      className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-subtle"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id="brand-setup-heading" className="text-sm font-semibold text-slate-900">
-            Set up {session.workspace.name}
-          </h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
-            Audits use only this workspace's saved rules and approved facts. Nothing is inherited from the
-            demo workspace.
-          </p>
-        </div>
-        <Badge className="border-slate-200 bg-slate-50 text-slate-600">
-          {completed} of {steps.length} complete
-        </Badge>
-      </div>
-      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-        {steps.map((step) => {
-          const Icon = step.icon;
-          return (
-            <li
-              key={step.key}
-              className={cn(
-                'flex items-start gap-2.5 rounded-lg border px-3 py-2.5',
-                step.done ? 'border-emerald-200/70 bg-emerald-50/40' : 'border-slate-200 bg-slate-50/60'
-              )}
-            >
-              <span
-                className={cn(
-                  'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
-                  step.done ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500'
-                )}
-              >
-                {step.done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                ) : (
-                  <Icon className="h-3.5 w-3.5" aria-hidden />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-slate-800">
-                  {step.label}
-                  <span className="sr-only">{step.done ? ' — complete' : ' — not started'}</span>
-                </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{step.description}</p>
-                {step.done ? null : (
-                  <button
-                    type="button"
-                    onClick={() => navigate(step.path)}
-                    className="mt-1 inline-flex items-center gap-1 rounded text-[11px] font-medium text-brand-700 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1"
-                  >
-                    {step.action}
-                    <ArrowRight className="h-3 w-3" aria-hidden />
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
 export function DashboardPage() {
-  const { session, role, can, refreshWorkspaces } = useSession();
+  const { session, role, can } = useSession();
   const { data, loading, error, reload } = useAsync(() => api.getDashboard(), [role]);
-
-  useEffect(() => {
-    void refreshWorkspaces();
-  }, [refreshWorkspaces]);
 
   if (loading) {
     return (
@@ -832,8 +715,6 @@ export function DashboardPage() {
           </div>
         </div>
       </header>
-
-      <CustomWorkspaceSetup />
 
       <div className="grid auto-rows-fr grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {statCards.map((card) => (
@@ -1233,14 +1114,14 @@ export function DashboardPage() {
       {session?.workspace.is_demo ? (
         <InfoCallout tone="neutral" title="Demo data disclosure">
           Acme Cloud Technologies, its people, pricing, benchmarks, and claims are fictional and seeded for this
-          demo workspace. Research records cite real public standards where linked; planned studies are
-          labelled and were not conducted. Your role is <strong>{ROLE_LABEL[role]}</strong>.
+          demo workspace. Research records cite real public standards where linked; planned studies are labelled
+          and were not conducted. Your role is <strong>{ROLE_LABEL[role]}</strong>.
         </InfoCallout>
       ) : (
         <InfoCallout tone="neutral" title="Workspace data notice">
-          {session?.workspace.name || 'This workspace'} is a custom workspace on this demo deployment. Audit
-          findings are derived only from its saved rules and approved facts, which were entered by workspace
-          users and are not independently verified. Your role is <strong>{ROLE_LABEL[role]}</strong>.
+          {session?.workspace.name || 'This workspace'} is a custom workspace. Audit findings are derived only
+          from its saved rules and approved facts, which were entered by workspace users and are not independently
+          verified. Your role is <strong>{ROLE_LABEL[role]}</strong>.
         </InfoCallout>
       )}
     </div>
