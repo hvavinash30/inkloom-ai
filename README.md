@@ -310,7 +310,7 @@ If you point `DATABASE_URL` at Postgres, SQLAlchemy creates the current runtime 
 
 ## Verification results
 
-Last verified on 2026-10-28 (Round 3 changes are local only; the live deployment still serves the previous build — see [Deployment state](#deployment-state)).
+Local suites and journeys were verified on 2026-10-28; Round 3 was published to GitHub and redeployed on 2026-10-29 (see [Deployment state](#deployment-state)).
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -323,10 +323,11 @@ Last verified on 2026-10-28 (Round 3 changes are local only; the live deployment
 | Review + override journey | Headless Chrome (CDP), 1440 px and 390 px | Claim review → assigned to reviewer; approval blocked without override reason; approval with reason recorded; “Current version is approved”, override reason and reviewer shown in history; no overflow. |
 | Insights journeys | Headless Chrome (CDP), 1440 / 768 / 390 px | Admin sees all four governance-risk sections, methods, and empty states; document chips navigate to the affected content; no horizontal overflow at any width. |
 | Regression journeys | Headless Chrome (CDP) | Dashboard, content list (“Showing 16 items” in the local verification database), Create Your Own Brand form, and the 390 px mobile drawer with navigation to Insights all render. |
+| Live deployment smoke | Headless Chrome (CDP) + API probes against <https://inkloom-ai-rho.vercel.app> and <https://inkloom-api.onrender.com> | **PASS** — commit `ccf799b` serves the Round 3 bundle; dashboard, content list, insights, Create Your Own Brand, and the 390 px drawer render with no access-denied or session errors and no horizontal overflow; `POST /api/v1/auth/demo/session` → **201**, role-only header without a token → **401**, `GET /api/v1/insights/` → **200** with all four signal groups and metric methods. Production OCR is disabled by configuration (see [Deployment state](#deployment-state)). |
 
 `npm run build` runs `tsc` before Vite, which is the static type check used here; there is no ESLint configuration in this repository. Browser checks used a temporary headless-Chrome CDP harness outside the repository (Playwright is not installed in this environment), so those scripts are not part of the delivered application.
 
-The browser journeys ran against the local development database. They created verification documents in it (OCR image/PDF checks and a separate throwaway workspace for the override test); no production or deployed data was touched. The live deployment was not redeployed for Round 3.
+The browser journeys ran against the local development database. They created verification documents in it (OCR image/PDF checks and a separate throwaway workspace for the override test); no production data was edited by these journeys. The deploy reseeded the production demo database from the seed, so live content counts start from the seeded set.
 
 ---
 
@@ -334,10 +335,12 @@ The browser journeys ran against the local development database. They created ve
 
 | Component | Serves | Round 3 present? |
 | --- | --- | --- |
-| Vercel frontend <https://inkloom-ai-rho.vercel.app> | Previous build (`assets/index-KdOOcaBQ.js`) | **No** — the bundle contains none of the Round 3 UI strings (`Governance risk signals`, `Recurring violations`, `auth/demo/session`, `Extracted text with evidence`). |
-| Render API <https://inkloom-api.onrender.com> | Previous backend | **No** — `/api/v1/auth/demo/session` returns **404** (local returns **201**), and `/api/v1/health` lacks the `ocr_provider`/`ocr_reason` fields the local build reports. |
+| Vercel frontend <https://inkloom-ai-rho.vercel.app> | `assets/index-BgjRQFHF.js` (617,293 bytes), commit `ccf799b` | **Yes** — the bundle contains the Round 3 UI strings (`Governance risk signals`, `Recurring violations`, `auth/demo/session`, `Extracted text with evidence`). |
+| Render API <https://inkloom-api.onrender.com> | Commit `ccf799b` | **Yes** — `/api/v1/auth/demo/session` returns **201**, and `/api/v1/health` reports `ocr_configured: false`, `ocr_provider: "none"` with the explicit reason `OCR is disabled by configuration (OCR_PROVIDER=none)`. |
 
-Round 3 was prepared and verified locally only. Nothing was committed, pushed, or deployed. Deploying requires a commit/push to GitHub `main` (Vercel auto-builds) and a manual Render redeploy; see [Deploy](#deploy-vercel--render).
+Round 3 was committed as `ccf799b` and pushed to GitHub `main` on 2026-10-29. Vercel built and promoted the frontend automatically. Render did not auto-trigger from the push despite `autoDeploy` being enabled, so the API was deployed manually to the same commit. The build installed the OCR dependencies successfully, but the Render service still runs with `OCR_PROVIDER=none`; image and scanned-PDF uploads on the live site therefore report OCR as disabled instead of inventing text. Local runs use `OCR_PROVIDER=auto` and perform real OCR. Set the Render variable to `auto` to enable it there; the free instance has 512 MB of memory, so verify memory headroom and latency first.
+
+Render’s free-plan filesystem is ephemeral: the deploy reseeded the fictional demo workspace, and uploads or edits made on the live site reset on the next restart or deploy.
 
 ---
 
@@ -375,6 +378,7 @@ Round 3 was prepared and verified locally only. Nothing was committed, pushed, o
 - **PDF layout.** Extraction preserves page text order but not columns, tables, or visual placement. Line-based diffs reflect extracted text, not visual layout.
 - **Evaluation is a fixture.** Five synthetic cases verify regressions; they are not a benchmark of real-world accuracy.
 - **Insights are descriptive.** Counts, rates, and signals are computed from stored records only; small sample sizes are labelled and do not predict legal or brand risk.
+- **Live OCR is disabled on the free Render instance.** The deployment runs with `OCR_PROVIDER=none` because the free plan has limited memory; image and scanned-PDF checks there return an explicit “OCR is disabled” state. Local runs perform real OCR, and the live instance can be switched to `auto` once memory headroom is confirmed.
 - **Single-node demo storage.** SQLite and local disk uploads suit the demo. A multi-instance production deployment needs Postgres, object storage, and a real auth provider.
 - **Supabase migrations are optional and not exercised by the local runtime.** RLS policies are included for a production Postgres setup; they are not active protections around the demo’s direct SQLAlchemy connection.
 

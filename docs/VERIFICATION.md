@@ -79,7 +79,7 @@ Screenshots were captured to `%TEMP%\inkloom-cdp\shots\` (outside the repository
 
 ## 4. Verified feature list
 
-Status values: **COMPLETE (local)** means implemented and verified in this environment; **NOT DEPLOYED** means intentionally absent from the live sites.
+Status values: **COMPLETE (local)** means implemented and verified in this environment; **DEPLOYED** means the code is live on the production sites (configuration caveats are stated inline). Unless noted, features marked COMPLETE (local) are part of the deployed `ccf799b` build; the label records where the detailed evidence was produced.
 
 | Feature | Status |
 | --- | --- |
@@ -102,7 +102,7 @@ Status values: **COMPLETE (local)** means implemented and verified in this envir
 | Unclear guideline signals | COMPLETE (local) |
 | Methods, sample sizes, reporting window, empty states | COMPLETE (local) |
 | Existing dashboard, content, reviews, campaigns, brand memory, research, evaluation, assistant, settings | COMPLETE (regression-checked) |
-| Round 3 deployed to Vercel/Render | NOT DEPLOYED |
+| Round 3 deployed to Vercel/Render | DEPLOYED 2026-10-29 (commit `ccf799b`); live OCR is disabled by `OCR_PROVIDER=none` |
 
 ---
 
@@ -111,15 +111,17 @@ Status values: **COMPLETE (local)** means implemented and verified in this envir
 | Environment | Frontend | Backend | Round 3? |
 | --- | --- | --- | --- |
 | Local (verified) | Vite dev server, working tree | Uvicorn, working tree | **Yes** |
-| Live (<https://inkloom-ai-rho.vercel.app>, <https://inkloom-api.onrender.com>) | `assets/index-KdOOcaBQ.js`, 593,314 bytes; contains none of `Governance risk signals`, `Recurring violations`, `auth/demo/session`, `Extracted text with evidence` | `/api/v1/auth/demo/session` → **404**; `/api/v1/health` lacks `ocr_provider`/`ocr_reason`; `ocr_configured: false` | **No** |
+| Live (<https://inkloom-ai-rho.vercel.app>, <https://inkloom-api.onrender.com>) | `assets/index-BgjRQFHF.js`, 617,293 bytes; contains `Governance risk signals`, `Recurring violations`, `auth/demo/session`, and `Extracted text with evidence` | `/api/v1/auth/demo/session` → **201**; `/api/v1/health` reports `ocr_configured: false`, `ocr_provider: "none"` with the explicit reason `OCR is disabled by configuration (OCR_PROVIDER=none)` | **Yes** (OCR code deployed, provider disabled) |
 
-Local probes in the same session:
+Deployed-build probes on 2026-10-29:
 
-- `POST http://127.0.0.1:8000/api/v1/auth/demo/session {"role":"admin"}` → **201**
-- Local `/api/v1/health` → `ocr_configured: true`, `ocr_provider: "rapidocr-onnxruntime"`, plus `ocr_reason`
-- Live `/api/v1/health` → `ocr_configured: false`, no `ocr_provider`/`ocr_reason`
+- `POST https://inkloom-api.onrender.com/api/v1/auth/demo/session {"role":"admin"}` → **201**, resolved workspace `Acme Cloud Technologies`
+- `GET https://inkloom-api.onrender.com/api/v1/session` with only `X-Inkloom-Role: admin` → **401**
+- `GET https://inkloom-api.onrender.com/api/v1/insights/` with the admin bearer token → **200**; all four signal groups, `metric_methods`, and `reporting_window` present
+- Live headless-Chrome smoke at 1440 px and 390 px: dashboard, content list, insights, Create Your Own Brand, and the mobile drawer render with no access-denied or session error and `scrollWidth == innerWidth` at 390 px
+- `GET /api/v1/health` → Round 3 fields present; `ocr_configured: false`
 
-Nothing was committed, pushed, deployed, or published. The live sites continue to serve the previous build.
+The deploy reseeded the ephemeral Render database, so the live demo workspace shows its 7 seeded content items rather than the 16 in the local verification database. Vercel deployed automatically from the push; Render did not auto-trigger despite `autoDeploy` being enabled, so commit `ccf799b` was deployed to Render manually.
 
 ---
 
@@ -155,7 +157,7 @@ Browser journeys require a local backend and frontend running, plus a Chrome ins
 
 ## 8. Honest limitations of this verification
 
-- All functional proof is local. The deployed sites still run the previous build; Round 3 deployment was explicitly out of scope for this change set.
+- Local browser journeys and OCR runtime proof come from the local build. The live smoke on 2026-10-29 covers the deployed UI, session issuance, role-header rejection, insights payload, and responsive layout, but production OCR remains disabled by configuration, so live OCR extraction itself was not exercised.
 - The OCR tests use generated, clean fixtures. Real scans, photos, handwriting, non-Latin scripts, and low-resolution images were not measured.
 - Security tests exercise the application’s session and workspace boundaries, not a production identity provider, TLS termination, rate limiting, or malware scanning.
 - Browser checks covered Chromium only, at 390/768/1440 px, with text/structural assertions and screenshots.

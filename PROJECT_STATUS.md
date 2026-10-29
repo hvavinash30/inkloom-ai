@@ -4,7 +4,7 @@
 
 Inkloom AI is a working, evidence-first brand-governance demo for the fictional **Acme Cloud Technologies** workspace. It runs locally with SQLite and no external services. Every finding comes from a deterministic rule match or a source-backed approved fact; images and scanned PDF pages are read by a local OCR engine whose output is stored and inspected, never simulated.
 
-**Last verified:** 2026-10-28 (Round 3, local). The live sites still serve the previous build; see [Deployment](#deployment).
+**Last verified:** 2026-10-29 (Round 3 published to GitHub and deployed; local suites verified 2026-10-28). Live OCR is disabled by the Render configuration; see [Deployment](#deployment).
 
 ---
 
@@ -104,6 +104,7 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 | Review browser journey | Claim → assigned; approval blocked without override reason; reason recorded in decision history; no overflow |
 | Insights browser journeys | All four governance-risk sections, drill-down, methods, empty states; 1440/768/390 px with no horizontal overflow |
 | Regression browser journey | Dashboard, content list, Create Your Own Brand, 390 px mobile drawer/navigation |
+| Live deployment smoke (2026-10-29) | Commit `ccf799b` on Vercel and Render; dashboard, content, insights, onboarding, and 390 px drawer pass with no session/access errors; session **201**, role-only header **401**, insights **200**; production OCR disabled by configuration |
 
 Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIFICATION.md).
 
@@ -111,13 +112,13 @@ Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIF
 
 | Component | Status | URL |
 | --- | --- | --- |
-| Frontend (Vercel, Vite) | Live — **previous build** (pre-Round-3) | <https://inkloom-ai-rho.vercel.app> |
-| API (Render, FastAPI) | Live — **previous backend** (pre-Round-3) | <https://inkloom-api.onrender.com> |
+| Frontend (Vercel, Vite) | Live — commit `ccf799b` (Round 3) | <https://inkloom-ai-rho.vercel.app> |
+| API (Render, FastAPI) | Live — commit `ccf799b` (Round 3) | <https://inkloom-api.onrender.com> |
 | GitHub source | Public | <https://github.com/hvavinash30/inkloom-ai> |
 
-Round 3 is **not committed, pushed, or deployed**. Live probes on 2026-10-28: the Vercel bundle contains none of the Round 3 UI strings, and the Render API returns `404` for `/api/v1/auth/demo/session` and omits the `ocr_provider`/`ocr_reason` health fields the local build reports. See [Deployment state](README.md#deployment-state) and [ROADMAP.md](docs/ROADMAP.md) for the deploy checklist.
+Round 3 was committed as `ccf799b` and pushed to GitHub `main` on 2026-10-29. Vercel deployed automatically; Render required a manual deploy of the same commit because its auto-deploy did not trigger. Live probes confirm the Round 3 bundle, session issuance (**201**), rejection of role-only headers without a token (**401**), and governance insights (**200**). The Render service still sets `OCR_PROVIDER=none`, so image and scanned-PDF checks on the live site report OCR as disabled rather than returning invented text; local runs use `OCR_PROVIDER=auto` and perform real OCR.
 
-The Render service runs on the free plan. It sleeps after inactivity (cold start can take about a minute) and its filesystem is ephemeral, so uploaded files and stored changes reset on restart or redeploy. The startup seed recreates the fictional demo workspace. Durable deployment requires a paid instance with a disk, or Postgres plus object storage.
+The Render service runs on the free plan. It sleeps after inactivity (cold start can take about a minute) and its filesystem is ephemeral, so the deploy reseeded the demo workspace and future restarts reset uploaded files and stored changes. The startup seed recreates the fictional demo workspace. Durable deployment requires a paid instance with a disk, or Postgres plus object storage.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Date: 2026-10-28
 Scope: three improvements to the existing Inkloom AI application (no rebuild, no route removals).
-Status: **implemented and verified locally**; **not committed, pushed, or deployed**.
+Status: **implemented, verified locally, and deployed** on 2026-10-29 as commit `ccf799b` (live OCR is disabled by the production `OCR_PROVIDER=none` setting).
 
 This report records what was built, how it works, which records it produces, and its honest boundaries. Measured results are in [VERIFICATION.md](VERIFICATION.md).
 
@@ -146,6 +146,6 @@ Images (PNG/JPEG/WebP) and scanned PDF pages are now read with a **local** OCR e
 | 2. Secure collaborative approvals (sessions, isolation, assignment, overrides, audit trail, tests) | **COMPLETE** (local) |
 | 3. Governance-risk insights (four signals, methods, drill-down, tests) | **COMPLETE** (local) |
 | Integration and regression testing | **COMPLETE** (local browser + suites) |
-| Deployment of Round 3 | **NOT DONE — intentionally not deployed** |
+| Deployment of Round 3 | **COMPLETE** — Vercel and Render deployed commit `ccf799b` on 2026-10-29; live OCR is disabled by `OCR_PROVIDER=none` |
 | Documentation package | **COMPLETE** (this report, verification, roadmap, README, architecture, project status) |
 | Updated product PDF | **NOT APPLICABLE** — no product PDF exists in the repository, so none was regenerated |

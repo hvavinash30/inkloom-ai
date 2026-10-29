@@ -5,18 +5,14 @@ This file lists work that is **not implemented**. Items already shipped are desc
 
 ---
 
-## 1. Deployment (the next concrete step)
+## 1. Deployment follow-ups
 
-Round 3 is verified locally and intentionally not deployed. To ship it:
+Round 3 is deployed: commit `ccf799b` is live on [Vercel](https://inkloom-ai-rho.vercel.app) and [Render](https://inkloom-api.onrender.com) as of 2026-10-29. Remaining deployment work:
 
-1. Review the working tree (`git status`, `git diff`) and confirm no secrets or local databases/uploads are included.
-2. Commit and push to GitHub `main`. Vercel builds automatically; Render must be redeployed manually.
-3. After Render restarts, confirm:
-   - `GET /api/v1/health` reports `ocr_configured: true` and an `ocr_provider` (or an honest `false` if the wheel is unavailable on the host);
-   - `POST /api/v1/auth/demo/session` returns `201`;
-   - the Vercel bundle contains the Round 3 UI strings (`Governance risk signals`).
-4. Render’s free instance has an ephemeral filesystem. Uploaded files and stored changes reset on restart; the fictional seed is recreated. For durable demo evidence, attach a disk or move uploads to object storage.
-5. Run the demo journeys against the live site: OCR image, mixed PDF, claim/override, insights, dashboard.
+1. Decide whether to enable OCR on the free Render instance. The service currently sets `OCR_PROVIDER=none`; switching to `auto` requires confirming the 512 MB memory limit and cold-start latency with real uploads, and reverting if the instance restarts under load.
+2. Investigate why Render did not auto-deploy the `main` push despite `autoDeploy` being enabled; the same commit was deployed manually.
+3. Render’s free instance has an ephemeral filesystem. Uploaded files and stored changes reset on restart; the fictional seed is recreated. For durable demo evidence, attach a disk or move uploads to object storage.
+4. Re-run the live demo journeys after any provider change: image OCR, mixed PDF, claim/override, insights, and dashboard.
 
 ---
 
