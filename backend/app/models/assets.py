@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
@@ -39,6 +39,29 @@ class UploadedFile(Base):
 
     documents = relationship("ContentDocument", back_populates="file")
     brand_assets = relationship("BrandAsset", back_populates="file")
+    ocr_lines = relationship("OcrLine", back_populates="upload", cascade="all, delete-orphan")
+
+
+class OcrLine(Base):
+    """One OCR-detected text line with its normalized bounding box.
+
+    Boxes come from the OCR engine; they are stored, never inferred. A page
+    without rows was either read from embedded text or not readable at all.
+    """
+
+    __tablename__ = "ocr_lines"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    upload_id = Column(String(36), ForeignKey("uploaded_files.id", ondelete="CASCADE"), nullable=False)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    page_number = Column(Integer, nullable=False)
+    line_index = Column(Integer, default=0, nullable=False)
+    text = Column(Text, nullable=False)
+    confidence = Column(Float, default=0.0, nullable=False)
+    bbox = Column(JSON, default=list)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    upload = relationship("UploadedFile", back_populates="ocr_lines")
 
 
 class BrandAsset(Base):

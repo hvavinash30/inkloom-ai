@@ -11,16 +11,17 @@ The demo workspace — **Acme Cloud Technologies** — is explicitly fictional. 
 The Render free instance sleeps after inactivity, so the first request can take about a minute. Its filesystem is ephemeral: uploads and stored changes reset on restart or redeploy, and the fictional seed is recreated. See [Deploy](#deploy-vercel--render) for durable options.
 
 **What this build is**
-- A working React + FastAPI application with three server-enforced demo roles: Creator, Reviewer, and Organization Admin.
+- A working React + FastAPI application with three server-enforced demo roles: Creator, Reviewer, and Organization Admin. Sign-in issues an expiring server-side session; role and workspace are resolved from that session, never from browser headers.
 - Deterministic content checks: literal/regex rule matching plus approved-fact contradiction and unsupported-claim detection.
-- Real PDF text extraction, preserved page numbers, page-linked findings, and an authenticated PDF viewer.
+- Real PDF text extraction, preserved page numbers, page-linked findings, and an authenticated PDF viewer. Scanned PDF pages and PNG/JPEG/WebP images are read locally with RapidOCR, with line-level confidence and recorded page numbers.
 - Real video playback when a file exists, plus transcript-timestamp audits when one is supplied.
-- Versioned content, human review decisions, campaign cross-asset conflicts, brand memory, research records, measured evaluation runs, and stored-data insights.
+- Versioned content, reviewer assignment, human review decisions bound to an exact version, written override reasons when high-risk findings remain, campaign cross-asset conflicts, brand memory, research records, measured evaluation runs, and stored-data insights.
+- Governance-risk insights computed from stored records only: recurring violations, frequently overridden rules with reasons, approved facts due for verification, and unclear guideline signals — each with its method, sample size, and reporting window.
 
 **What this build is not**
 - It does not call an LLM in the audit path, the assistant, OCR, or transcription. There is no simulated AI output anywhere.
-- It does not transcribe video or OCR images/scans. Those boundaries are shown in the interface instead of being hidden.
-- It is not a production identity system. The role switcher is a demo access mechanism, not authentication.
+- It does not transcribe video. Image and scanned-PDF text comes from a local OCR engine whose output is stored, inspectable, and fed to the same deterministic rules; visual qualities still require a human reviewer.
+- It is not a production identity system. Demo accounts sign in through server-issued bearer sessions, but there is no external identity provider. Replace the demo sign-in with Supabase Auth (or similar) before real use.
 
 ---
 
@@ -34,7 +35,7 @@ The seed creates one fictional workspace and three users:
 | Reviewer | Alex Rivera | Read all content, review queue, comment, approve/reject/request changes, resolve campaign conflicts |
 | Organization Admin | Sarah Chen | Everything above plus brand library, assets, policies, team, research, evaluation, insights, and settings |
 
-Authorization is re-checked by the API on every protected request. The browser sends `X-Inkloom-Role` (and an optional user header) in demo mode only. A production build must replace this with Supabase Auth or another provider; the role switcher alone is not a security boundary.
+Authorization is re-checked by the API on every protected request. The browser signs in through `POST /api/v1/auth/demo/session`, receives an opaque `ink_…` bearer token, and stores only that token in memory (plus the selected role/workspace for the next demo sign-in). The server stores a SHA-256 hash, resolves the token to a database user, and takes the role and workspace from that record. Client-supplied role headers or workspace headers are ignored. A production build must replace the demo sign-in with Supabase Auth or another identity provider.
 
 ### Seeded demo records
 
@@ -50,17 +51,18 @@ Authorization is re-checked by the API on every protected request. The browser s
 ## Capability map
 
 ### Creator
-- New content in text, PDF, image, video, or transcript form.
+- New content in text, PDF, image, video, or transcript form. Images and scanned PDF pages are OCR-processed on the server and checked like other text.
 - Drafts, campaigns, and campaign attachment.
-- Evidence-backed findings with severity, location, source reference, verification status, and risk explanation.
+- Evidence-backed findings with severity, location, source reference, verification status, and risk explanation. Image findings carry a page number and `Image text` location label.
 - Apply a suggested correction in the editor, revise, save an immutable version, re-check, and submit for review.
-- Track review status, comments, requested changes, approvals, stale approvals, and version history.
+- Track review status, reviewer assignment, comments, requested changes, approvals, stale approvals, and version history.
 
 ### Reviewer
 - Priority queue computed from stored findings, with search and high-risk filters.
+- Claim a review, see who it is assigned to, or (as an admin) assign it to another reviewer for the latest submitted version.
 - Findings, evidence, source references, and version context in one place.
-- Comments and decisions tied to an exact version: approve, reject, or request changes with required feedback.
-- Version comparison and decision history.
+- Comments and decisions tied to an exact version: approve, reject, or request changes with required feedback. Approving while high-severity findings are open requires a written override reason.
+- Version comparison and an immutable decision record that keeps the override reason and reviewer name.
 - Campaign conflict resolution with an agreed value and a recorded note.
 
 ### Organization Admin
@@ -69,10 +71,10 @@ Authorization is re-checked by the API on every protected request. The browser s
 - Brand library: approved facts, deterministic rules, visual assets, contrast checks, impact analysis, and archive flows.
 - Policies & brand memory: rule conflicts, uncovered recurring issues, a rule simulator over stored text, and draft-rule creation.
 - Campaigns, cross-asset consistency, readiness, and conflict records.
-- Audit history, governance insights derived only from stored records.
+- Audit history and governance risk insights derived only from stored records, with drill-down into affected documents.
 - Research & validation records with named sources.
 - Evaluation cases executed against the deterministic engine.
-- Workspace settings, upload limits, and honest integration status.
+- Workspace settings, upload limits, and honest integration status (including local OCR availability).
 
 ---
 
@@ -89,20 +91,49 @@ Scores are a workflow aid, not a scientific or legal risk rating. The UI shows t
 
 ---
 
-## PDF and video truth
+## PDF, image, and video truth
 
 **PDF**
 - Uploads are validated, stored server-side, and parsed with `pypdf`.
 - Text pages are preserved individually, so findings point to the page that contains the quote.
-- Encrypted, empty, over-limit, or unreadable PDFs return an explicit processing message.
-- If a PDF has no extractable text (for example, a scan), the UI says so and offers a manual page-text fallback. No OCR is invented.
+- Pages without usable embedded text are rendered with PyMuPDF and read by RapidOCR. Native and OCR pages can coexist in one PDF; findings keep their true page numbers (`Page 1`, `Page 2`, …).
+- Encrypted, empty, over-limit, or unreadable PDFs return an explicit processing message. A scanned page that OCR cannot read is reported as unreadable — never as empty content.
+- If no page has extractable text, the UI says so and offers a manual page-text fallback. The fallback is labelled as pasted text, not OCR.
 - The seeded PDF is streamed through an authenticated endpoint and displayed in a real viewer via a Blob URL.
+
+**Image (PNG/JPEG/WebP)**
+- Images are decoded and validated server-side; malformed, unsupported, or oversized files are rejected with explicit errors.
+- OCR runs locally through RapidOCR (bundled ONNX models, no external API). The stored record keeps per-line text, confidence, normalized bounding boxes, and page number.
+- Findings carry a page number, an `Image text` location label, and an evidence span that matches the extracted text exactly. The document page shows the extracted text with highlights and the OCR line list with confidence.
+- Extraction failure, missing OCR, or unreadable images are recorded as processing limitations instead of producing fake text. Contrast, logo usage, and layout remain human-review items.
 
 **Video**
 - MP4/WebM/MOV files are stored and played with a real `<video>` element.
 - Checks use a timestamped transcript supplied by the user (for example `[00:42] We deliver 100% uptime.`).
 - When no file is attached, the UI says “No source file attached” and never renders a fake player.
 - Without a transcript, the check reports that transcription is unavailable and asks for a transcript. No timestamps are invented.
+
+---
+
+## Secure collaborative approvals
+
+- **Server-issued identity.** Demo accounts sign in at `POST /api/v1/auth/demo/session`; the API returns an opaque bearer token and stores only its hash. Every protected route resolves the token to a stored session and a user record, then applies that user's role capabilities and workspace scope. Workspace isolation covers records and file downloads.
+- **Version-bound assignment.** A reviewer claims a review for the latest submitted version, or an admin assigns it to another reviewer. Responses are idempotent, superseded assignments are marked, and every change is written to the document history.
+- **Decisions stay bound to the reviewed version.** Approve/reject/request-changes records the exact version. The same decision cannot be applied twice, and outdated versions cannot be decided after a newer submission.
+- **Reasoned overrides.** Approving while high-severity findings are open requires a written override reason, which is stored in the decision record and shown in the decision history. Non-approval decisions still require feedback.
+- **Immutable trail.** Decision records, assignment history, dismissals, and override reasons are append-only audit entries. The UI shows the reviewer, version, and reason.
+
+## Governance risk insights
+
+Insights are computed from stored audit runs, findings, dismissals, facts, and rule text — never from estimates:
+
+- **Recurring violations** report finding count, unique documents, and audit-run count separately, so one document checked twice is not double-counted as two documents. Each group links to the affected documents.
+- **Frequently overridden rules** count dismissal records with reasons, show the override rate against findings in scope, list reviewer names, and flag rules that "may need review".
+- **Approved facts needing verification** list expired, overdue, or missing-source facts with the criteria used and the active-fact denominator.
+- **Unclear guideline signals** come from deterministic rule-text checks (vague terms, missing descriptions or guidance, single-word patterns) and show the evaluated rule count.
+- Every section states its method, sample size, and reporting window. Empty workspaces show zeroed states with their sample sizes instead of invented data.
+
+See `docs/ROUND3_IMPROVEMENTS.md` for the implementation report and `docs/VERIFICATION.md` for measured results.
 
 ---
 
@@ -118,19 +149,20 @@ Scores are a workflow aid, not a scientific or legal risk rating. The UI shows t
 
 ```text
 inkloom/
-├── backend/                        # FastAPI + SQLAlchemy + SQLite (Supabase-compatible schema)
+├── backend/                        # FastAPI + SQLAlchemy + SQLite
 │   ├── app/
-│   │   ├── api/v1/endpoints/       # audits, reviews, history, campaigns, brand memory,
-│   │   │                           # research, evaluation, organization, uploads, assistant
-│   │   ├── core/                   # settings, demo identity, capability checks
+│   │   ├── api/v1/endpoints/       # auth, audits, reviews, history, campaigns, brand memory,
+│   │   │                           # research, evaluation, organization, uploads, insights, assistant
+│   │   ├── core/                   # settings, session resolution, capability checks
 │   │   ├── db/                     # engine and sessions
-│   │   ├── models/                 # workspaces, users, rules, facts, assets, documents,
-│   │   │                           # versions, findings, decisions, comments, campaigns
+│   │   ├── models/                 # workspaces, users, auth sessions, rules, facts, assets,
+│   │   │                           # documents, versions, findings, decisions, comments,
+│   │   │                           # assignments, overrides, campaigns, OCR lines
 │   │   ├── schemas/                # Pydantic contracts
-│   │   └── services/               # ingestion, PDF, deterministic audit, conflicts,
-│   │                               # brand memory, insights, evaluation, assistant, seed
+│   │   └── services/               # ingestion, OCR, PDF, deterministic audit, review workflow,
+│   │                               # conflicts, brand memory, insights, evaluation, assistant, seed
 │   ├── data/uploads/               # server-owned upload storage
-│   ├── tests/                      # 17 pytest unit/integration tests
+│   ├── tests/                      # 84 pytest unit/integration tests (OCR fixtures are generated)
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── Procfile
@@ -139,11 +171,16 @@ inkloom/
 │   │                               # policies, history, insights, research, evaluation,
 │   │                               # team, settings
 │   ├── src/components/             # shell, assistant drawer, dialogs, tables, UI primitives
+│   ├── src/lib/                    # evidence matching, insights formatting, router
 │   ├── src/services/api.ts         # typed API client
+│   ├── scripts/                    # Node helper tests (`npm run test:format`)
 │   └── vercel.json                 # SPA rewrite for static hosting
 ├── supabase/migrations/            # starter PostgreSQL DDL, RLS policies, demo seed
 │                                   # (core tables only; not full runtime parity)
 ├── docs/ARCHITECTURE.md
+├── docs/ROUND3_IMPROVEMENTS.md
+├── docs/VERIFICATION.md
+├── docs/ROADMAP.md
 ├── docs/HACKATHON_ROUND2_REPORT.md
 └── README.md
 ```
@@ -151,13 +188,14 @@ inkloom/
 Data flow for a check:
 
 ```text
-Browser → POST /api/v1/audits/submit-and-audit
+Browser → POST /api/v1/audits/submit-and-audit   (bearer session resolved to a workspace user)
         → validated upload or text
+        → PDF/text extraction; local OCR for images and scanned pages
         → deterministic rule scan
         → approved-fact contradiction / unsupported-claim detection
         → severity deductions and score factors
         → persisted audit run + findings + immutable version
-        → UI evidence inspector, review queue, campaign checks, history
+        → UI evidence inspector, review queue, campaign checks, history, insights
 ```
 
 ---
@@ -232,11 +270,17 @@ Backend (`backend/.env`, see `backend/.env.example`):
 | `MAX_UPLOAD_BYTES` | 26,214,400 (25 MiB) | PDF, image, and transcript limit. |
 | `MAX_VIDEO_UPLOAD_BYTES` | 125,829,120 (120 MiB) | Video limit. |
 | `MAX_PDF_PAGES` | `120` | Page limit for PDF extraction. |
-| `DEMO_MODE` | `true` | Enables the demo role switcher and demo labels. |
+| `DEMO_MODE` | `true` | Enables demo sign-in and demo labels. |
+| `SESSION_TTL_HOURS` | `12` | Expiry for server-issued demo sessions. |
 | `DEFAULT_WORKSPACE_ID` / `DEFAULT_WORKSPACE_NAME` | seeded Acme Cloud IDs | Workspace created by the seed. |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | empty | Optional server-side credentials for a Postgres deployment. Never expose these to the browser. |
 | `LLM_PROVIDER` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | `mock` / empty | Reported as an integration flag only. This build does not call an LLM. |
-| `OCR_PROVIDER` | `none` | No OCR is bundled. |
+| `OCR_PROVIDER` | `auto` | `auto`/`rapidocr` run local RapidOCR; `none` disables OCR and reports the limitation. No external service or API key is used. |
+| `OCR_MAX_PAGES` | `12` | Scanned pages processed per PDF (native text pages are not limited by this). |
+| `OCR_RENDER_DPI` | `150` | PDF page render resolution for OCR. |
+| `OCR_MAX_IMAGE_PIXELS` | `20000000` | Image decode limit; larger images are rejected with `413`. |
+| `OCR_TIMEOUT_SECONDS` | `60` | Wall-clock budget per OCR page/image. |
+| `OCR_MIN_NATIVE_CHARS` | `12` | Pages with fewer embedded characters fall back to OCR. |
 | `TRANSCRIPTION_PROVIDER` | `none` | No speech-to-text is bundled. |
 
 Frontend (`frontend/.env`, see `frontend/.env.example`):
@@ -266,19 +310,34 @@ If you point `DATABASE_URL` at Postgres, SQLAlchemy creates the current runtime 
 
 ## Verification results
 
-Last verified on 2026-10-24.
+Last verified on 2026-10-28 (Round 3 changes are local only; the live deployment still serves the previous build — see [Deployment state](#deployment-state)).
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Backend tests | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **17 passed**, 1 third-party deprecation warning, 6.48 s |
-| Frontend type-check + production build | `cd frontend && npm run build` | **0 TypeScript errors**; 1,619 modules transformed; JS 519.92 kB (gzip 135.00 kB), CSS 45.60 kB (gzip 8.15 kB); one chunk-size advisory |
-| Responsive sweep | Playwright, 63 page loads at 1440 / 834 / 325 px | 0 console errors, 0 horizontal overflow, 0 HTTP ≥ 400, 0 `[object Object]` |
-| Creator + reviewer workflow | Playwright against an isolated copy of the demo database | 9/9 checks passed: validation, apply fix, versioning, assistant grounding, high-risk queue filter, comment, request changes, resubmit, exact-version approval, stale approval, version compare, PDF upload/rejection, page-linked findings, transcript-only video |
-| Admin workflow | Playwright against the same isolated copy | 10/10 checks passed: fact + rule creation, search, contrast 17.85:1, rule simulation (11 matched documents in the isolated QA database at run time), draft rule, campaign conflict resolution, research add/edit with sources, 5/5 evaluation cases, settings save, team matrix, mobile drawer navigation at 325 px |
+| Backend tests | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **84 passed**, 1 third-party deprecation warning, 43.23 s. Includes OCR fixtures generated at test time, security/session tests, review-workflow tests, and insights tests. |
+| Frontend helper tests | `cd frontend && npm run test:format` | **27 passed** (Node test runner). |
+| TypeScript | `cd frontend && npx tsc --noEmit` | **0 errors**. |
+| Production build | `cd frontend && npm run build` | **0 TypeScript errors**; 1,624 modules transformed; JS 617.26 kB (gzip 157.62 kB), CSS 53.20 kB (gzip 9.48 kB); one chunk-size advisory. |
+| OCR browser journey | Headless Chrome (CDP), 1440 px and 390 px | PNG upload → OCR processed (2 lines, 99% mean confidence) → findings “Product naming” + “cheapest” with `Image text` location; extracted text highlighted; no horizontal overflow at 390 px. |
+| Mixed PDF journey | Headless Chrome (CDP), 1440 px | 2-page PDF with 1 native + 1 scanned page → findings on `Page 1` and `Page 2`; extraction note “native: 1, OCR: 1”; Page 2 OCR line listed; highlights match extracted text exactly. |
+| Review + override journey | Headless Chrome (CDP), 1440 px and 390 px | Claim review → assigned to reviewer; approval blocked without override reason; approval with reason recorded; “Current version is approved”, override reason and reviewer shown in history; no overflow. |
+| Insights journeys | Headless Chrome (CDP), 1440 / 768 / 390 px | Admin sees all four governance-risk sections, methods, and empty states; document chips navigate to the affected content; no horizontal overflow at any width. |
+| Regression journeys | Headless Chrome (CDP) | Dashboard, content list (“Showing 16 items” in the local verification database), Create Your Own Brand form, and the 390 px mobile drawer with navigation to Insights all render. |
 
-There is no ESLint configuration in this repository; `npm run build` runs `tsc` before Vite, which is the static type check used here. Browser checks used a local Chrome through `playwright-core`; those scripts live outside the repo and are not part of the delivered application.
+`npm run build` runs `tsc` before Vite, which is the static type check used here; there is no ESLint configuration in this repository. Browser checks used a temporary headless-Chrome CDP harness outside the repository (Playwright is not installed in this environment), so those scripts are not part of the delivered application.
 
-The Playwright workflow ran against a copy of the demo database and upload directory, so the delivered demo workspace remains as seeded.
+The browser journeys ran against the local development database. They created verification documents in it (OCR image/PDF checks and a separate throwaway workspace for the override test); no production or deployed data was touched. The live deployment was not redeployed for Round 3.
+
+---
+
+## Deployment state
+
+| Component | Serves | Round 3 present? |
+| --- | --- | --- |
+| Vercel frontend <https://inkloom-ai-rho.vercel.app> | Previous build (`assets/index-KdOOcaBQ.js`) | **No** — the bundle contains none of the Round 3 UI strings (`Governance risk signals`, `Recurring violations`, `auth/demo/session`, `Extracted text with evidence`). |
+| Render API <https://inkloom-api.onrender.com> | Previous backend | **No** — `/api/v1/auth/demo/session` returns **404** (local returns **201**), and `/api/v1/health` lacks the `ocr_provider`/`ocr_reason` fields the local build reports. |
+
+Round 3 was prepared and verified locally only. Nothing was committed, pushed, or deployed. Deploying requires a commit/push to GitHub `main` (Vercel auto-builds) and a manual Render redeploy; see [Deploy](#deploy-vercel--render).
 
 ---
 
@@ -293,24 +352,29 @@ The Playwright workflow ran against a copy of the demo database and upload direc
 5. **Reviewer flow.** Switch to Alex Rivera. Open the priority queue, filter to high risk, read the evidence, comment, and request changes with required feedback on that exact version.
 6. **Revision and stale approval.** Switch back to the creator, revise, save version 3, resubmit. Approve version 3 as reviewer. Edit again to version 4 and show that the approval is now explicitly stale. Compare versions to see the text diff.
 7. **PDF intelligence.** Open `Q4 Enterprise Brochure (PDF)`. Show the authenticated viewer, page 2 findings, and source references. Upload a non-PDF or invalid PDF to show the visible server error. Open the manual page-text fallback to show that page boundaries survive without a source file.
-8. **Video truth.** Open `Launch Webinar (transcript only)`. Show a timestamped finding at `00:42` and the explicit “No source file attached” state. Explain that no transcription or timestamps are invented. If a real MP4 is available, upload it and show the real player.
-9. **Campaign governance.** Open `Q4 Enterprise Launch` → Conflicts. Show the two pricing conflicts, record a resolution with an agreed value and note, and point out that the affected asset text must still be updated separately.
-10. **Research and evaluation.** In Research, show planned records labelled “Work not completed” and source-backed completed records. In Evaluation, run all cases: 5 deterministic cases execute and pass from the current workspace records.
-11. **Assistant.** Ask “What are the highest risk findings on this document?” Show the grounded evidence list and declared `rule_based` mode — no external model, no fabricated citations.
-12. **Settings.** Show upload limits, integration status, and the explicit statement that audits do not call an LLM or OCR service.
+8. **Image OCR.** Create an image check with a PNG containing `AcmeCloud is the cheapest platform.` Show the extraction status (processed, OCR lines, mean confidence), then open the document: findings link to `Image text`, and the Content & evidence tab shows the extracted text with exact highlights.
+9. **Scanned and mixed PDFs.** Upload a PDF with one native and one scanned page. Show the extraction note “native: 1, OCR: 1” and findings on both `Page 1` and `Page 2`, then open Page 2 to show the OCR-read text.
+10. **Video truth.** Open `Launch Webinar (transcript only)`. Show a timestamped finding at `00:42` and the explicit “No source file attached” state. Explain that no transcription or timestamps are invented. If a real MP4 is available, upload it and show the real player.
+11. **Campaign governance.** Open `Q4 Enterprise Launch` → Conflicts. Show the two pricing conflicts, record a resolution with an agreed value and note, and point out that the affected asset text must still be updated separately.
+12. **Research and evaluation.** In Research, show planned records labelled “Work not completed” and source-backed completed records. In Evaluation, run all cases: 5 deterministic cases execute and pass from the current workspace records.
+13. **Assistant.** Ask “What are the highest risk findings on this document?” Show the grounded evidence list and declared `rule_based` mode — no external model, no fabricated citations.
+14. **Secure approvals.** As reviewer, claim the review; point out the assignment is bound to the latest submitted version. Approve a version with open high-severity findings and show that the server blocks the decision until a written override reason is entered; then show the reason and reviewer in the decision record.
+15. **Governance-risk insights.** As admin, open Insights. Walk through recurring violations (findings vs documents vs audit runs), rules with an override rate and “may need review” flag, approved facts needing verification, and unclear guideline signals — then the method, sample size, and reporting window for each.
+16. **Settings.** Show upload limits and integration status, including local OCR availability and the explicit statement that audits do not call an LLM or an external OCR service.
 
 ---
 
 ## Known limitations
 
-- **Demo authentication only.** Roles are selected in the browser; the server enforces capabilities but does not verify a real identity. Do not use with confidential material.
-- **No OCR.** Image uploads and scanned/image-only PDFs are stored for human review. Manual page text is a transparent fallback, not OCR.
+- **Demo identity, strong session handling.** Accounts sign in with server-issued tokens and the API enforces capabilities and workspace scope on every request, but there is no external identity provider or password policy. Do not use with confidential material.
+- **Local OCR, not perfect OCR.** RapidOCR reads printed Latin-script text well; handwriting, unusual fonts, small text, and complex layouts may be read incorrectly or not at all. Low-quality extractions are reported honestly, but the text still needs human confirmation before a legal decision.
+- **Visual qualities are not judged.** Contrast, logo usage, layout, and image composition remain human-review items.
 - **No speech-to-text.** Video checks require a user-supplied timestamped transcript. No audio or frames are analyzed.
 - **No external LLM.** The assistant is deterministic and grounded in stored records. It will not answer general world-knowledge questions as an LLM would.
 - **Deterministic matching limits.** Rules are literal/regex matches and fact checks are based on stored values and patterns. The engine does not understand nuance, sarcasm, or visual context.
 - **PDF layout.** Extraction preserves page text order but not columns, tables, or visual placement. Line-based diffs reflect extracted text, not visual layout.
 - **Evaluation is a fixture.** Five synthetic cases verify regressions; they are not a benchmark of real-world accuracy.
-- **Insights are descriptive.** Charts and recurring-issue counts are computed from stored audits only. They do not predict legal or brand risk.
+- **Insights are descriptive.** Counts, rates, and signals are computed from stored records only; small sample sizes are labelled and do not predict legal or brand risk.
 - **Single-node demo storage.** SQLite and local disk uploads suit the demo. A multi-instance production deployment needs Postgres, object storage, and a real auth provider.
 - **Supabase migrations are optional and not exercised by the local runtime.** RLS policies are included for a production Postgres setup; they are not active protections around the demo’s direct SQLAlchemy connection.
 

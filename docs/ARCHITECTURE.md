@@ -4,9 +4,9 @@
 
 Inkloom AI demonstrates an evidence-first governance workflow: submit content, compare it with stored brand rules and approved facts, inspect findings, revise into a new version, and route that exact version through human review.
 
-The architectural rule is simple: **a finding must come from a stored rule or approved fact, and an operation that did not run must say so.** This is why the audit path contains no language model, OCR, or speech-to-text calls, and why the interface exposes processing boundaries instead of hiding them.
+The architectural rule is simple: **a finding must come from a stored rule or approved fact, and an operation that did not run must say so.** The audit path contains no language model and no speech-to-text. Text from images and scanned PDF pages comes from a local OCR engine; its per-line output, confidence, and page numbers are stored and fed to the same deterministic rules, so OCR never invents a finding on its own.
 
-Non-goals in this build: production authentication, external AI, image OCR, speech-to-text, and multi-node storage. See the limitations section at the end.
+Non-goals in this build: production authentication (demo accounts only), external AI, speech-to-text, and multi-node storage. See the limitations section at the end.
 
 ---
 
@@ -14,16 +14,17 @@ Non-goals in this build: production authentication, external AI, image OCR, spee
 
 ```mermaid
 flowchart TD
-    UI["React 18 + TypeScript<br/>Vite + Tailwind"] -->|"/api/v1, X-Inkloom-Role"| API["FastAPI<br/>Pydantic v2"]
-    API --> CAP["Capability checks<br/>+ workspace filters"]
-    CAP --> SVC["Deterministic services"]
+    UI["React 18 + TypeScript<br/>Vite + Tailwind"] -->|"/api/v1 + bearer session"| API["FastAPI<br/>Pydantic v2"]
+    API --> AUTH["Session resolution<br/>+ capability checks<br/>+ workspace filters"]
+    AUTH --> SVC["Deterministic services"]
+    SVC --> OCR["Local OCR<br/>RapidOCR + PyMuPDF"]
     SVC --> DB[(SQLite default<br/>Postgres option)]
     SVC --> FS["Server-owned uploads<br/>backend/data/uploads"]
     UI -->|"fetch + Blob URL"| FILE["Authenticated file stream"]
     FILE --> FS
 ```
 
-There is no browser-side database client and no secret in the frontend. The browser only knows the API base URL and the selected demo role.
+There is no browser-side database client and no secret in the frontend. The browser only knows the API base URL and holds an opaque session token in memory.
 
 ---
 
@@ -32,7 +33,7 @@ There is no browser-side database client and no secret in the frontend. The brow
 - **Shell**: fixed desktop sidebar, sticky top bar, mobile drawer (dialog semantics), role switcher, assistant entry point.
 - **Routing**: a small hash router maps routes to pages (`src/lib/router.ts`, `src/App.tsx`). Access requirements are declared in `src/lib/navigation.ts` and checked in the shell.
 - **Pages**: Overview, Content list, New content, Document workspace, Reviews, Campaigns, Campaign detail, Brand library, Policies & brand memory, History, Insights, Research, Evaluation, Team, Settings.
-- **Session context**: loads `/session`, exposing the active user, role, workspace, capabilities, and demo flag.
+- **Session context**: signs in through the demo auth endpoints, keeps the bearer token in memory, and exposes the active user, role, workspace, capabilities, and demo flag. Only the demo role/workspace selection is remembered for the next sign-in. If the session expires, the client re-signs in; `401` responses are surfaced instead of being ignored.
 - **API client**: `src/services/api.ts` is a typed wrapper. Errors are normalized into `ApiError` so pages can show server messages.
 - **Evidence rendering**: findings show affected text, location, rule/fact reference, verification status, score deductions, and actions. Tabs announce selection with `aria-pressed`.
 - **PDF viewer**: downloads the file through the authenticated endpoint, creates a Blob URL, and renders it in an iframe. The URL is revoked when no longer needed.
@@ -50,9 +51,17 @@ State is local to each page; there is no client cache layer. Mutations reload th
 - `Actor`, carrying the resolved user, role, workspace, and capabilities.
 - `require_caps(...)`, a FastAPI dependency that rejects missing capabilities with `403`.
 
-Demo requests send `X-Inkloom-Role` and optionally `X-Inkloom-User`. The server resolves the user from the workspace, then every query filters by `workspace_id`. Record-level access checks prevent creators from reading another creator’s private draft.
+Sign-in flow:
 
-**Boundary:** anyone can select a demo role in the browser. The server-side checks are real, but they are not identity verification. Production must replace this module with Supabase Auth (or equivalent) and derive roles from trusted claims.
+1. The browser lists seeded demo accounts at `GET /api/v1/auth/demo/accounts` (public, fictional, no secrets).
+2. `POST /api/v1/auth/demo/session` selects an account by `user_id` or by `role` + `workspace_id`. The server issues an opaque `ink_…` token, stores only its SHA-256 hash in `auth_sessions`, and returns the session, user, and workspace.
+3. The browser keeps the token in memory and sends `Authorization: Bearer …`. On reload it re-signs in with the remembered demo role/workspace; expired sessions return `401`.
+4. `get_actor` resolves the token hash to a stored session and user record. Role and workspace come from that record; client-declared role or workspace headers are ignored.
+5. Every query filters by the resolved `workspace_id`, including upload metadata and file downloads. Record-level access checks prevent creators from reading another creator’s private draft.
+
+Sessions expire after `SESSION_TTL_HOURS` (default 12). Logout revokes only the presented session, and each user keeps at most ten active sessions (the oldest are revoked).
+
+**Boundary:** demo accounts are fictional and there is no password or external identity provider. The server-side checks are real, but production must replace this module with Supabase Auth (or equivalent) and derive roles from trusted claims.
 
 ---
 
@@ -62,22 +71,26 @@ Demo requests send `X-Inkloom-Role` and optionally `X-Inkloom-User`. The server 
 | --- | --- |
 | `Workspace` | Tenant boundary, demo flag, settings |
 | `UserProfile` | Demo users and role assignment |
+| `AuthSession` | Hashed bearer token, user, workspace, expiry, demo flag |
 | `BrandRule` | Deterministic rule: type, pattern, severity, status, guidance, version |
 | `ApprovedFact` | Source-backed claim, approved value, status, version, review dates |
 | `BrandAsset` | Visual asset metadata and contrast information |
 | `UploadedFile` | Stored file metadata, checksum, extraction status and messages |
+| `OcrLine` | Per-line OCR text, confidence, normalized bounding box, page number |
 | `ContentDocument` | Asset type, owner, campaign, status, current version, approval pointer |
 | `ContentVersion` | Immutable text, page texts, transcript, change summary |
 | `AuditRun` | Score, risk level, method, verification status, risk factors |
 | `AuditFinding` | Category, severity, quote, page/timestamp, source, status, resolution |
 | `ApprovalDecision` | Version-bound decision, reviewer, feedback |
+| `ReviewAssignment` | Reviewer assigned to a document/version, instructions, status |
+| `FindingOverride` | Dismissal record with reason, reviewer, rule and document references |
 | `ReviewComment` | Version-aware discussion |
 | `AuditHistoryEvent` | Append-only workflow events |
 | `Campaign` / `CampaignConflict` | Cross-asset claim consistency and resolution records |
 | `ResearchRecord` | Planned/completed research with sources and structured details |
 | `EvaluationCase` / `EvaluationRun` | Fixtures and measured deterministic outcomes |
 
-The SQLAlchemy models are the source of truth. The starter migrations in `supabase/migrations/` cover only the early core tables (workspaces, users, rules, facts, content, audits, reviews, history) with RLS and a smaller seed. Campaigns, campaign conflicts, uploads, brand assets, research, and evaluation are not in the migrations; the runtime creates them from the models. A real Postgres deployment needs a reviewed migration generated from the current models.
+The SQLAlchemy models are the source of truth. `Base.metadata.create_all` creates the runtime tables; there is no Alembic history, so Round 3 additions are new tables (`auth_sessions`, `review_assignments`, `finding_overrides`, `ocr_lines`) rather than in-place migrations. The starter migrations in `supabase/migrations/` cover only the early core tables (workspaces, users, rules, facts, content, audits, reviews, history) with RLS and a smaller seed. Campaigns, campaign conflicts, uploads, OCR lines, brand assets, research, evaluation, assignments, overrides, and auth sessions are not in the migrations; the runtime creates them from the models. A real Postgres deployment needs a reviewed migration generated from the current models.
 
 ---
 
@@ -96,7 +109,9 @@ Supported types:
 | Video | MP4/WebM/MOV | 120 MiB |
 | Transcript | TXT/VTT/SRT | 25 MiB |
 
-PDF extraction uses `pypdf`, preserving each page’s text. Encrypted, empty, over-limit, or unreadable PDFs return a structured extraction message. Image uploads record an OCR-unavailable boundary; no text is invented. Video files are stored but checks use a supplied transcript.
+PDF extraction uses `pypdf`, preserving each page’s text. Pages with fewer than `OCR_MIN_NATIVE_CHARS` embedded characters are rendered with PyMuPDF at `OCR_RENDER_DPI` and read with RapidOCR, so a single PDF can mix native and OCR pages. Encrypted, empty, over-limit, or unreadable PDFs return a structured extraction message; an OCR page that yields no text is recorded as unreadable. Images are decoded and validated with Pillow (PNG/JPEG/WebP, pixel limit), then OCR-processed into lines with confidence, normalized bounding boxes, and page number. Extraction failure or unavailable OCR records a processing-limitation finding; no text is invented. Video files are stored but checks use a supplied transcript.
+
+OCR is bounded by page count, image pixels, and a wall-clock timeout. The engine loads lazily and reports its availability through `/health` (`integrations.ocr_configured`, `ocr_provider`, `ocr_reason`). `OCR_PROVIDER=none` disables it and the API states that boundary.
 
 ### 6.2 Rule scanning
 
@@ -125,15 +140,22 @@ Submitting a check creates an audit run and findings tied to the immutable versi
 
 ---
 
-## 7. PDF and video evidence
+## 7. PDF, image, and video evidence
 
 ### PDF
 1. Validate limit and MIME type.
-2. Extract each page’s text and store it on the version.
+2. Extract each page’s text and store it on the version. Pages without usable embedded text go through OCR and keep their true page number.
 3. Audit each page separately so findings carry `page_number`.
-4. Store extraction status/message on the uploaded file.
+4. Store extraction status/message on the uploaded file, plus OCR line details when OCR ran.
 5. Serve the file only through `GET /api/v1/uploads/{id}/file`, with capability/workspace checks.
 6. If no text is available, offer manual page text; page boundaries are retained and `file_id` stays `null`.
+
+### Image
+1. Validate the bytes with Pillow; reject malformed, non-PNG/JPEG/WebP, or oversized images with explicit errors.
+2. Run local OCR and store the extracted text with per-line confidence and normalized bounding boxes.
+3. Audit the text like any other content, with `page_number=1` and `location_label="Image text"`.
+4. Findings keep `start_index`/`end_index` into the stored extracted text, so the UI can highlight exact wording without approximating.
+5. Store the OCR message and line list on the upload; UI shows status, confidence, and the lines. Visual qualities remain human-review items.
 
 ### Video
 1. Validate extension/MIME and size.
@@ -174,8 +196,11 @@ Readiness combines attached assets, current approved versions, open checks, unre
 
 - Saving a revision creates a new immutable `ContentVersion`.
 - Submitting for review records the exact version.
-- Decisions are stored against a version; if the document advances, the UI marks the approval stale.
+- A reviewer claims the review or an admin assigns it; assignments are bound to the latest submitted version and superseded when a new version is submitted. Claiming twice is idempotent, and only an admin can reassign a review held by someone else.
+- Decisions are stored against a version; if the document advances, the UI marks the approval stale. A version cannot be decided twice, and superseded or unsubmitted versions cannot be decided.
+- Approving while high-severity findings are open requires a written override reason (minimum length enforced server-side). The reason is stored on the decision and in the history event.
 - Request changes/reject require feedback.
+- Dismissals create `FindingOverride` records with a reason, reviewer, rule, and document; they feed the insights override rate.
 - Comments and decisions produce append-only history events.
 - Version comparison is a line-based diff of stored text. PDF diffs reflect extracted text order, not visual layout.
 
@@ -199,17 +224,24 @@ It cannot answer general world knowledge as an LLM would, and the UI does not pr
 
 - **Research**: records section, status, summary, structured details, sources, owner. Completion requires a titled source. The UI labels planned work as not conducted.
 - **Evaluation**: fixed cases with expected categories/text/locations are executed through the real engine. Each run stores the actual findings, checks, score, and model/engine label. Results are a regression fixture, not an external benchmark.
-- **Insights**: aggregates stored runs/findings by category, rule, severity, and trend. No synthetic telemetry is injected.
+- **Insights**: aggregates stored runs/findings by category, rule, severity, and trend. No synthetic telemetry is injected. Round 3 adds:
+  - **Recurring violations** grouped by rule (or category + title) with finding count, unique-document count, audit-run count, up to five document references, and first/last seen dates. Counts come from distinct rows, not estimates.
+  - **Overridden rules** from `finding_overrides`: override count, unique documents, findings in scope, override rate, reasons with reviewer names, and a `may_need_review` flag when a rule is overridden repeatedly or at a high rate.
+  - **Approved facts needing verification**: expired, overdue, missing-source, or flagged facts with a reason and the active-fact denominator.
+  - **Unclear guideline signals**: deterministic flags from rule text (vague terms, missing description/guidance, single short patterns), with the evaluated rule count.
+  - Every metric carries a `method`, `sample_size`, and `time_range`; the response includes a `reporting_window` and the resolved filter options.
 
 ---
 
 ## 13. Security and trust controls
 
-- Role capabilities are re-checked server-side on every protected route.
-- Queries filter by `workspace_id`; creator draft access is additionally restricted.
-- Uploads are size/type validated; filenames are sanitized and server-generated.
+- Protected routes require a server-issued bearer session; the token hash, user, workspace, and expiry are stored server-side.
+- Role capabilities are re-checked server-side on every protected route; role and workspace are read from the session record, not from client headers.
+- Queries filter by `workspace_id`; creator draft access is additionally restricted. `test_security.py` covers cross-workspace record and file-download attempts.
+- Review decisions enforce version binding, duplicate-decision rejection, assignment ownership, and written override reasons for high-risk approvals.
+- Uploads are size/type validated; image bytes are decoded before OCR; filenames are sanitized and server-generated.
 - File downloads require authorization and stream through the API; no static upload directory is served.
-- CORS is configured explicitly; credentials are not stored in the browser.
+- CORS is configured explicitly; session tokens are held in memory, not in `localStorage`.
 - Integration endpoints expose configuration *names and states*, never secret values.
 - The generic 500 handler returns a safe message and logs details server-side.
 - Demo data is labelled in the shell, records, and seeded content.
@@ -231,9 +263,10 @@ Not provided: production login, password reset, audit logging to an external SIE
 
 ## 15. Verification approach
 
-- **Backend tests** (`backend/tests`): API permissions, seed integrity, PDF page linkage, transcript timestamps, image OCR boundary, revision/review/stale approval, campaign conflicts, brand memory, research source requirement, evaluation execution, secret-safe integrations, assistant declarations, upload limits, deterministic engine units.
-- **Frontend build**: `tsc` then Vite production build.
-- **Browser checks**: responsive sweep across all routes and three widths; creator/reviewer workflow; admin workflow. These run against an isolated copy of the demo database so seeded demo records stay clean.
+- **Backend tests** (`backend/tests`, 84 tests): API permissions, session issuance/expiry/logout, client-header rejection, cross-workspace record and file isolation, seed integrity, PDF page linkage, generated native/scanned/mixed PDFs, image OCR with line confidence and bounding boxes, OCR failure/unavailable honesty, image validation, transcript timestamps, revision/review/stale approval, assignment and override rules, campaign conflicts, brand memory, research source requirement, evaluation execution, secret-safe integrations, assistant declarations, upload limits, deterministic engine units, and insights aggregation.
+- **Frontend tests**: 27 Node tests for pure helpers (`npm run test:format`), plus `tsc --noEmit`.
+- **Build**: `tsc` then Vite production build.
+- **Browser checks**: a temporary headless-Chrome CDP harness (outside the repo) exercised OCR image and mixed-PDF journeys, the reviewer claim/override flow, insights at 1440/768/390 px, and dashboard/content/create-brand/mobile-navigation regressions. The local development database received test documents during those runs; no deployed data was touched.
 - There is no lint script or ESLint configuration in the repository; TypeScript is the static check.
 
 ---
@@ -241,9 +274,10 @@ Not provided: production login, password reset, audit logging to an external SIE
 ## 16. Known constraints
 
 - Deterministic matching cannot understand tone, sarcasm, or visual context.
-- PDF extraction does not preserve columns/tables or render layout.
-- No OCR for images/scans; no transcription or frame analysis for video.
+- PDF extraction does not preserve columns/tables or render layout. OCR reads printed Latin-script text well but can misread handwriting, unusual fonts, low-resolution images, or complex layouts; low-quality output is visible but still needs human confirmation.
+- Visual qualities (contrast, logo usage, layout) are not judged automatically.
+- No speech-to-text or frame analysis for video.
 - No external LLM; assistant answers are limited to stored workspace records and declared guidance.
 - Single-node SQLite/local file storage; no background workers or notifications.
-- Demo role headers are not authentication; RLS is not enforced on the local trusted connection.
+- Demo accounts are fictional; sessions are server-issued and enforced, but there is no external identity provider. RLS is not enforced on the local trusted connection.
 - The five evaluation cases are synthetic fixtures, not a benchmark.

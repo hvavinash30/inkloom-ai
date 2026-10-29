@@ -10,15 +10,24 @@ import base64
 import uuid
 
 import pytest
+
+from helpers import demo_login
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 
-CREATOR = {"X-Inkloom-Role": "creator"}
-REVIEWER = {"X-Inkloom-Role": "reviewer"}
-ADMIN = {"X-Inkloom-Role": "admin"}
+CREATOR: dict[str, str] = {}
+REVIEWER: dict[str, str] = {}
+ADMIN: dict[str, str] = {}
 
+
+
+@pytest.fixture(scope="module", autouse=True)
+def demo_identities(client):
+    CREATOR.update(demo_login(client, "creator"))
+    REVIEWER.update(demo_login(client, "reviewer"))
+    ADMIN.update(demo_login(client, "admin"))
 
 @pytest.fixture(scope="module")
 def client():
@@ -48,9 +57,13 @@ def test_health_reports_honest_integration_state(client):
     assert data["status"] == "online"
     assert data["database"] == "connected"
     assert data["integrations"]["audit_engine"] == "deterministic-rules-v2"
-    assert data["integrations"]["ocr_configured"] is False
+    assert isinstance(data["integrations"]["ocr_configured"], bool)
+    assert data["integrations"]["ocr_reason"]
+    if data["integrations"]["ocr_configured"]:
+        assert "RapidOCR" in data["integrations"]["ocr_reason"]
     assert data["integrations"]["transcription_configured"] is False
     assert data["limits"]["max_pdf_pages"] > 0
+    assert data["limits"]["max_ocr_pages"] > 0
 
 
 def test_session_capabilities_are_role_specific(client):
@@ -207,20 +220,36 @@ def test_mixed_transcript_checks_untimed_text_without_inventing_timestamps(clien
 
 
 def test_image_upload_records_ocr_boundary(client):
-    png = base64.b64decode(
+    corrupt_png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII="
     )
-    upload = client.post(
+    rejected = client.post(
         "/api/v1/uploads/",
         headers=CREATOR,
-        files={"file": ("boundary-test.png", png, "image/png")},
+        files={"file": ("boundary-test.png", corrupt_png, "image/png")},
         data={"kind": "image"},
     )
-    assert upload.status_code == 201, upload.text
-    upload_data = upload.json()
+    assert rejected.status_code == 415, rejected.text
+    assert "malformed or unreadable" in rejected.json()["detail"].lower()
+
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (320, 120), "white").save(buffer, format="PNG")
+    blank = client.post(
+        "/api/v1/uploads/",
+        headers=CREATOR,
+        files={"file": ("blank-page.png", buffer.getvalue(), "image/png")},
+        data={"kind": "image"},
+    )
+    assert blank.status_code == 201, blank.text
+    upload_data = blank.json()
     assert upload_data["kind"] == "image"
-    assert upload_data["extraction_status"] == "needs_ocr"
-    assert "OCR" in upload_data["extraction_message"]
+    assert upload_data["extraction_status"] == "no_text"
+    assert "found no readable text" in upload_data["extraction_message"]
+    assert upload_data["ocr"]["line_count"] == 0
 
     title = unique_title("Image boundary")
     created = client.post(

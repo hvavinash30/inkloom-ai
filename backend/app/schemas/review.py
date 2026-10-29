@@ -29,6 +29,7 @@ class ApprovalDecisionCreate(BaseModel):
     decision: DecisionType
     version_id: str
     feedback: Optional[str] = None
+    override_reason: Optional[str] = Field(default=None, max_length=2000)
 
 
 class ApprovalDecisionOut(BaseModel):
@@ -51,3 +52,24 @@ class SubmitForReviewRequest(BaseModel):
         default="Submitted for brand review",
         max_length=2000,
     )
+
+
+class ReviewAssignmentCreate(BaseModel):
+    assignee_id: Optional[str] = None
+    instructions: Optional[str] = Field(default=None, max_length=2000)
+
+
+class ReviewAssignmentOut(BaseModel):
+    id: str
+    document_id: str
+    version_id: Optional[str] = None
+    assignee_id: Optional[str] = None
+    assignee_name: str
+    assignee_role: Optional[str] = None
+    assigned_by_name: str
+    status: str
+    instructions: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

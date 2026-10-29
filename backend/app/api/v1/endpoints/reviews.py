@@ -1,22 +1,27 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.security import Actor, ensure_document_access, require_caps
 from app.db.session import get_db
+from app.models.audit import AuditFinding
 from app.models.content import ContentDocument, ContentVersion
-from app.models.review import ApprovalDecision, ReviewComment
+from app.models.review import ApprovalDecision, ReviewAssignment, ReviewComment
+from app.models.workspace import UserProfile
 from app.schemas.audit import ContentDocumentOut
 from app.schemas.review import (
     ApprovalDecisionCreate,
     ApprovalDecisionOut,
+    ReviewAssignmentCreate,
+    ReviewAssignmentOut,
     ReviewCommentCreate,
     ReviewCommentOut,
     SubmitForReviewRequest,
 )
-from app.services import content_service
+from app.services import content_service, review_workflow_service
 
 router = APIRouter()
 
@@ -100,6 +105,119 @@ def submit_for_review(
     )
 
 
+@router.get("/documents/{document_id}/assignment", response_model=Optional[ReviewAssignmentOut])
+def get_assignment(
+    document_id: str,
+    actor: Actor = Depends(require_caps("content.create")),
+    db: Session = Depends(get_db),
+):
+    document = _get_document(db, actor, document_id)
+    version = content_service.latest_version(db, document.id)
+    assignment = review_workflow_service.active_assignment(
+        db, document.id, version.id if version else None
+    )
+    return (
+        review_workflow_service.serialize_assignment(assignment) if assignment else None
+    )
+
+
+@router.post(
+    "/documents/{document_id}/assignment",
+    response_model=ReviewAssignmentOut,
+    status_code=201,
+)
+def assign_reviewer(
+    document_id: str,
+    payload: ReviewAssignmentCreate,
+    actor: Actor = Depends(require_caps("review.queue")),
+    db: Session = Depends(get_db),
+):
+    document = _get_document(db, actor, document_id)
+    if document.status not in {"in_review", "changes_requested"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Assign a reviewer after the latest version is submitted for review.",
+        )
+    version = content_service.latest_version(db, document.id)
+    if not version:
+        raise HTTPException(status_code=400, detail="This content has no saved version to assign.")
+
+    if payload.assignee_id and payload.assignee_id != actor.id:
+        if not actor.can("org.manage"):
+            raise HTTPException(
+                status_code=403,
+                detail="Only organization administrators can assign this review to another person.",
+            )
+        assignee = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.id == payload.assignee_id,
+                UserProfile.workspace_id == actor.workspace_id,
+            )
+            .first()
+        )
+        if not assignee:
+            raise HTTPException(status_code=404, detail="Reviewer not found in this workspace.")
+        if assignee.role not in {"reviewer", "admin"}:
+            raise HTTPException(
+                status_code=422,
+                detail="Only reviewer or organization administrator accounts can be assigned.",
+            )
+    else:
+        assignee = actor.user
+
+    instructions = (payload.instructions or "").strip() or None
+    current = review_workflow_service.active_assignment(db, document.id, version.id)
+    if current and current.assignee_id != actor.id and not actor.can("org.manage"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"This review is assigned to {current.assignee_name}. Only an organization "
+                "administrator can reassign it."
+            ),
+        )
+    if (
+        current
+        and current.assignee_id == assignee.id
+        and (current.instructions or None) == instructions
+    ):
+        return review_workflow_service.serialize_assignment(current)
+
+    review_workflow_service.supersede_active_assignments(db, document.id)
+    assignment = ReviewAssignment(
+        document_id=document.id,
+        version_id=version.id,
+        assignee_id=assignee.id,
+        assignee_name=assignee.full_name,
+        assignee_role=assignee.role,
+        assigned_by_id=actor.id,
+        assigned_by_name=actor.name,
+        status="active",
+        instructions=instructions,
+    )
+    db.add(assignment)
+    content_service.add_history(
+        db,
+        document,
+        user_id=actor.id,
+        user_name=actor.name,
+        event_type="reviewer_assigned",
+        description=(
+            f"Review assigned to {assignee.full_name} for version {version.version_number}."
+            + (f" Instructions: {instructions}" if instructions else "")
+        ),
+        version_id=version.id,
+        metadata={
+            "assignment_assignee": assignee.full_name,
+            "assignment_assignee_role": assignee.role,
+            "version_number": version.version_number,
+        },
+    )
+    db.commit()
+    db.refresh(assignment)
+    return review_workflow_service.serialize_assignment(assignment)
+
+
 @router.post("/documents/{document_id}/decision", response_model=ApprovalDecisionOut)
 def record_decision(
     document_id: str,
@@ -125,31 +243,112 @@ def record_decision(
             status_code=422,
             detail="Feedback is required when rejecting content or requesting changes.",
         )
+    feedback = payload.feedback.strip() if payload.feedback else None
+    override_reason = (payload.override_reason or "").strip() or None
+
+    # A repeated submission (double click, retried request) returns the record
+    # that already exists instead of writing a second decision and history row.
+    existing = (
+        db.query(ApprovalDecision)
+        .filter(
+            ApprovalDecision.document_id == document.id,
+            ApprovalDecision.version_id == version.id,
+            ApprovalDecision.reviewer_id == actor.id,
+            ApprovalDecision.decision == payload.decision,
+        )
+        .order_by(ApprovalDecision.created_at.desc())
+        .first()
+    )
+    if (
+        existing
+        and (existing.feedback or "").strip() == (feedback or "")
+        and (existing.decision_metadata or {}).get("override_reason") == override_reason
+    ):
+        return content_service.serialize_decision(db, existing)
 
     latest = content_service.latest_version(db, document.id)
-    is_latest = bool(latest and latest.id == version.id)
+    if not latest or latest.id != version.id:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This decision targets a superseded version. Reload the content and review "
+                "the latest version before deciding."
+            ),
+        )
+    if document.status not in {"in_review", "changes_requested"}:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This content is not awaiting review. Submit the latest version for review "
+                "before recording a decision."
+            ),
+        )
+
+    assignment = review_workflow_service.active_assignment(db, document.id, version.id)
+    decided_outside_assignment = bool(
+        assignment and assignment.assignee_id != actor.id
+    )
+    if decided_outside_assignment and not actor.can("org.manage"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"This review is assigned to {assignment.assignee_name}. Only the assignee "
+                "or an organization administrator can record a decision."
+            ),
+        )
+
     run = content_service.latest_audit_for_version(db, version.id)
+    open_priority = 0
+    if run:
+        open_priority = (
+            db.query(func.count(AuditFinding.id))
+            .filter(
+                AuditFinding.audit_run_id == run.id,
+                AuditFinding.status == "open",
+                AuditFinding.severity.in_(["high", "critical"]),
+            )
+            .scalar()
+        ) or 0
+    if payload.decision == "approved" and open_priority:
+        if not override_reason:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"{open_priority} high or critical finding(s) are still open. Approving "
+                    "with unresolved high-risk findings requires a written override reason."
+                ),
+            )
+    if override_reason and len(override_reason) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail="Override reasons must be at least 10 characters so the exception is auditable.",
+        )
+
     metadata = {
         "version_number": version.version_number,
-        "is_latest_version": is_latest,
-        "superseded": not is_latest,
+        "is_latest_version": True,
+        "superseded": False,
         "score_at_decision": run.overall_score if run else None,
         "findings_at_decision": run.total_findings if run else None,
+        "open_priority_findings_at_decision": open_priority,
+        "override_reason": override_reason,
+        "assignment_id": assignment.id if assignment else None,
+        "assignment_assignee": assignment.assignee_name if assignment else None,
+        "decided_outside_assignment": decided_outside_assignment,
     }
 
-    if is_latest:
-        if payload.decision == "approved":
-            document.status = "approved"
-            document.approved_version_id = version.id
-        elif payload.decision == "rejected":
-            document.status = "rejected"
-            if document.approved_version_id == version.id:
-                document.approved_version_id = None
-        else:
-            document.status = "changes_requested"
-            if document.approved_version_id == version.id:
-                document.approved_version_id = None
-        document.submitted_at = document.submitted_at or datetime.now(timezone.utc)
+    if payload.decision == "approved":
+        document.status = "approved"
+        document.approved_version_id = version.id
+    elif payload.decision == "rejected":
+        document.status = "rejected"
+        if document.approved_version_id == version.id:
+            document.approved_version_id = None
+    else:
+        document.status = "changes_requested"
+        if document.approved_version_id == version.id:
+            document.approved_version_id = None
+    document.submitted_at = document.submitted_at or datetime.now(timezone.utc)
 
     decision = ApprovalDecision(
         document_id=document.id,
@@ -158,7 +357,7 @@ def record_decision(
         reviewer_name=actor.name,
         reviewer_role=actor.role,
         decision=payload.decision,
-        feedback=payload.feedback.strip() if payload.feedback else None,
+        feedback=feedback,
         decision_metadata=metadata,
     )
     db.add(decision)
@@ -171,12 +370,22 @@ def record_decision(
         description=(
             f"Decision “{payload.decision.replace('_', ' ')}” recorded on version "
             f"{version.version_number}."
-            + (" This decision applies to a superseded version." if not is_latest else "")
-            + (f" Note: {payload.feedback.strip()}" if payload.feedback else "")
+            + (
+                f" Override reason: {override_reason}"
+                if override_reason
+                else ""
+            )
+            + (
+                f" Decision recorded outside the assignment to {assignment.assignee_name}."
+                if decided_outside_assignment
+                else ""
+            )
+            + (f" Note: {feedback}" if feedback else "")
         ),
         version_id=version.id,
         metadata={**metadata, "decision": payload.decision},
     )
+    review_workflow_service.complete_assignment(db, assignment)
     document.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(decision)

@@ -78,8 +78,9 @@ export function TeamPage() {
 
       <div className="mt-5">
         <InfoCallout tone="warning" title="Demo identity, real server checks">
-          {data.notice} The role switcher in the header changes the demo identity, and the API re-evaluates that role on
-          each request. A production deployment must replace this with real authentication and membership records.
+          {data.notice} The role switcher signs in as a different seeded demo account, and the API resolves the role
+          and workspace from that stored session on each request. A production deployment must replace demo sign-in
+          with real authentication and membership records.
         </InfoCallout>
       </div>
 

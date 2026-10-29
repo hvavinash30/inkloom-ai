@@ -6,6 +6,7 @@ from typing import Optional, Sequence
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.security import Actor
 from app.models.approved_fact import ApprovedFact
 from app.models.assets import UploadedFile
@@ -13,6 +14,7 @@ from app.models.audit import AuditFinding, AuditRun
 from app.models.brand_rule import BrandRule
 from app.models.content import ContentDocument, ContentVersion
 from app.models.review import ApprovalDecision, AuditHistoryEvent, ReviewComment
+from app.services import review_workflow_service
 from app.services.audit_engine import (
     AuditResult,
     parse_timestamped_transcript,
@@ -151,6 +153,9 @@ def serialize_document(
             "feedback": decision.feedback,
         }
 
+    assignment = review_workflow_service.active_assignment(
+        db, document.id, version.id if version else None
+    )
     versions_count = (
         db.query(ContentVersion).filter(ContentVersion.document_id == document.id).count()
     )
@@ -183,6 +188,9 @@ def serialize_document(
         "latest_audit": attach_audit_findings(db, run, include_findings=include_findings) if run else None,
         "approval_stale": approval_is_stale(document, version),
         "latest_decision": latest_decision,
+        "assignment": (
+            review_workflow_service.serialize_assignment(assignment) if assignment else None
+        ),
     }
     if include_current_version and version:
         payload["current_version"] = serialize_version(version)
@@ -294,15 +302,38 @@ def _resolve_audit_payload(
         ), message
 
     if document.asset_type == "image":
+        text = (version.content_text or "").strip()
+        if not text and upload and (upload.extracted_text or "").strip():
+            text = upload.extracted_text.strip()
+
+        if text:
+            notes = (
+                "Checks ran on text extracted from the image with OCR. "
+                "Contrast, logo usage, and other visual qualities were not judged automatically."
+            )
+            if upload and upload.extraction_message:
+                notes = upload.extraction_message
+                if "human reviewer" not in notes:
+                    notes = f"{notes} Visual qualities still require a human reviewer."
+            result = run_page_audit(
+                [text],
+                rules,
+                facts,
+                extraction_notes=notes,
+                model_label="image-ocr-v1",
+                location_label="Image text",
+            )
+            return result, notes
+
         message = (
             upload.extraction_message
             if upload
-            else "No visual analysis service is configured for this image."
+            else "No text was extracted from this image."
         )
         return processing_issue_result(
             message
-            + " Contrast, logo usage, and text-in-image checks are marked as manual review tasks; "
-            "they were not performed automatically.",
+            + " Automated text checks could not run. Contrast, logo usage, and other visual "
+            "qualities also require a human reviewer.",
             severity="medium",
         ), message
 
@@ -470,6 +501,8 @@ def create_document(
     pages = page_texts or []
     if not pages and upload and upload.kind == "pdf":
         pages = list(upload.page_texts or [])
+    if not pages and upload and upload.kind == "image" and (upload.extracted_text or "").strip():
+        pages = [upload.extracted_text]
     segments = transcript_segments or []
     if not segments and upload and upload.kind == "transcript":
         segments = parse_timestamped_transcript(upload.extracted_text or "")
@@ -597,6 +630,7 @@ def create_new_version(
     document.status = "audited"
     document.submitted_at = None
     document.submitted_by_name = None
+    review_workflow_service.supersede_active_assignments(db, document.id)
     db.flush()
 
     add_history(
@@ -616,7 +650,48 @@ def create_new_version(
     return version, run
 
 
-def serialize_upload(record: UploadedFile, *, has_viewable_file: bool = True) -> dict:
+def serialize_upload(
+    record: UploadedFile,
+    *,
+    has_viewable_file: bool = True,
+    ocr_lines: Optional[list] = None,
+) -> dict:
+    lines = ocr_lines or []
+    ocr = None
+    if record.kind in {"image", "pdf"}:
+        by_page: dict[int, list] = {}
+        for line in lines:
+            by_page.setdefault(line.page_number, []).append(line)
+        confidences = [line.confidence for line in lines]
+        ocr = {
+            "available": settings.ocr_configured,
+            "line_count": len(lines),
+            "mean_confidence": round(sum(confidences) / len(confidences), 3) if confidences else None,
+            "pages": [
+                {
+                    "page_number": page_number,
+                    "line_count": len(page_lines),
+                    "mean_confidence": round(
+                        sum(line.confidence for line in page_lines) / len(page_lines), 3
+                    ),
+                }
+                for page_number, page_lines in sorted(by_page.items())
+            ],
+            "empty_pages": [
+                index
+                for index, text in enumerate(record.page_texts or [], start=1)
+                if not (text or "").strip()
+            ],
+            "lines": [
+                {
+                    "page_number": line.page_number,
+                    "text": line.text,
+                    "confidence": line.confidence,
+                    "bbox": line.bbox or [],
+                }
+                for line in lines[:200]
+            ],
+        }
     return {
         "id": record.id,
         "original_name": record.original_name,
@@ -628,6 +703,7 @@ def serialize_upload(record: UploadedFile, *, has_viewable_file: bool = True) ->
         "page_count": record.page_count,
         "has_viewable_file": has_viewable_file,
         "page_texts": record.page_texts or [],
+        "ocr": ocr,
         "created_at": record.created_at,
     }
 

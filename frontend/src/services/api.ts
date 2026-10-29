@@ -26,6 +26,7 @@ import type {
   Provenance,
   ResearchRecord,
   ResearchResponse,
+  ReviewAssignment,
   ReviewComment,
   ReviewSummary,
   Role,
@@ -39,20 +40,83 @@ import type {
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
 
-let activeRole: Role = 'creator';
-let activeWorkspace: string | null = null;
+export const ROLE_STORAGE_KEY = 'inkloom-demo-role';
+export const WORKSPACE_STORAGE_KEY = 'inkloom-workspace-id';
+
+function storedRole(): Role {
+  const value = localStorage.getItem(ROLE_STORAGE_KEY);
+  return value === 'reviewer' || value === 'admin' || value === 'creator' ? value : 'creator';
+}
+
+let activeRole: Role = storedRole();
+let activeWorkspace: string | null = localStorage.getItem(WORKSPACE_STORAGE_KEY) || null;
+let authToken: string | null = null;
+let loginPromise: Promise<string> | null = null;
+let authGeneration = 0;
+
+function resetAuth() {
+  authGeneration += 1;
+  authToken = null;
+  loginPromise = null;
+}
 
 export function setApiRole(role: Role) {
+  if (role !== activeRole) resetAuth();
   activeRole = role;
 }
 
 export function setApiWorkspace(workspaceId: string | null) {
+  if (workspaceId !== activeWorkspace) resetAuth();
   activeWorkspace = workspaceId;
 }
 
-function identityHeaders(headers: Headers) {
-  headers.set('X-Inkloom-Role', activeRole);
-  if (activeWorkspace) headers.set('X-Inkloom-Workspace', activeWorkspace);
+async function demoLogin(): Promise<string> {
+  const body: Record<string, string> = { role: activeRole };
+  if (activeWorkspace) body.workspace_id = activeWorkspace;
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/auth/demo/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      'Cannot reach Inkloom to start a demo session. Make sure the service is running, then try again.'
+    );
+  }
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try {
+      detail = extractError(await response.json());
+    } catch {
+      // Keep the HTTP status text when no JSON error body is returned.
+    }
+    throw new ApiError(response.status, detail);
+  }
+  const payload = (await response.json()) as { token?: string };
+  if (!payload.token) {
+    throw new ApiError(500, 'The server did not return a demo session token.');
+  }
+  return payload.token;
+}
+
+function ensureToken(): Promise<string> {
+  if (authToken) return Promise.resolve(authToken);
+  if (!loginPromise) {
+    const generation = authGeneration;
+    const promise: Promise<string> = demoLogin()
+      .then((token) => {
+        if (generation === authGeneration) authToken = token;
+        return token;
+      })
+      .finally(() => {
+        if (loginPromise === promise) loginPromise = null;
+      });
+    loginPromise = promise;
+  }
+  return loginPromise;
 }
 
 export class ApiError extends Error {
@@ -83,13 +147,13 @@ function extractError(payload: unknown): string {
   return 'The request could not be completed.';
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
   const headers = new Headers(options.headers || {});
-  identityHeaders(headers);
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   headers.set('Accept', 'application/json');
+  headers.set('Authorization', `Bearer ${await ensureToken()}`);
 
   let response: Response;
   try {
@@ -99,6 +163,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       0,
       'Cannot reach Inkloom. Make sure the service is running, then try again.'
     );
+  }
+
+  if (response.status === 401 && !retried) {
+    resetAuth();
+    return request<T>(path, options, true);
   }
 
   if (!response.ok) {
@@ -126,17 +195,26 @@ function qs(params?: Record<string, string | number | boolean | undefined | null
   return encoded ? `?${encoded}` : '';
 }
 
-async function fetchFile(path: string): Promise<{ blob: Blob; contentType: string }> {
+async function fetchFile(path: string, retried = false): Promise<{ blob: Blob; contentType: string }> {
   const headers = new Headers();
-  identityHeaders(headers);
+  headers.set('Authorization', `Bearer ${await ensureToken()}`);
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, { headers });
   } catch {
     throw new ApiError(0, 'The file could not be reached. Check the API connection.');
   }
+  if (response.status === 401 && !retried) {
+    resetAuth();
+    return fetchFile(path, true);
+  }
   if (!response.ok) {
-    throw new ApiError(response.status, 'The file could not be loaded for this account.');
+    throw new ApiError(
+      response.status,
+      response.status === 401
+        ? 'Your demo session could not be restored. Reload the page to sign in again.'
+        : 'The file could not be loaded for this account.'
+    );
   }
   return {
     blob: await response.blob(),
@@ -237,9 +315,23 @@ export const api = {
     }),
   recordDecision: (
     id: string,
-    payload: { decision: string; version_id: string; feedback?: string }
+    payload: {
+      decision: string;
+      version_id: string;
+      feedback?: string;
+      override_reason?: string;
+    }
   ) =>
     request<ApprovalDecision>(`/reviews/documents/${encodeURIComponent(id)}/decision`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getAssignment: (id: string) =>
+    request<ReviewAssignment | null>(
+      `/reviews/documents/${encodeURIComponent(id)}/assignment`
+    ),
+  assignReviewer: (id: string, payload: { assignee_id?: string; instructions?: string }) =>
+    request<ReviewAssignment>(`/reviews/documents/${encodeURIComponent(id)}/assignment`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

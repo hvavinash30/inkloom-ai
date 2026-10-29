@@ -10,6 +10,8 @@ from __future__ import annotations
 import uuid
 
 import pytest
+
+from helpers import demo_login
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -25,9 +27,15 @@ from app.services.audit_engine import (
 )
 
 
-CREATOR = {"X-Inkloom-Role": "creator"}
-REVIEWER = {"X-Inkloom-Role": "reviewer"}
+CREATOR: dict[str, str] = {}
+REVIEWER: dict[str, str] = {}
 
+
+
+@pytest.fixture(scope="module", autouse=True)
+def demo_identities(client):
+    CREATOR.update(demo_login(client, "creator"))
+    REVIEWER.update(demo_login(client, "reviewer"))
 
 @pytest.fixture(scope="module")
 def client():

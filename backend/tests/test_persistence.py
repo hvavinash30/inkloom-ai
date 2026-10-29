@@ -11,6 +11,8 @@ from __future__ import annotations
 import uuid
 
 import pytest
+
+from helpers import demo_login
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
@@ -20,8 +22,13 @@ from app.main import app
 from app.models.content import ContentDocument
 
 
-CREATOR = {"X-Inkloom-Role": "creator"}
+CREATOR: dict[str, str] = {}
 
+
+
+@pytest.fixture(scope="module", autouse=True)
+def demo_identities(client):
+    CREATOR.update(demo_login(client, "creator"))
 
 @pytest.fixture(scope="module")
 def client():

@@ -363,11 +363,11 @@ export function SettingsPage() {
               <div>
                 <p className="text-xs font-semibold text-slate-800">Security boundaries</p>
                 <ul className="mt-1.5 space-y-1.5 text-[11px] leading-4 text-slate-500">
-                  <li>• Roles and capabilities are enforced server-side.</li>
+                  <li>• Sessions are issued by the server; roles and capabilities are enforced server-side.</li>
                   <li>• File downloads are authenticated; there are no public URLs.</li>
                   <li>• Files are isolated to the active workspace.</li>
                   <li>• Optional integrations fail honestly when absent.</li>
-                  <li>• Demo headers must be replaced by real auth before production.</li>
+                  <li>• Demo sign-in must be replaced by a production identity provider before launch.</li>
                 </ul>
               </div>
             </div>

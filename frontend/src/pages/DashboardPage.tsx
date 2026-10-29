@@ -912,7 +912,7 @@ export function DashboardPage() {
                     label: 'OCR for images/scans',
                     active: data.integrations.ocr_configured,
                     detail: data.integrations.ocr_configured
-                      ? 'Configured on the server'
+                      ? 'Local OCR — images and scanned pages'
                       : 'Not configured — human review required',
                   },
                   {

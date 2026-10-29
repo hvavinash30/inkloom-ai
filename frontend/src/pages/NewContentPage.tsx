@@ -62,7 +62,7 @@ const MODES: { id: Mode; label: string; description: string; icon: typeof FileTe
   {
     id: 'image',
     label: 'Image',
-    description: 'Store and preview; visual checks stay manual.',
+    description: 'OCR reads the text; visual checks stay manual.',
     icon: FileImage,
   },
   {
@@ -616,10 +616,17 @@ export function NewContentPage() {
                 ) : null}
 
                 {mode === 'image' ? (
-                  <InfoCallout tone="warning" title="Image checks are a manual-review boundary in this deployment">
-                    No OCR or vision service is configured. The image is stored and can be previewed with your role
-                    permissions, but automated text-in-image, contrast, or logo checks did not run. The check will record
-                    a processing limitation instead of inventing a result.
+                  <InfoCallout
+                    tone={health.data?.integrations.ocr_configured ? 'neutral' : 'warning'}
+                    title={
+                      health.data?.integrations.ocr_configured
+                        ? 'Text in the image is read locally with OCR'
+                        : 'OCR is not available on this server'
+                    }
+                  >
+                    {health.data?.integrations.ocr_configured
+                      ? 'On submit, text in this image is extracted on the server and checked against your active brand rules and approved facts. Contrast, logo usage, layout, and other visual qualities still require a human reviewer. If the text cannot be read, the check records that limitation instead of inventing a result.'
+                      : 'The image is stored and can be previewed with your role permissions, but automated text-in-image checks cannot run. The check will record a processing limitation instead of inventing a result.'}
                   </InfoCallout>
                 ) : null}
 
@@ -745,8 +752,9 @@ export function NewContentPage() {
               ))}
             </ul>
             <div className="mt-3 border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">
-              No external AI, OCR, or transcription service is called. If a format cannot be inspected, the check says
-              so rather than returning invented findings.
+              No external AI or transcription service is called. Image and scanned-PDF text is read locally on the
+              server with OCR; if a page or format cannot be inspected, the check says so rather than returning invented
+              findings.
             </div>
           </Card>
 
@@ -754,7 +762,7 @@ export function NewContentPage() {
             <p className="text-xs font-semibold text-slate-900">File handling</p>
             <ul className="mt-2.5 space-y-2 text-[11px] leading-5 text-slate-500">
               <li>Files are stored under a server-owned directory with generated names.</li>
-              <li>Downloads require your role header; there are no public file URLs.</li>
+              <li>Downloads use your signed-in session and are isolated to this workspace; there are no public file URLs.</li>
               <li>PDFs must pass a signature check and the server page limit.</li>
               <li>
                 {limits

@@ -285,6 +285,9 @@ export function ReviewsPage() {
                       <span className="mt-1 block text-[11px] text-slate-500">
                         {CONTENT_TYPE_LABEL[doc.content_type as keyof typeof CONTENT_TYPE_LABEL] || titleCase(doc.content_type)}
                         {findings !== null ? ` · ${open} open of ${findings} finding${findings === 1 ? '' : 's'}` : ' · no stored check'}
+                        {doc.assignment
+                          ? ` · assigned to ${doc.assignment.assignee_name}`
+                          : ' · unassigned'}
                       </span>
                     </span>
                   </button>
@@ -319,8 +322,9 @@ export function ReviewsPage() {
         </p>
       ) : (
         <p className="mt-4 text-xs text-slate-500">
-          Decisions require feedback when you reject a version or request changes. Dismissed findings always keep the
-          recorded reason in the audit history.
+          Reviews can be claimed from the content page. Only the assigned reviewer or an administrator can decide, and
+          decisions require feedback when you reject a version or request changes. Approving with open high-risk
+          findings requires a written override reason, kept in the audit history with every dismissal.
         </p>
       )}
     </div>

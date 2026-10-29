@@ -12,3 +12,9 @@ pytest>=8.0.0
 pytest-asyncio>=0.23.0
 python-multipart>=0.0.9
 pypdf>=5.0.0,<7.0.0
+# Local OCR for images and scanned PDF pages. RapidOCR bundles its ONNX models,
+# so no external service or API key is required. PyMuPDF renders PDF pages; Pillow
+# validates and decodes uploaded images.
+rapidocr-onnxruntime==1.4.4
+pymupdf>=1.24.0,<2.1.0
+pillow>=10.4.0,<14.0.0

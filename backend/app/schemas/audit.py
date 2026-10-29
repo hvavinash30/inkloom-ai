@@ -185,6 +185,7 @@ class ContentDocumentOut(BaseModel):
     latest_audit: Optional[AuditRunOut] = None
     approval_stale: bool = False
     latest_decision: Optional[ApprovalSummaryOut] = None
+    assignment: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

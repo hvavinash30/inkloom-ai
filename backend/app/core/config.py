@@ -46,9 +46,11 @@ class Settings(BaseSettings):
     DATABASE_PERSISTENT: Optional[bool] = None
     UPLOADS_PERSISTENT: Optional[bool] = None
 
-    # Demo identity. This build uses an explicit role switcher rather than
-    # production authentication; see README for the integration boundary.
+    # Demo identity. A judge (or demo user) signs in as a seeded account; the
+    # server issues an expiring bearer token and resolves role/workspace from the
+    # database on every request. See README for the production auth boundary.
     DEMO_MODE: bool = True
+    SESSION_TTL_HOURS: int = 12
     DEFAULT_WORKSPACE_ID: str = "00000000-0000-0000-0000-000000000001"
     DEFAULT_WORKSPACE_NAME: str = "Acme Cloud Technologies"
 
@@ -70,7 +72,15 @@ class Settings(BaseSettings):
     LLM_MAX_OUTPUT_TOKENS: int = 700
     LLM_MAX_INPUT_CHARS: int = 6000
     AI_RATE_LIMIT_PER_MINUTE: int = 12
-    OCR_PROVIDER: str = "none"  # none | tesseract (not bundled)
+    # OCR runs locally with RapidOCR (bundled ONNX models, no external service).
+    # "auto" uses the engine when its package is installed; "none" disables it.
+    OCR_PROVIDER: str = "auto"  # auto | rapidocr | none
+    OCR_MAX_PAGES: int = 12
+    OCR_RENDER_DPI: int = 150
+    OCR_MAX_IMAGE_PIXELS: int = 20_000_000
+    OCR_TIMEOUT_SECONDS: float = 60.0
+    OCR_MIN_NATIVE_CHARS: int = 12
+    OCR_MAX_PAGE_CHARS: int = 40_000
     TRANSCRIPTION_PROVIDER: str = "none"  # none | openai_whisper
     FFMPEG_PATH: str = ""
 
@@ -188,7 +198,28 @@ class Settings(BaseSettings):
 
     @property
     def ocr_configured(self) -> bool:
-        return self.OCR_PROVIDER.lower() == "tesseract"
+        if self.OCR_PROVIDER.lower() == "none":
+            return False
+        try:
+            import importlib.util
+
+            return importlib.util.find_spec("rapidocr_onnxruntime") is not None
+        except Exception:
+            return False
+
+    @property
+    def ocr_status_reason(self) -> str:
+        if self.OCR_PROVIDER.lower() == "none":
+            return "OCR is disabled by configuration (OCR_PROVIDER=none)."
+        if self.ocr_configured:
+            return (
+                "OCR runs locally with RapidOCR on the server. Extracted text feeds the same "
+                "deterministic audit engine; visual judgments still require a human reviewer."
+            )
+        return (
+            "The OCR engine is not installed on this server. Images and scanned PDF pages are "
+            "stored but cannot be read automatically."
+        )
 
     @property
     def transcription_configured(self) -> bool:

@@ -1020,11 +1020,13 @@ def run_page_audit(
     facts: Sequence[ApprovedFact],
     *,
     extraction_notes: Optional[str] = None,
+    model_label: Optional[str] = None,
+    location_label: Optional[str] = None,
 ) -> AuditResult:
     start = time.time()
     findings: List[dict] = []
     for index, page in enumerate(pages, start=1):
-        label = f"Page {index}"
+        label = location_label or f"Page {index}"
         page_findings = scan_rules(page, rules, page_number=index, location_label=label)
         page_findings.extend(
             detect_fact_contradictions(page, facts, page_number=index, location_label=label)
@@ -1054,7 +1056,7 @@ def run_page_audit(
         score=score,
         risk_level=risk,
         verification_status=_verification(findings),
-        model_used=f"pdf-intelligence-v2 ({len(pages)} pages)",
+        model_used=model_label or f"pdf-intelligence-v2 ({len(pages)} pages)",
         execution_time_ms=int((time.time() - start) * 1000),
         risk_factors=factors,
         score_method=method,

@@ -3,6 +3,7 @@ from app.api.v1.endpoints import (
     approved_facts,
     assistant,
     audits,
+    auth,
     brand_assets,
     brand_memory,
     brand_rules,
@@ -23,6 +24,7 @@ from app.api.v1.endpoints import (
 api_router = APIRouter()
 
 api_router.include_router(health.router, prefix="", tags=["System"])
+api_router.include_router(auth.router, prefix="", tags=["Authentication"])
 api_router.include_router(session.router, prefix="", tags=["Session"])
 api_router.include_router(workspaces.router, prefix="/workspaces", tags=["Workspaces"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])

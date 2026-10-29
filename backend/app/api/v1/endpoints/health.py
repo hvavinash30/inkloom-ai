@@ -35,6 +35,8 @@ def health_check(db: Session = Depends(get_db)):
             "llm_provider": settings.LLM_PROVIDER,
             "llm_active_provider": settings.ai_provider_name,
             "ocr_configured": settings.ocr_configured,
+            "ocr_provider": "rapidocr-onnxruntime" if settings.ocr_configured else "none",
+            "ocr_reason": settings.ocr_status_reason,
             "transcription_configured": settings.transcription_configured,
         },
         # What actually persists. Reported without credentials so operators and
@@ -65,6 +67,8 @@ def health_check(db: Session = Depends(get_db)):
             "max_upload_mb": settings.MAX_UPLOAD_BYTES // (1024 * 1024),
             "max_video_upload_mb": settings.MAX_VIDEO_UPLOAD_BYTES // (1024 * 1024),
             "max_pdf_pages": settings.MAX_PDF_PAGES,
+            "max_ocr_pages": settings.OCR_MAX_PAGES,
+            "ocr_max_image_pixels": settings.OCR_MAX_IMAGE_PIXELS,
             "ai_requests_per_minute": settings.AI_RATE_LIMIT_PER_MINUTE,
         },
         "checked_at": datetime.now(timezone.utc).isoformat(),

@@ -1,9 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { api, ApiError, setApiRole, setApiWorkspace } from '../services/api';
+import {
+  api,
+  ApiError,
+  ROLE_STORAGE_KEY,
+  WORKSPACE_STORAGE_KEY,
+  setApiRole,
+  setApiWorkspace,
+} from '../services/api';
 import type { Role, SessionPayload } from '../types';
-
-const ROLE_STORAGE_KEY = 'inkloom-demo-role';
-const WORKSPACE_STORAGE_KEY = 'inkloom-workspace-id';
 
 function isRole(value: string | null): value is Role {
   return value === 'creator' || value === 'reviewer' || value === 'admin';

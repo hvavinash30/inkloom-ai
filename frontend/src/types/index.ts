@@ -74,6 +74,13 @@ export interface SessionPayload {
   workspace: Workspace;
   workspaces: Workspace[];
   demo_mode: boolean;
+  auth?: {
+    mode: string;
+    session_id: string;
+    issued_at: string;
+    expires_at: string;
+    is_demo: boolean;
+  };
 }
 
 export interface TranscriptSegment {
@@ -250,6 +257,20 @@ export interface LatestDecision {
   feedback?: string | null;
 }
 
+export interface ReviewAssignment {
+  id: string;
+  document_id: string;
+  version_id?: string | null;
+  assignee_id?: string | null;
+  assignee_name: string;
+  assignee_role?: string | null;
+  assigned_by_name: string;
+  status: string;
+  instructions?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ContentDocument {
   id: string;
   workspace_id: string;
@@ -276,6 +297,7 @@ export interface ContentDocument {
   latest_audit?: AuditRun | null;
   approval_stale: boolean;
   latest_decision?: LatestDecision | null;
+  assignment?: ReviewAssignment | null;
 }
 
 export interface DocumentSummary {
@@ -680,7 +702,89 @@ export interface InsightsData {
   outdated_facts_count: number;
   outstanding_actions_count: number;
   score_distribution: { label: string; min: number; max: number; count: number }[];
-  filter_options: Record<string, (string | number)[]>;
+  recurring_violations: {
+    key: string;
+    category: string;
+    category_label: string;
+    rule_id: string | null;
+    rule_name: string;
+    severity: Severity;
+    finding_count: number;
+    unique_documents: number;
+    audit_run_count: number;
+    sample_affected_text: string;
+    documents: { id: string; title: string }[];
+    first_seen: string | null;
+    last_seen: string | null;
+  }[];
+  overridden_rules: {
+    rule_id: string | null;
+    rule_name: string;
+    severity: Severity;
+    override_count: number;
+    unique_documents: number;
+    rule_findings_in_scope: number;
+    override_rate_percent: number | null;
+    may_need_review: boolean;
+    review_note: string;
+    reasons: { reason: string; count: number; reviewer_name: string | null }[];
+    last_overridden_at: string | null;
+  }[];
+  facts_needing_verification: {
+    count: number;
+    total_active_facts: number;
+    items: {
+      id: string;
+      claim_statement: string;
+      category: string;
+      status: string;
+      source_reference: string | null;
+      next_review_at: string | null;
+      owner_name: string | null;
+      reasons: string[];
+      reasons_count: number;
+    }[];
+    criteria: string[];
+    method_note: string;
+  };
+  unclear_guidelines: {
+    count: number;
+    evaluated_rules: number;
+    items: {
+      id: string;
+      name: string;
+      rule_type: string;
+      severity: Severity;
+      pattern_or_phrase: string;
+      signals: string[];
+      signals_count: number;
+      last_reviewed_at: string | null;
+    }[];
+    method_note: string;
+  };
+  risk_signal_counts: Record<string, number>;
+  metric_methods: Record<
+    string,
+    {
+      method: string;
+      sample_size: number;
+      time_range: { from: string | null; to: string | null };
+    }
+  >;
+  reporting_window: {
+    audit_runs_from: string | null;
+    audit_runs_to: string | null;
+    overrides_from: string | null;
+    overrides_to: string | null;
+  };
+  filter_options: {
+    content_types?: string[];
+    asset_types?: string[];
+    statuses?: string[];
+    content_type?: string[];
+    asset_type?: string[];
+    status?: string[];
+  };
   applied_filters: Record<string, unknown>;
   scope_note: string;
 }
@@ -852,6 +956,28 @@ export interface AssistantRequest {
   finding_id?: string;
 }
 
+export interface UploadOcrLine {
+  page_number: number;
+  text: string;
+  confidence: number;
+  bbox: number[];
+}
+
+export interface UploadOcrPage {
+  page_number: number;
+  line_count: number;
+  mean_confidence: number;
+}
+
+export interface UploadOcrSummary {
+  available: boolean;
+  line_count: number;
+  mean_confidence: number | null;
+  pages: UploadOcrPage[];
+  empty_pages: number[];
+  lines: UploadOcrLine[];
+}
+
 export interface UploadRecord {
   id: string;
   original_name: string;
@@ -863,6 +989,7 @@ export interface UploadRecord {
   page_count?: number | null;
   has_viewable_file: boolean;
   page_texts: string[];
+  ocr?: UploadOcrSummary | null;
   created_at: string;
 }
 
@@ -895,6 +1022,8 @@ export interface HealthData {
     llm_provider: string;
     llm_active_provider?: string;
     ocr_configured: boolean;
+    ocr_provider?: string;
+    ocr_reason?: string;
     transcription_configured: boolean;
   };
   storage?: {
@@ -911,6 +1040,8 @@ export interface HealthData {
     max_upload_mb: number;
     max_video_upload_mb: number;
     max_pdf_pages: number;
+    max_ocr_pages?: number;
+    ocr_max_image_pixels?: number;
     ai_requests_per_minute?: number;
   };
   checked_at: string;

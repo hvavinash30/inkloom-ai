@@ -7,11 +7,22 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import Actor, require_caps
 from app.db.session import get_db
-from app.models.assets import BrandAsset, UploadedFile
+from app.models.assets import BrandAsset, OcrLine, UploadedFile
 from app.services.content_service import serialize_upload
 from app.services.ingestion import resolve_upload_path, save_upload
 
 router = APIRouter()
+
+
+def _serialize(db: Session, record: UploadedFile) -> dict:
+    ocr_lines = (
+        db.query(OcrLine)
+        .filter(OcrLine.upload_id == record.id, OcrLine.workspace_id == record.workspace_id)
+        .order_by(OcrLine.page_number, OcrLine.line_index)
+        .all()
+    )
+    has_viewable = (settings.upload_path / record.stored_name).exists()
+    return serialize_upload(record, has_viewable_file=has_viewable, ocr_lines=ocr_lines)
 
 
 def _get_upload(db: Session, actor: Actor, upload_id: str) -> UploadedFile:
@@ -55,8 +66,7 @@ def upload_file(
     db: Session = Depends(get_db),
 ):
     record = save_upload(db, actor, file, expected_kind=kind)
-    has_viewable = (settings.upload_path / record.stored_name).exists()
-    return serialize_upload(record, has_viewable_file=has_viewable)
+    return _serialize(db, record)
 
 
 @router.get("/{upload_id}")
@@ -68,8 +78,7 @@ def get_upload(
     record = _get_upload(db, actor, upload_id)
     if not _can_read_upload(db, actor, record):
         raise HTTPException(status_code=403, detail="You do not have access to this file.")
-    has_viewable = (settings.upload_path / record.stored_name).exists()
-    return serialize_upload(record, has_viewable_file=has_viewable)
+    return _serialize(db, record)
 
 
 @router.get("/{upload_id}/file")

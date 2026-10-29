@@ -28,6 +28,13 @@ class InsightsOut(BaseModel):
     unresolved_campaign_conflicts: int
     campaigns_with_unresolved_conflicts: int
     outdated_facts_count: int
+    recurring_violations: List[Dict[str, Any]]
+    overridden_rules: List[Dict[str, Any]]
+    facts_needing_verification: Dict[str, Any]
+    unclear_guidelines: Dict[str, Any]
+    risk_signal_counts: Dict[str, int]
+    metric_methods: Dict[str, Any]
+    reporting_window: Dict[str, Any]
     outstanding_actions_count: int
     score_distribution: List[Dict[str, Any]]
     filter_options: Dict[str, List[Any]]

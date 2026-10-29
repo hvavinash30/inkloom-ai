@@ -1,10 +1,10 @@
-"""Demo identity and server-side permission checks.
+"""Server-issued identity and permission checks.
 
-Inkloom AI's hackathon build does not ship a production auth provider. The
-role switcher is an explicit demo-access mechanism: the frontend sends the
-selected demo role and user in headers, and every protected endpoint re-checks
-the role server-side. Replacing this module with Supabase Auth (or another
-provider) is the documented production boundary.
+Protected endpoints never trust a client-declared role or workspace. A demo
+account signs in through the auth endpoints; the response carries an opaque
+bearer token, and every request resolves that token to a stored session and a
+database user. Role and workspace come from those records. Replacing the demo
+sign-in with Supabase Auth (or another provider) is the production boundary.
 """
 from dataclasses import dataclass
 from typing import Callable, Iterable, Optional
@@ -13,8 +13,10 @@ from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.models.auth import AuthSession
 from app.models.workspace import UserProfile, Workspace
 from app.core.config import settings
+from app.services import auth_service
 from app.services.workspace_service import serialize_workspace
 
 
@@ -80,6 +82,7 @@ class Actor:
     user: UserProfile
     role: str
     workspace_id: str
+    session: Optional[AuthSession] = None
 
     @property
     def id(self) -> str:
@@ -112,49 +115,49 @@ class Actor:
         return self.can("content.edit.own") and document.created_by == self.user.id
 
 
-def _resolve_user(
-    db: Session, workspace_id: str, role: str, user_hint: str | None
-) -> UserProfile | None:
-    query = db.query(UserProfile).filter(
-        UserProfile.workspace_id == workspace_id,
-        UserProfile.role == role,
+def _bearer_token(authorization: Optional[str]) -> Optional[str]:
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return None
+    return token.strip()
+
+
+def _unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=401,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
     )
-    if user_hint:
-        hinted = query.filter(
-            (UserProfile.id == user_hint)
-            | (UserProfile.email == user_hint)
-            | (UserProfile.full_name == user_hint)
-        ).first()
-        if hinted:
-            return hinted
-    return query.order_by(UserProfile.created_at.asc()).first()
 
 
 def get_actor(
-    x_inkloom_role: str | None = Header(default=None, alias="X-Inkloom-Role"),
-    x_inkloom_user: str | None = Header(default=None, alias="X-Inkloom-User"),
-    x_inkloom_workspace: str | None = Header(default=None, alias="X-Inkloom-Workspace"),
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
     db: Session = Depends(get_db),
 ) -> Actor:
-    role = (x_inkloom_role or "creator").lower()
-    if role not in ROLE_CAPABILITIES:
-        raise HTTPException(status_code=400, detail="Unknown demo role. Use creator, reviewer, or admin.")
-    workspace_id = (x_inkloom_workspace or settings.DEFAULT_WORKSPACE_ID).strip()
-    if len(workspace_id) > 64:
-        raise HTTPException(status_code=400, detail="Malformed workspace identifier.")
-    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found. Choose a workspace to continue.")
-    user = _resolve_user(db, workspace_id, role, x_inkloom_user)
-    if not user:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Demo identities are not initialized for this workspace. Recreate the workspace "
-                "or restart the API so the demo profiles are provisioned."
-            ),
+    token = _bearer_token(authorization)
+    if not token:
+        raise _unauthorized(
+            "Sign in as a demo account to continue. Protected endpoints do not accept a "
+            "client-declared role or workspace."
         )
-    return Actor(user=user, role=role, workspace_id=user.workspace_id)
+    resolved = auth_service.resolve_token(db, token)
+    if not resolved:
+        raise _unauthorized("Your session is invalid, expired, or revoked. Sign in again.")
+    record, user = resolved
+    role = (user.role or "").lower()
+    if role not in ROLE_CAPABILITIES:
+        raise _unauthorized("This account has no valid workspace role. Ask an administrator.")
+    workspace = db.query(Workspace).filter(Workspace.id == record.workspace_id).first()
+    if not workspace:
+        raise _unauthorized("The workspace for this session no longer exists.")
+    return Actor(
+        user=user,
+        role=role,
+        workspace_id=record.workspace_id,
+        session=record,
+    )
 
 
 def require_caps(*capabilities: str) -> Callable:
@@ -209,12 +212,12 @@ def session_payload(
     workspace_data = {
         **workspace_data,
         "mode_notice": (
-            "Demo access: the workspace and role are selected locally and re-checked by the API. "
-            "Production deployments must connect an authentication provider and enforce membership "
-            "on the server."
+            "Demo access: signed in as a seeded demo account. The server resolves your role "
+            "and workspace from the database on every request and rejects client-declared "
+            "roles. Production deployments must connect an authentication provider."
         ),
     }
-    return {
+    payload = {
         "active_user": public_user(actor.user),
         "role": actor.role,
         "capabilities": sorted(actor.capabilities),
@@ -223,3 +226,6 @@ def session_payload(
         "workspaces": workspaces or [],
         "demo_mode": settings.DEMO_MODE,
     }
+    if actor.session is not None:
+        payload["auth"] = auth_service.session_auth_payload(actor.session)
+    return payload

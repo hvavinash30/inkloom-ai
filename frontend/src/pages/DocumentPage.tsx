@@ -244,6 +244,11 @@ export function DocumentPage({ id }: { id: string }) {
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [decisionFeedbackError, setDecisionFeedbackError] = useState<string | null>(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+  const [assignmentBusy, setAssignmentBusy] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [assigneeId, setAssigneeId] = useState('');
   const seekTimeoutRef = useRef<number | null>(null);
 
   const [fromVersion, setFromVersion] = useState('');
@@ -266,6 +271,12 @@ export function DocumentPage({ id }: { id: string }) {
         (can('content.submit.own') && document.created_by === session?.active_user.id))
   );
   const canDecide = can('review.decide');
+  const canAssign = can('review.queue');
+  const assignment = document?.assignment || null;
+  const isAssignee = Boolean(assignment && assignment.assignee_id === session?.active_user.id);
+  const assignmentReviewers = (session?.users || []).filter(
+    (user) => user.role === 'reviewer' || user.role === 'admin'
+  );
   const openFindings = findings.filter((finding) => finding.status === 'open');
   const highOpen = openFindings.filter(
     (finding) => finding.severity === 'high' || finding.severity === 'critical'
@@ -486,6 +497,24 @@ export function DocumentPage({ id }: { id: string }) {
     setDecisionVersionId((current) => current || version.id);
     setDecisionError(null);
     setDecisionFeedbackError(null);
+    setOverrideReason('');
+    setOverrideError(null);
+  };
+
+  const assignReview = async (assignee?: string) => {
+    setAssignmentBusy(true);
+    setAssignmentError(null);
+    try {
+      await api.assignReviewer(id, assignee ? { assignee_id: assignee } : {});
+      setAssigneeId('');
+      docState.reload();
+      eventsState.reload();
+      toast(assignee ? 'Review reassigned.' : 'Review claimed.', 'success');
+    } catch (caught) {
+      setAssignmentError(caught instanceof ApiError ? caught.detail : 'The assignment could not be saved.');
+    } finally {
+      setAssignmentBusy(false);
+    }
   };
 
   const recordDecision = async () => {
@@ -498,14 +527,26 @@ export function DocumentPage({ id }: { id: string }) {
       });
       return;
     }
+    if (decisionOpen === 'approved' && highOpen > 0 && overrideReason.trim().length < 10) {
+      setOverrideError(
+        `${highOpen} high or critical finding${highOpen === 1 ? ' is' : 's are'} still open. Provide an override reason of at least 10 characters.`
+      );
+      window.requestAnimationFrame(() => {
+        const field = window.document.getElementById('decision-override') as HTMLTextAreaElement | null;
+        field?.focus();
+      });
+      return;
+    }
     setDecisionBusy(true);
     setDecisionError(null);
     setDecisionFeedbackError(null);
+    setOverrideError(null);
     try {
       await api.recordDecision(id, {
         decision: decisionOpen,
         version_id: decisionVersionId,
         feedback: decisionFeedback.trim() || undefined,
+        override_reason: overrideReason.trim() || undefined,
       });
       toast(`Decision recorded: ${DECISION_LABEL[decisionOpen]}.`, 'success');
       setDecisionOpen(null);
@@ -585,6 +626,10 @@ export function DocumentPage({ id }: { id: string }) {
   const pageFindings = isPdf
     ? findings.filter((finding) => finding.page_number === currentPage)
     : [];
+  const imageFindings =
+    document.asset_type === 'image'
+      ? findings.filter((finding) => (finding.page_number ?? 1) === currentPage)
+      : [];
   const highlightedPageFindingIds = new Set(
     analyzeExactEvidence(selectedPageText, pageFindings).parts.flatMap((part) => part.findingIds)
   );
@@ -624,6 +669,7 @@ export function DocumentPage({ id }: { id: string }) {
   const currentDecision = document.latest_decision;
   const approvedVersion = versions.find((item) => item.id === document.approved_version_id);
   const decisionVersion = versions.find((item) => item.id === decisionVersionId);
+  const decisionOnSuperseded = Boolean(decisionVersion && decisionVersion.id !== version?.id);
   const decisionTitle =
     decisionOpen === 'approved'
       ? 'Approve this version'
@@ -974,6 +1020,50 @@ export function DocumentPage({ id }: { id: string }) {
               {uploadState.data.page_count ? <span>{uploadState.data.page_count} pages</span> : null}
             </div>
           ) : null}
+          {uploadState.data ? (
+            <details className="mt-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <summary className="cursor-pointer text-[11px] font-medium text-slate-700">
+                Extraction details
+                {uploadState.data.ocr && uploadState.data.ocr.line_count > 0
+                  ? ` · OCR read ${uploadState.data.ocr.line_count} line${
+                      uploadState.data.ocr.line_count === 1 ? '' : 's'
+                    }${
+                      uploadState.data.ocr.mean_confidence !== null
+                        ? ` at ${Math.round(uploadState.data.ocr.mean_confidence * 100)}% mean confidence`
+                        : ''
+                    }`
+                  : ''}
+              </summary>
+              <p className="mt-2 text-[11px] leading-5 text-slate-600">
+                {uploadState.data.extraction_message}
+              </p>
+              {uploadState.data.ocr && uploadState.data.ocr.pages.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-[11px] leading-4 text-slate-600">
+                  {uploadState.data.ocr.pages.map((ocrPage) => (
+                    <li key={ocrPage.page_number}>
+                      Page {ocrPage.page_number}: {ocrPage.line_count} OCR line
+                      {ocrPage.line_count === 1 ? '' : 's'} ·{' '}
+                      {Math.round(ocrPage.mean_confidence * 100)}% mean confidence
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {uploadState.data.ocr && uploadState.data.ocr.line_count > 0 ? (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-[11px] text-slate-500">
+                    View OCR lines with confidence
+                  </summary>
+                  <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto font-mono text-[10px] leading-4 text-slate-500">
+                    {uploadState.data.ocr.lines.map((line, index) => (
+                      <li key={`${line.page_number}-${index}`}>
+                        p{line.page_number} · {Math.round(line.confidence * 100)}% · {line.text}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
+            </details>
+          ) : null}
         </div>
 
         <div className="min-w-0 space-y-3">
@@ -1019,7 +1109,9 @@ export function DocumentPage({ id }: { id: string }) {
                 : document.asset_type === 'pdf'
                   ? `Page ${currentPage} text`
                   : document.asset_type === 'image'
-                    ? 'Image review note'
+                    ? (version?.content_text || '').trim()
+                      ? 'Text extracted from image'
+                      : 'Image review note'
                     : 'Checked text'
             }
             description={
@@ -1031,16 +1123,46 @@ export function DocumentPage({ id }: { id: string }) {
                   : 'This transcript was checked as plain text. Findings have no timestamp or playback links.'
                 : document.asset_type === 'pdf'
                   ? 'Extracted text preserved per page. Page order reflects text extraction, not visual layout. Highlights mark exact recorded wording only.'
-                  : undefined
+                  : document.asset_type === 'image'
+                    ? (version?.content_text || '').trim()
+                      ? 'Read locally from the image with OCR, then checked against your active brand rules and approved facts. Highlights mark exact extracted wording; visual qualities were not judged automatically.'
+                      : 'No readable text was extracted from this image, so no text findings exist. A human reviewer should inspect the stored image.'
+                    : undefined
             }
           />
           {document.asset_type === 'image' ? (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-medium text-slate-800">Visual checks were not performed automatically.</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                No OCR or vision service is configured in this deployment. A human reviewer should inspect the stored
-                image for contrast, logo usage, text in images, and layout. The findings tab records this limitation.
+              <p className="text-sm font-medium text-slate-800">
+                {(version?.content_text || '').trim()
+                  ? 'Text checks use OCR; visual checks still need a human.'
+                  : 'No readable text was extracted from this image.'}
               </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {(version?.content_text || '').trim()
+                  ? 'Contrast, logo usage, text rendered in context, and layout were not judged automatically. OCR line counts and confidence are listed under Extraction details, and findings link to the exact extracted wording.'
+                  : 'A human reviewer should inspect the stored image for text, contrast, logo usage, and layout. The findings tab records this limitation instead of inventing an OCR result.'}
+              </p>
+              {(version?.content_text || '').trim() ? (
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Extracted text with evidence
+                  </p>
+                  <pre className="mt-1.5 max-h-[360px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-700">
+                    <HighlightedText
+                      source={version?.content_text || ''}
+                      findings={imageFindings}
+                      activeFindingId={activeFindingId}
+                    />
+                  </pre>
+                  <div className="mt-2">
+                    <MissingEvidenceNote
+                      source={version?.content_text || ''}
+                      findings={imageFindings}
+                      contextLabel="extracted image text"
+                    />
+                  </div>
+                </div>
+              ) : null}
               <Button variant="secondary" size="sm" className="mt-3" onClick={() => askAbout()}>
                 <Sparkles className="h-3.5 w-3.5" />
                 Ask about the evidence
@@ -1376,9 +1498,9 @@ export function DocumentPage({ id }: { id: string }) {
 
       {document.asset_type === 'image' ? (
         <InfoCallout tone="neutral" title="Image revision and OCR limits">
-          This deployment does not extract text from images or edit image pixels. To revise an image, create a new
-          content item with the revised file. Automated checks record the inspection limit; they never invent OCR or
-          visual results.
+          You can revise the checked text as a new version, but the stored image itself is not edited or re-read with
+          OCR here. To change the image, create a new content item with the revised file. Automated checks record
+          inspection limits; they never invent OCR or visual results.
         </InfoCallout>
       ) : null}
 
@@ -1800,6 +1922,17 @@ export function DocumentPage({ id }: { id: string }) {
                     !decision.decision_metadata.is_latest_version ? (
                       <p className="mt-1 text-[10px] text-amber-700">This decision applies to a superseded version.</p>
                     ) : null}
+                    {typeof decision.decision_metadata?.override_reason === 'string' &&
+                    decision.decision_metadata.override_reason ? (
+                      <p className="mt-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] leading-4 text-amber-800">
+                        Override reason: {String(decision.decision_metadata.override_reason)}
+                      </p>
+                    ) : null}
+                    {decision.decision_metadata?.decided_outside_assignment ? (
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        Recorded by an administrator outside the active reviewer assignment.
+                      </p>
+                    ) : null}
                     {typeof decision.decision_metadata?.score_at_decision === 'number' ? (
                       <p className="mt-1 text-[10px] text-slate-400">
                         Score at decision: {decision.decision_metadata.score_at_decision}/100 ·{' '}
@@ -1842,6 +1975,91 @@ export function DocumentPage({ id }: { id: string }) {
               </InfoCallout>
             ) : null}
 
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium text-slate-700">Reviewer assignment</p>
+                <Badge
+                  className={
+                    isAssignee
+                      ? 'border-brand-200 bg-brand-50 text-brand-700'
+                      : assignment
+                        ? 'border-slate-200 bg-slate-50 text-slate-600'
+                        : 'border-slate-200 bg-white text-slate-500'
+                  }
+                >
+                  {isAssignee ? 'Assigned to you' : assignment ? 'Assigned' : 'Unassigned'}
+                </Badge>
+              </div>
+              {assignment ? (
+                <>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-600">
+                    {assignment.assignee_name}
+                    {assignment.assignee_role ? ` · ${titleCase(assignment.assignee_role)}` : ''} · assigned by{' '}
+                    {assignment.assigned_by_name}
+                  </p>
+                  {assignment.instructions ? (
+                    <p className="mt-1 rounded-md bg-slate-50 px-2 py-1.5 text-[11px] leading-4 text-slate-600">
+                      {assignment.instructions}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-1.5 text-xs leading-5 text-slate-500">
+                  No reviewer has claimed this review. Any reviewer or administrator can claim it.
+                </p>
+              )}
+              {canAssign && (document.status === 'in_review' || document.status === 'changes_requested') ? (
+                <div className="mt-2 space-y-2">
+                  {!assignment ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void assignReview()}
+                      loading={assignmentBusy}
+                    >
+                      Claim review
+                    </Button>
+                  ) : null}
+                  {assignment && !isAssignee && !can('org.manage') ? (
+                    <p className="text-[10px] leading-4 text-amber-700">
+                      Only {assignment.assignee_name} or an organization administrator can decide this review.
+                    </p>
+                  ) : null}
+                  {can('org.manage') ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select
+                        value={assigneeId}
+                        onChange={(event) => setAssigneeId(event.target.value)}
+                        aria-label="Assign reviewer"
+                        className="min-w-0 flex-1"
+                      >
+                        <option value="">Choose a reviewer…</option>
+                        {assignmentReviewers.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.full_name} · {ROLE_LABEL[user.role]}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void assignReview(assigneeId)}
+                        loading={assignmentBusy}
+                        disabled={!assigneeId}
+                      >
+                        {assignment ? 'Reassign' : 'Assign'}
+                      </Button>
+                    </div>
+                  ) : null}
+                  {assignmentError ? (
+                    <p role="alert" className="text-xs text-rose-600">
+                      {assignmentError}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
             {canDecide ? (
               <div className="mt-3 border-t border-slate-100 pt-3">
                 {version ? (
@@ -1849,7 +2067,7 @@ export function DocumentPage({ id }: { id: string }) {
                     <Field
                       label="Version being decided"
                       htmlFor="review-decision-version"
-                      hint="The decision is stored against this exact version. A newer version makes it stale."
+                      hint="Only the current version can be decided. Superseded decisions are refused so a stale page cannot approve older content."
                     >
                       <Select
                         id="review-decision-version"
@@ -1857,32 +2075,39 @@ export function DocumentPage({ id }: { id: string }) {
                         onChange={(event) => setDecisionVersionId(event.target.value)}
                       >
                         {versions.map((item) => (
-                          <option key={item.id} value={item.id}>
+                          <option key={item.id} value={item.id} disabled={item.id !== version.id}>
                             Version {item.version_number}
-                            {item.id === version.id ? ' · current' : ''}
+                            {item.id === version.id ? ' · current' : ' · superseded'}
                           </option>
                         ))}
                       </Select>
                     </Field>
                     {decisionVersion && decisionVersion.id !== version.id ? (
                       <p className="mt-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
-                        You selected a superseded version. The decision will be recorded against it without changing the
-                        document’s current status.
+                        This version was superseded by version {version.version_number}. Select the current version to
+                        record a decision.
                       </p>
                     ) : null}
                     <div className="mt-3 grid gap-2">
                       <Button
                         className="min-h-11 w-full bg-emerald-600 hover:bg-emerald-700 sm:min-h-9"
                         onClick={() => openDecision('approved')}
-                        disabled={!run}
+                        disabled={!run || decisionOnSuperseded}
                       >
                         <CheckCircle2 className="h-4 w-4" />
                         Approve version {decisionVersion?.version_number || version.version_number}
                       </Button>
+                      {highOpen > 0 ? (
+                        <p className="rounded-md bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
+                          {highOpen} high or critical finding{highOpen === 1 ? ' is' : 's are'} still open. Approval
+                          requires a written override reason, which is stored with the decision.
+                        </p>
+                      ) : null}
                       <Button
                         variant="secondary"
                         className="min-h-11 w-full sm:min-h-9"
                         onClick={() => openDecision('changes_requested')}
+                        disabled={decisionOnSuperseded}
                       >
                         <Undo2 className="h-4 w-4" />
                         Request changes
@@ -1891,6 +2116,7 @@ export function DocumentPage({ id }: { id: string }) {
                         variant="danger"
                         className="min-h-11 w-full sm:min-h-9"
                         onClick={() => openDecision('rejected')}
+                        disabled={decisionOnSuperseded}
                       >
                         <XCircle className="h-4 w-4" />
                         Reject version {decisionVersion?.version_number || version.version_number}
@@ -1899,6 +2125,12 @@ export function DocumentPage({ id }: { id: string }) {
                     {!run ? (
                       <p className="mt-2 text-[10px] leading-4 text-amber-700">
                         Run a check before approving this version.
+                      </p>
+                    ) : null}
+                    {document.assignment && !isAssignee && canDecide && !can('org.manage') ? (
+                      <p className="mt-2 text-[10px] leading-4 text-amber-700">
+                        This review is assigned to {document.assignment.assignee_name}. Decisions from other reviewers
+                        are rejected by the server.
                       </p>
                     ) : null}
                   </>
@@ -2400,9 +2632,12 @@ export function DocumentPage({ id }: { id: string }) {
           ) : null}
 
           {document.asset_type === 'pdf' && uploadState.data?.extraction_status === 'needs_ocr' ? (
-            <InfoCallout tone="warning" title="This PDF needs OCR">
+            <InfoCallout tone="warning" title="No page text could be read from this PDF">
               <p>{uploadState.data.extraction_message}</p>
-              <p className="mt-1">No OCR service is configured, so page-linked automated findings are unavailable.</p>
+              <p className="mt-1">
+                The PDF was stored, but no text was extracted, so page-linked automated findings are unavailable for
+                the unreadable pages.
+              </p>
             </InfoCallout>
           ) : null}
 
@@ -2486,6 +2721,7 @@ export function DocumentPage({ id }: { id: string }) {
               className="min-h-11 sm:min-h-9"
               onClick={() => void recordDecision()}
               loading={decisionBusy}
+              disabled={decisionOnSuperseded}
             >
               {decisionRecordLabel}
             </Button>
@@ -2500,11 +2736,49 @@ export function DocumentPage({ id }: { id: string }) {
               {decisionVersion?.id === version?.id ? ' · current' : ' · superseded'}
             </span>
           </div>
-          {decisionVersion && decisionVersion.id !== version?.id ? (
+          {decisionOnSuperseded ? (
             <InfoCallout tone="warning">
-              This is not the current version. The decision will be stored against version {decisionVersion.version_number}{' '}
-              but will not change the document’s current status.
+              This version was superseded by version {version?.version_number}. The server rejects decisions on older
+              versions; close this dialog, select the current version, and review it first.
             </InfoCallout>
+          ) : null}
+          {decisionOpen === 'approved' && highOpen > 0 ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-900">
+                {highOpen} high or critical finding{highOpen === 1 ? ' is' : 's are'} still open
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-amber-800">
+                Approving with unresolved high-risk findings requires a written override reason. The reason is stored
+                with the decision and in the content’s audit history.
+              </p>
+              <Field
+                label="Override reason"
+                htmlFor="decision-override"
+                required
+                hint="At least 10 characters. Explain who approved the exception and why."
+                className="mt-2"
+              >
+                <Textarea
+                  id="decision-override"
+                  rows={3}
+                  value={overrideReason}
+                  onChange={(event) => {
+                    setOverrideReason(event.target.value);
+                    if (overrideError) setOverrideError(null);
+                  }}
+                  placeholder="Example: Legal approved the absolute claim for this campaign on 2026-10-20."
+                  maxLength={2000}
+                  autoFocus
+                  aria-invalid={Boolean(overrideError)}
+                  aria-describedby={overrideError ? 'decision-override-error' : undefined}
+                />
+              </Field>
+              {overrideError ? (
+                <p id="decision-override-error" role="alert" className="mt-1 text-xs text-rose-700">
+                  {overrideError}
+                </p>
+              ) : null}
+            </div>
           ) : null}
           <Field
             label={decisionOpen === 'approved' ? 'Feedback (optional)' : 'Feedback'}

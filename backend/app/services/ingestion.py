@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 import uuid
 from pathlib import Path
 from typing import BinaryIO, Optional
@@ -18,7 +19,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import Actor
-from app.models.assets import UploadedFile
+from app.models.assets import OcrLine, UploadedFile
+from app.services import ocr_service
 from app.services.workspace_service import workspace_is_demo
 
 
@@ -69,17 +71,35 @@ def _validate_mime(kind: str, content_type: Optional[str]) -> None:
         raise HTTPException(status_code=415, detail="The uploaded video has an unexpected content type.")
 
 
+def _pdf_result(
+    *,
+    status: str,
+    message: str,
+    pages: Optional[list[str]] = None,
+    page_count: Optional[int] = None,
+    ocr_lines: Optional[list] = None,
+    unreadable_pages: Optional[list[int]] = None,
+) -> dict:
+    texts = pages or []
+    return {
+        "extraction_status": status,
+        "extraction_message": message,
+        "page_texts": texts,
+        "extracted_text": "\n\f\n".join(text for text in texts if text.strip()),
+        "page_count": page_count,
+        "ocr_lines": ocr_lines or [],
+        "unreadable_pages": unreadable_pages or [],
+    }
+
+
 def _extract_pdf(path: Path) -> dict:
     try:
         from pypdf import PdfReader
     except Exception:
-        return {
-            "extraction_status": "error",
-            "extraction_message": "PDF support is not installed on the server. Install the 'pypdf' package.",
-            "page_texts": [],
-            "extracted_text": "",
-            "page_count": None,
-        }
+        return _pdf_result(
+            status="error",
+            message="PDF support is not installed on the server. Install the 'pypdf' package.",
+        )
 
     try:
         reader = PdfReader(str(path))
@@ -89,80 +109,132 @@ def _extract_pdf(path: Path) -> dict:
             except Exception:
                 pass
             if reader.is_encrypted:
-                return {
-                    "extraction_status": "error",
-                    "extraction_message": (
+                return _pdf_result(
+                    status="error",
+                    message=(
                         "This PDF is password-protected. Remove the password or export a "
                         "readable copy before uploading."
                     ),
-                    "page_texts": [],
-                    "extracted_text": "",
-                    "page_count": None,
-                }
+                )
 
         page_count = len(reader.pages)
         if page_count == 0:
-            return {
-                "extraction_status": "error",
-                "extraction_message": "The PDF contains no pages.",
-                "page_texts": [],
-                "extracted_text": "",
-                "page_count": 0,
-            }
+            return _pdf_result(status="error", message="The PDF contains no pages.", page_count=0)
         if page_count > settings.MAX_PDF_PAGES:
-            return {
-                "extraction_status": "error",
-                "extraction_message": (
+            return _pdf_result(
+                status="error",
+                message=(
                     f"This PDF has {page_count} pages. The demo limit is {settings.MAX_PDF_PAGES} pages. "
                     "Split the file before uploading."
                 ),
-                "page_texts": [],
-                "extracted_text": "",
-                "page_count": page_count,
-            }
+                page_count=page_count,
+            )
 
         pages: list[str] = []
-        for page in reader.pages:
+        ocr_lines: list = []
+        unreadable_pages: list[int] = []
+        native_pages: list[int] = []
+        ocr_pages: list[int] = []
+        ocr_errors: list[str] = []
+        ocr_used = 0
+        deadline = time.monotonic() + settings.OCR_TIMEOUT_SECONDS
+
+        for index, page in enumerate(reader.pages, start=1):
             try:
                 raw = page.extract_text() or ""
             except Exception:
                 raw = ""
             cleaned = re.sub(r"[ \t]+\n", "\n", raw)
             cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
-            pages.append(cleaned)
 
-        non_empty = [p for p in pages if p.strip()]
-        if not non_empty:
-            return {
-                "extraction_status": "needs_ocr",
-                "extraction_message": (
-                    "No embedded text was found. This looks like a scanned/image-only PDF, "
-                    "and OCR is not configured in this deployment. You can upload a text version "
-                    "or let a human reviewer inspect the PDF."
-                ),
-                "page_texts": pages,
-                "extracted_text": "",
-                "page_count": page_count,
-            }
+            if len(cleaned) >= settings.OCR_MIN_NATIVE_CHARS:
+                pages.append(cleaned)
+                native_pages.append(index)
+                continue
 
-        return {
-            "extraction_status": "processed",
-            "extraction_message": (
-                f"Extracted text from {len(non_empty)} of {page_count} page(s). "
+            can_ocr = (
+                ocr_service.ocr_available()
+                and ocr_used < settings.OCR_MAX_PAGES
+                and time.monotonic() <= deadline
+            )
+            if not can_ocr:
+                pages.append(cleaned)
+                unreadable_pages.append(index)
+                continue
+
+            outcome = ocr_service.ocr_pdf_page(path, index - 1, page_number=index)
+            ocr_used += 1
+            if outcome.status == "processed" and outcome.text.strip():
+                pages.append(outcome.text)
+                ocr_pages.append(index)
+                ocr_lines.extend(outcome.lines)
+            else:
+                pages.append(cleaned)
+                unreadable_pages.append(index)
+                ocr_errors.append(outcome.message)
+
+        usable = [text for text in pages if text.strip()]
+        if usable:
+            detail = (
+                f"Extracted text from {len(usable)} of {page_count} page(s) "
+                f"(native: {len(native_pages)}, OCR: {len(ocr_pages)}). "
                 "Page numbers are preserved on findings."
-            ),
-            "page_texts": pages,
-            "extracted_text": "\n\f\n".join(pages),
-            "page_count": page_count,
-        }
+            )
+            if unreadable_pages:
+                detail += (
+                    f" {len(unreadable_pages)} page(s) could not be read automatically "
+                    f"(pages {', '.join(str(number) for number in unreadable_pages[:8])}"
+                    f"{'…' if len(unreadable_pages) > 8 else ''}); they are reported as uninspected."
+                )
+            if ocr_errors:
+                detail += f" OCR note: {ocr_errors[0]}"
+            return _pdf_result(
+                status="processed",
+                message=detail,
+                pages=pages,
+                page_count=page_count,
+                ocr_lines=ocr_lines,
+                unreadable_pages=unreadable_pages,
+            )
+
+        if not ocr_service.ocr_available():
+            return _pdf_result(
+                status="needs_ocr",
+                message=(
+                    "No embedded text was found, and OCR is not available on this server. "
+                    "The PDF was stored; upload a text version or have a human reviewer inspect it. "
+                    + settings.ocr_status_reason
+                ),
+                pages=pages,
+                page_count=page_count,
+                unreadable_pages=unreadable_pages,
+            )
+
+        if ocr_used >= settings.OCR_MAX_PAGES or time.monotonic() > deadline:
+            message = (
+                "No readable text was found within the OCR page/time budget. "
+                f"The limit is {settings.OCR_MAX_PAGES} OCR pages and "
+                f"{int(settings.OCR_TIMEOUT_SECONDS)}s per upload."
+            )
+        else:
+            message = (
+                "OCR ran on the scanned pages but found no readable text. "
+                "No automated content checks can be performed for this PDF."
+            )
+        if ocr_errors:
+            message += f" {ocr_errors[0]}"
+        return _pdf_result(
+            status="needs_ocr",
+            message=message,
+            pages=pages,
+            page_count=page_count,
+            unreadable_pages=unreadable_pages,
+        )
     except Exception as exc:
-        return {
-            "extraction_status": "error",
-            "extraction_message": f"The PDF could not be read safely: {type(exc).__name__}. Try a different export.",
-            "page_texts": [],
-            "extracted_text": "",
-            "page_count": None,
-        }
+        return _pdf_result(
+            status="error",
+            message=f"The PDF could not be read safely: {type(exc).__name__}. Try a different export.",
+        )
 
 
 def save_upload(
@@ -232,21 +304,53 @@ def save_upload(
         "page_texts": [],
         "extracted_text": "",
         "page_count": None,
+        "ocr_lines": [],
+        "unreadable_pages": [],
     }
     if kind == "pdf":
         extraction = _extract_pdf(destination)
     elif kind == "image":
-        extraction = {
-            "extraction_status": "needs_ocr",
-            "extraction_message": (
-                "Image text extraction and visual checks are not configured in this deployment "
-                "(no OCR or vision service). The image was stored, but automated content checks "
-                "cannot inspect it. A human reviewer must inspect this asset."
-            ),
-            "page_texts": [],
-            "extracted_text": "",
-            "page_count": None,
-        }
+        try:
+            width, height = ocr_service.validate_image_file(destination)
+            outcome = ocr_service.ocr_image(ocr_service.open_image(destination))
+        except HTTPException:
+            destination.unlink(missing_ok=True)
+            raise
+        except Exception as exc:  # noqa: BLE001 - reported as a failed extraction
+            outcome = ocr_service.OcrOutcome(
+                status="error",
+                message=f"The image could not be read safely: {type(exc).__name__}.",
+            )
+            width = height = None
+
+        if outcome.status == "processed":
+            extraction = {
+                "extraction_status": "processed",
+                "extraction_message": (
+                    f"{outcome.message} Automated text checks use this extraction. "
+                    "Contrast, logo usage, and other visual qualities still require a human reviewer."
+                ),
+                "page_texts": [outcome.text],
+                "extracted_text": outcome.text,
+                "page_count": 1,
+                "ocr_lines": outcome.lines,
+                "unreadable_pages": [],
+            }
+        else:
+            extraction = {
+                "extraction_status": "no_text" if outcome.status == "no_text" else (
+                    "needs_ocr" if outcome.status == "unavailable" else "error"
+                ),
+                "extraction_message": (
+                    f"{outcome.message} The image was stored, but no automated content checks "
+                    "were performed on its text."
+                ),
+                "page_texts": [],
+                "extracted_text": "",
+                "page_count": 1 if width and height else None,
+                "ocr_lines": [],
+                "unreadable_pages": [1],
+            }
     elif kind == "video":
         extraction = {
             "extraction_status": "needs_transcription",
@@ -294,6 +398,21 @@ def save_upload(
         is_demo=workspace_is_demo(db, actor.workspace_id),
     )
     db.add(record)
+    db.flush()
+
+    for index, line in enumerate(extraction.get("ocr_lines", [])):
+        db.add(
+            OcrLine(
+                upload_id=record.id,
+                workspace_id=actor.workspace_id,
+                page_number=line.page_number,
+                line_index=index,
+                text=line.text,
+                confidence=line.confidence,
+                bbox=line.bbox,
+            )
+        )
+
     db.commit()
     db.refresh(record)
     return record

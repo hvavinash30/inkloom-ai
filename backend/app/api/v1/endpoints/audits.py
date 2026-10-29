@@ -16,8 +16,9 @@ from app.db.session import get_db
 from app.models.assets import UploadedFile
 from app.models.audit import AuditFinding, AuditRun
 from app.models.campaign import Campaign
+from app.models.brand_rule import BrandRule
 from app.models.content import ContentDocument, ContentVersion
-from app.models.review import ApprovalDecision, AuditHistoryEvent
+from app.models.review import ApprovalDecision, AuditHistoryEvent, FindingOverride
 from app.schemas.audit import (
     AuditRunOut,
     ContentDocumentOut,
@@ -344,10 +345,45 @@ def update_finding(
                 status_code=403,
                 detail="Only reviewers or organization administrators can dismiss findings.",
             )
-        if not payload.dismissal_reason or len(payload.dismissal_reason.strip()) < 3:
-            raise HTTPException(status_code=422, detail="A dismissal reason is required.")
+        reason = (payload.dismissal_reason or "").strip()
+        if len(reason) < 10:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "A dismissal reason of at least 10 characters is required so this "
+                    "override can be audited and reviewed later."
+                ),
+            )
+        if (
+            finding.status == "dismissed"
+            and (finding.dismissal_reason or "").strip() == reason
+            and finding.reviewed_by == actor.name
+        ):
+            return finding
+
+        rule = (
+            db.query(BrandRule).filter(BrandRule.id == finding.rule_id).first()
+            if finding.rule_id
+            else None
+        )
         finding.status = "dismissed"
-        finding.dismissal_reason = payload.dismissal_reason.strip()
+        finding.dismissal_reason = reason
+        db.add(
+            FindingOverride(
+                workspace_id=document.workspace_id,
+                document_id=document.id,
+                version_id=finding.version_id,
+                finding_id=finding.id,
+                rule_id=finding.rule_id,
+                rule_name=rule.name if rule else finding.title,
+                severity=finding.severity,
+                action="dismissed",
+                reason=reason,
+                reviewer_id=actor.id,
+                reviewer_name=actor.name,
+                reviewer_role=actor.role,
+            )
+        )
     else:
         if not actor.can_edit_document(document):
             raise HTTPException(status_code=403, detail="You cannot update findings on this content.")
@@ -376,9 +412,22 @@ def update_finding(
         user_id=actor.id,
         user_name=actor.name,
         event_type="finding_action",
-        description=f"Finding “{finding.title}” marked as {finding.status}.",
+        description=(
+            f"Finding “{finding.title}” marked as {finding.status}."
+            + (f" Reason: {finding.dismissal_reason}" if payload.action == "dismiss" else "")
+        ),
         version_id=finding.version_id,
-        metadata={"finding_id": finding.id, "action": payload.action},
+        metadata={
+            "finding_id": finding.id,
+            "action": payload.action,
+            "rule_id": finding.rule_id,
+            "severity": finding.severity,
+            **(
+                {"override_reason": finding.dismissal_reason}
+                if payload.action == "dismiss"
+                else {}
+            ),
+        },
     )
     db.commit()
     db.refresh(finding)
