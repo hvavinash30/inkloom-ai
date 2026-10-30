@@ -4,7 +4,7 @@
 
 Inkloom AI is a working, evidence-first brand-governance demo for the fictional **Acme Cloud Technologies** workspace. It runs locally with SQLite and no external services. Every finding comes from a deterministic rule match or a source-backed approved fact; images and scanned PDF pages are read by a local OCR engine whose output is stored and inspected, never simulated.
 
-**Last verified:** 2026-10-30. Automatic video auditing (speech-to-text plus on-screen OCR) was implemented and verified locally on 2026-10-30 with **102 backend tests**, a clean production build, and a real video upload/audit flow; it is **not committed, pushed, or deployed**. The dark 3D-glass frontend redesign remains deployed on Vercel as `e59bb17`, and the backend still runs `ccf799b` with OCR disabled. See [Deployment](#deployment).
+**Last verified:** 2026-10-30. Automatic video auditing (speech-to-text plus on-screen OCR) was implemented and verified locally with **102 backend tests**, a clean production build, and a real video upload/audit flow. It was committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel as `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`. The backend still runs `ccf799b` with OCR disabled and no speech provider, so the video pipeline is not active in production yet. See [Deployment](#deployment).
 
 ---
 
@@ -120,13 +120,13 @@ Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIF
 
 | Component | Status | URL |
 | --- | --- | --- |
-| Frontend (Vercel, Vite) | Live — 3D-glass redesign, commit `e59bb17` | <https://inkloom-ai-rho.vercel.app> |
-| API (Render, FastAPI) | Live — commit `ccf799b` | <https://inkloom-api.onrender.com> |
+| Frontend (Vercel, Vite) | Live — 3D-glass redesign + video-auditing UI, commit `1885b2e` | <https://inkloom-ai-rho.vercel.app> |
+| API (Render, FastAPI) | Live — commit `ccf799b` (no video pipeline) | <https://inkloom-api.onrender.com> |
 | GitHub source | Public | <https://github.com/hvavinash30/inkloom-ai> |
 
-The 2026-10-30 dark 3D-glass redesign was committed as `e59bb17` and pushed to GitHub `main`, and Vercel built deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` to READY, aliased to the production URL. The live frontend serves `assets/index-C1W67hZu.js` (624,811 bytes) and `assets/index-CjC3LMnu.css` (58,064 bytes); the local build emits a different JS hash because `VITE_API_BASE_URL` is baked in at build time. The backend was not rebuilt and still runs `ccf799b`.
+The automatic video-auditing work was committed as `1885b2e`, pushed to GitHub `main`, and Vercel built production deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm` to READY on 2026-10-30, aliased to the production URL. The live frontend serves `assets/index-B4UXtfvY.js` (640,060 bytes) and `assets/index-L7Up5fEq.css` (58,737 bytes); the local build emits a different JS hash because `VITE_API_BASE_URL` is baked in at build time. The backend was not rebuilt and still runs `ccf799b`, whose health has no `video` or `transcription` block and whose new video endpoints return 404.
 
-**Automatic video auditing is local-only.** It has not been committed, pushed, or deployed. Deploying it requires setting `TRANSCRIPTION_PROVIDER=openai_whisper` and a secret `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`) in the host environment, choosing `OCR_PROVIDER=auto`, and ensuring enough memory for FFmpeg plus OCR. No provider credential is included in the repository.
+**The video pipeline requires manual backend deployment and configuration.** Set `TRANSCRIPTION_PROVIDER=openai_whisper` and a secret `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`) in the Render environment, choose `OCR_PROVIDER=auto`, ensure enough memory for FFmpeg plus OCR, and redeploy the API. No provider credential is included in the repository.
 
 The live smoke covered the deployed shell, Overview, workspace menu, dark styling, responsive overflow, and console health at 1440 and 390 px. The full 22-journey suite was executed locally, not against the live deployment.
 
@@ -145,7 +145,7 @@ These are explicit product boundaries, not hidden gaps:
 - **Speech-to-text requires manual provider configuration.** `TRANSCRIPTION_PROVIDER=none` is the default. Without `openai_whisper` plus a server-side key, the speech stage is unavailable; on-screen analysis still runs and the audit records the gap. Provider timestamps are preserved, and missing timestamps are never invented.
 - **Video analysis is sampled.** Frames are taken at a bounded interval, so short overlays can be missed. Only visible text is checked; logo, colour, layout, motion, and audio tone are human-review items.
 - **Video jobs are in-process.** One worker per API process with persisted progress, cancel/retry, and startup recovery. A restart marks in-flight work failed (retryable); it does not resume mid-stage. Multi-instance deployment needs a shared queue.
-- **Automatic video auditing is not deployed.** It was verified locally; the live API still runs the previous backend. A real paid provider call was not made during verification (a local OpenAI-compatible mock was used).
+- **Automatic video auditing is deployed as UI only.** The Vercel frontend includes the video workflow, but the live Render API still runs the previous backend, so video analysis cannot run in production until the API is redeployed and configured. A real paid provider call was not made during verification (a local OpenAI-compatible mock was used).
 - **No LLM in the audit path.** The assistant is deterministic and grounded in stored records; an optional LLM only drafts correction wording when configured.
 - **No external research or benchmarking.** Research records are internal documentation; evaluation is a five-case synthetic regression fixture.
 - **No background jobs, notifications, or scheduled re-reviews.** All actions are user-triggered.
@@ -158,7 +158,7 @@ These are explicit product boundaries, not hidden gaps:
 
 ## Recommended next steps (not implemented)
 
-1. Review, commit, and deploy the automatic video pipeline; add the speech provider secret and `OCR_PROVIDER=auto` to the host, then make one real (paid) provider call and record latency, quota, and response-shape results.
+1. Redeploy the Render API at `1885b2e`, add the speech provider secret and `OCR_PROVIDER=auto`, then make one real (paid) provider call and record latency, quota, and response-shape results.
 2. Re-run the full journey suite against the live deployment, not just the smoke check, and redeploy the backend so frontend and API share a commit.
 3. Replace demo sign-in with Supabase Auth and map verified identities to workspace roles.
 4. Add Alembic migrations and bring the Supabase starter schema to parity.

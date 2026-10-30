@@ -1,6 +1,6 @@
 # Automatic Video Auditing
 
-Status: implemented and verified locally on 2026-10-30. **Not committed, pushed, or deployed.**
+Status: implemented and verified locally on 2026-10-30. Committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel (`dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`, production alias). The API was **not** redeployed: Render still runs `ccf799b`, so the pipeline is not active in production until the backend is redeployed and configured.
 Scope: the existing Inkloom AI application. This is not a separate video application, and the
 manual-transcript and transcript-only paths still work.
 
@@ -363,8 +363,10 @@ correction actions. Re-checked in the browser: the limit card shows the correcte
 - No real paid provider call was made; the provider contract was exercised with a local
   OpenAI-compatible mock. The first production call should be monitored for quota, latency, and
   response-shape differences.
-- No deployment was performed. Render still runs the previous backend commit and the live app
-  does not include this pipeline.
+- The frontend is deployed, but no backend deployment was performed. Render still runs `ccf799b`
+  (no video endpoints, OCR disabled, no speech provider), so the live site cannot run this
+  pipeline yet. The live frontend was smoke-tested for shell, Overview, and the video upload form
+  only; no live video upload was attempted.
 - OCR was verified on clean generated frames, not on noisy, handwritten, animated, or non-Latin
   video text.
 - Chromium only; no Safari/Firefox, mobile-device, screen-reader, or axe pass for the new panel.

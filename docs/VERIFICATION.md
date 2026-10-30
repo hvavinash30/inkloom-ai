@@ -7,7 +7,7 @@ Environment: Windows 10, local development (FastAPI `127.0.0.1:8000`, Vite `loca
 
 This report contains only results measured against the final working tree on 2026-10-30. Older Round 3 results are kept only where explicitly labelled **historical**, and they do not describe the redesign. The redesign was committed as `e59bb17`, pushed to GitHub `main`, and deployed to Vercel on 2026-10-30; §4 records the live verification.
 
-**Addendum (2026-10-30, later the same day):** automatic video auditing (speech-to-text + sampled-frame OCR) was implemented and verified locally. It is not committed, pushed, or deployed. §1 and §8 record the current test results and the focused video verification; the redesign sections §2–§4 keep their original measurements and are labelled where the current tree differs.
+**Addendum (2026-10-30, later the same day):** automatic video auditing (speech-to-text + sampled-frame OCR) was implemented and verified locally. It was committed as `1885b2e` and pushed to GitHub `main`; Vercel deployed the frontend as `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`. The backend was not redeployed, so the pipeline is not active in production. §1 and §8 record the current test results, the focused video verification, and the live frontend smoke; the redesign sections §2–§4 keep their original measurements and are labelled where the current tree differs.
 
 ---
 
@@ -148,7 +148,7 @@ The full 22-journey suite was executed locally, not against the live deployment.
 - **Build advisory:** one chunk over 500 kB (`640.03 kB` JS); the build passes and was not code-split in this round.
 - **Browser coverage:** Chromium only. Safari, Firefox, real iOS/Android devices, screen readers, and axe were not tested. Widths tested: 390, 768, 1024, 1440 px.
 - **Live coverage is smoke-level.** The redesign is deployed and passed the live smoke above, but the 22 journeys were not re-run against the live deployment, and the live backend still disables OCR.
-- **Automatic video auditing is local-only.** It is not deployed; no real paid speech-provider call was made (a local OpenAI-compatible mock was used). Video OCR was verified on clean generated frames, not noisy/handwritten/animated/non-Latin text. Frame sampling can miss brief overlays.
+- **Automatic video auditing is deployed as frontend only.** The Vercel app serves commit `1885b2e`, but Render still runs `ccf799b`, so the live API has no video endpoints; no real paid speech-provider call was made (a local OpenAI-compatible mock was used). Video OCR was verified on clean generated frames, not noisy/handwritten/animated/non-Latin text. Frame sampling can miss brief overlays.
 - **OCR quality:** verified with generated, clean fixtures; photographs, handwriting, non-Latin scripts, and low-resolution scans were not measured.
 - **Animation timing:** menus and dialogs enter over 200–240 ms. Opacity is 0 at the first animation frame by design; settled-state checks pass.
 - **Reduced motion:** the stylesheet disables animations/transitions and hover lift under `prefers-reduced-motion: reduce`; this was inspected in code, not exercised with an OS-level setting in the browser.
@@ -189,7 +189,7 @@ Browser journeys require a local backend and frontend running plus a Chrome inst
 
 ## 8. Automatic video auditing addendum (2026-10-30)
 
-Scope: automatic speech-to-text and sampled-frame OCR integrated into the existing content form and audit engine. Not committed, pushed, or deployed.
+Scope: automatic speech-to-text and sampled-frame OCR integrated into the existing content form and audit engine. Committed as `1885b2e`; the frontend is deployed to Vercel, the backend is not.
 
 ### 8.1 Build and automated checks
 
@@ -256,9 +256,23 @@ A third UI truthfulness defect was found and fixed: the inspection-limit card ca
 
 The 20-scenario matrix, exact commands, and per-test mapping are in [VIDEO_AUDITING.md](VIDEO_AUDITING.md) §7. Summary: upload without a transcript, manual-transcript precedence, transcript-only preservation, text/PDF/image regression via the full suite, unconfigured provider, provider failure, OCR unavailable, no audio, no content, invalid/corrupt/oversized upload, duplicate submit, cancel, retry without re-upload, restart recovery, workspace isolation, health, real OCR, timestamp seek, frame preview, and refresh recovery all passed. FFmpeg-missing behavior is covered by explicit configuration reporting but was not exercised by removing the binary in this run.
 
-### 8.5 Not covered
+### 8.5 Live deployment (frontend only)
 
-- No deployment and no real paid provider call.
+| Item | Measured result |
+| --- | --- |
+| Commit / push | `1885b2e` pushed to GitHub `main` on 2026-10-30 (`c6bd529..1885b2e`) |
+| Vercel deployment | `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`, target production, state **READY**, aliased to <https://inkloom-ai-rho.vercel.app> |
+| Live assets | `assets/index-B4UXtfvY.js` (640,060 bytes) and `assets/index-L7Up5fEq.css` (58,737 bytes); the JS hash differs from the local build because `VITE_API_BASE_URL` is baked in at build time |
+| Bundle check | Live JS contains the new video UI (`Run video audit`, automatic analysis panel) |
+| Live smoke (Chromium) | Overview rendered with seeded records; New content rendered the video option "Automatic speech and on-screen text checks. Transcript optional."; **0 console messages** |
+| Live API | `/api/v1/health` has no `video` or `transcription` block and reports `ocr_provider: "none"`; `/api/v1/uploads/{id}/analysis` and `/api/v1/uploads/{id}/frames/...` return **404** (backend still `ccf799b`) |
+
+The frontend is deployed but the pipeline cannot run in production yet. A live video upload was deliberately not attempted because the API lacks the endpoints; doing so would produce a partial, misleading state.
+
+### 8.6 Not covered
+
+- No backend deployment; no real paid provider call.
+- The live deployment was smoke-tested only (shell, Overview, New content, console). The video flow was not exercised against the live API, which does not contain it.
 - No full 22-journey regression re-run or responsive sweep for the new panel; the focused flow was desktop Chromium only.
 - No noisy/animated/non-Latin video OCR, speaker diarization, translation, or visual-quality judgement.
 - Frame sampling can miss short overlays.
