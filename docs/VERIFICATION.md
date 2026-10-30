@@ -2,12 +2,12 @@
 
 Date: 2026-10-30
 Repository: `C:/Users/User/Documents/Qoder/2026-10-24/5f93a79c/inkloom`
-Scope: the dark 3D-glass frontend redesign across every existing route, dialog, drawer, menu, and state. The backend, audit engine, demo data, and workflows were not rebuilt; the redesign preserves them.
+Scope: originally the dark 3D-glass frontend redesign across every existing route, dialog, drawer, menu, and state; the later addenda cover automatic video auditing, the bright redesign, the assistant, and the live transcription check. The backend, audit engine, demo data, and workflows were not rebuilt.
 Environment: Windows 10, local development (FastAPI `127.0.0.1:8000`, Vite `localhost:3000`), SQLite.
 
 This report contains only results measured against the final working tree on 2026-10-30. Older Round 3 results are kept only where explicitly labelled **historical**, and they do not describe the redesign. The redesign was committed as `e59bb17`, pushed to GitHub `main`, and deployed to Vercel on 2026-10-30; §4 records the live verification.
 
-**Addendum (2026-10-30, later the same day):** automatic video auditing (speech-to-text + sampled-frame OCR) was implemented and verified locally. It was committed as `1885b2e` and pushed to GitHub `main`; Vercel deployed the frontend as `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`. The backend was then deployed to Render at `9c99044` (backend code `1885b2e`), so the pipeline is live, but OCR is disabled after a real video job restarted the 512 MB instance and no speech-provider key is configured. §1 and §8 record the current test results, the focused video verification, and the live frontend plus backend checks; the redesign sections §2–§4 keep their original measurements and are labelled where the current tree differs.
+**Addendum (2026-10-30, later the same day):** automatic video auditing (speech-to-text + sampled-frame OCR) was implemented and verified locally. It was committed as `1885b2e` and pushed to GitHub `main`; Vercel deployed the frontend as `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`. The final frontend commit is `516825a` (`dpl_4dw5W5W7wfFs3qpkbUJUCR3SX8T6`, same assets), and the Render API runs `57936c9` as `dep-dbid68dg1s2s73elp56g`. OCR remains disabled after a real video job restarted the 512 MB instance. Speech-to-text is now configured through Groq's free-tier `whisper-large-v3-turbo`, and a real 5.74 s MP4 upload produced a timestamped spoken finding and a `partially_verified` audit. §1, §5, and §8 record the current test results, the focused video verification, and the live checks; the redesign sections §2–§4 keep their original measurements and are labelled where the current tree differs.
 
 ---
 
@@ -17,13 +17,13 @@ Commands were run from the repository root against the final code.
 
 | Suite | Command | Result |
 | --- | --- | --- |
-| Backend (all, current tree) | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **102 passed, 0 failed, 1 warning in 35.78 s** (warning: third-party `anyio` deprecation from Starlette’s TestClient) |
+| Backend (all, current tree) | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **111 passed, 0 failed, 1 warning in 74.10 s** (warning: third-party `anyio` deprecation from Starlette’s TestClient) |
 | Video pipeline (current tree) | `cd backend && .venv\Scripts\python.exe -m pytest tests/test_video_pipeline.py -q` | **18 passed, 0 failed, 1 warning in 20.47 s** |
-| Frontend helper tests | `cd frontend && npm run test:format` | **27 passed, 0 failed, 0 skipped** (Node test runner, 711.62 ms) |
+| Frontend helper tests | `cd frontend && npm run test:format` | **27 passed, 0 failed, 0 skipped** (Node test runner, 625.85 ms) |
 | TypeScript | `cd frontend && npx tsc --noEmit` | **0 errors** (exit code 0) |
-| Production build | `cd frontend && npm run build` | **0 TypeScript errors**; build succeeded (current output in §8.1) |
+| Production build | `cd frontend && npm run build` | **0 TypeScript errors**; 1,629 modules, JS 686.85 kB (gzip 175.52 kB), CSS 77.95 kB (gzip 14.49 kB); one chunk-size advisory |
 
-The full backend suite includes OCR ingestion, session/security, review-workflow, insights, campaign, brand-memory, research, evaluation, assistant, deterministic-engine, and video-pipeline tests. OCR fixtures (PNG, scanned PDF, mixed native/scanned PDF, blank scan) are generated with PyMuPDF at test time; video fixtures are generated with FFmpeg/Pillow, and the speech provider is mocked in tests. No binary fixtures are committed. The suite uses a temporary SQLite database (`backend/tests/conftest.py`) and does not modify `backend/inkloom.db`. The 84-test result recorded for the earlier redesign run is superseded by the current 102-test total.
+The full backend suite includes OCR ingestion, session/security, review-workflow, insights, campaign, brand-memory, research, evaluation, assistant, deterministic-engine, and video-pipeline tests. OCR fixtures (PNG, scanned PDF, mixed native/scanned PDF, blank scan) are generated with PyMuPDF at test time; video fixtures are generated with FFmpeg/Pillow, and the speech provider is mocked in tests. No binary fixtures are committed. The suite uses a temporary SQLite database (`backend/tests/conftest.py`) and does not modify `backend/inkloom.db`. The 84-test and 102-test results recorded earlier are superseded by the current 111-test total, which includes the four assistant tests.
 
 No tests were removed, skipped, or weakened for this redesign.
 
@@ -123,7 +123,7 @@ The redesign was deployed to production on 2026-10-30.
 | Vercel deployment | `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`, target production, state **READY** |
 | Production alias | <https://inkloom-ai-rho.vercel.app>, currently serving the docs-only follow-up `7aa6774`; docs commits rebuild identical frontend assets |
 | Live assets | `assets/index-C1W67hZu.js` (624,811 bytes) and `assets/index-CjC3LMnu.css` (58,064 bytes) |
-| Backend | At this redesign smoke: commit `ccf799b`. Later redeployed on 2026-10-30 at `9c99044` (see §8.5) |
+| Backend | At this redesign smoke: commit `ccf799b`. The live API now runs `57936c9` as `dep-dbid68dg1s2s73elp56g` (see §8.5) |
 
 Live browser smoke (headless Chrome over CDP, 2026-10-30):
 
@@ -144,11 +144,11 @@ The full 22-journey suite was executed locally, not against the live deployment.
 
 ## 5. Known failures and limitations
 
-- **Automated failures:** none. Backend 102/102 (including 18 video tests), frontend 27/27, `tsc` 0 errors, production build success.
-- **Build advisory:** one chunk over 500 kB (`640.03 kB` JS); the build passes and was not code-split in this round.
+- **Automated failures:** none. Backend 111/111 (including 18 video tests), frontend 27/27, `tsc` 0 errors, production build success.
+- **Build advisory:** one chunk over 500 kB (`686.85 kB` JS); the build passes and was not code-split in this round.
 - **Browser coverage:** Chromium only. Safari, Firefox, real iOS/Android devices, screen readers, and axe were not tested. Widths tested: 390, 768, 1024, 1440 px.
-- **Live coverage is smoke-level.** The redesign is deployed and passed the live smoke above, but the 22 journeys were not re-run against the live deployment. The live backend now includes the video pipeline but disables OCR and has no speech key.
-- **Automatic video auditing is deployed but partial in production.** The Render API runs `9c99044` with FFmpeg `5.1.9`; OCR is disabled because a real video job restarted the 512 MB instance, and no speech-provider key is configured. No real paid speech-provider call was made (a local OpenAI-compatible mock was used). Video OCR was verified on clean generated frames locally, not on noisy/handwritten/animated/non-Latin text. Frame sampling can miss brief overlays.
+- **Live coverage is smoke-level.** The latest frontend is deployed and the assistant plus video pipeline were smoke-tested live, but the 22 journeys were not re-run against the live deployment. The live backend has speech configured and OCR disabled.
+- **Automatic video auditing is live with speech only.** The Render API runs `57936c9` with FFmpeg `5.1.9` and Groq `whisper-large-v3-turbo`; a real upload transcribed correctly and produced a timestamped spoken finding, finishing as `partial`. OCR is disabled because a real video job restarted the 512 MB instance. No paid speech-provider call was made (the live call used Groq's free tier; local tests used a mock). Video OCR was verified on clean generated frames locally, not on noisy/handwritten/animated/non-Latin text. Frame sampling can miss brief overlays.
 - **OCR quality:** verified with generated, clean fixtures; photographs, handwriting, non-Latin scripts, and low-resolution scans were not measured.
 - **Animation timing:** menus and dialogs enter over 200–240 ms. Opacity is 0 at the first animation frame by design; settled-state checks pass.
 - **Reduced motion:** the stylesheet disables animations/transitions and hover lift under `prefers-reduced-motion: reduce`; this was inspected in code, not exercised with an OS-level setting in the browser.
@@ -189,7 +189,7 @@ Browser journeys require a local backend and frontend running plus a Chrome inst
 
 ## 8. Automatic video auditing addendum (2026-10-30)
 
-Scope: automatic speech-to-text and sampled-frame OCR integrated into the existing content form and audit engine. Committed as `1885b2e`; the frontend is deployed to Vercel, the backend is not.
+Scope: automatic speech-to-text and sampled-frame OCR integrated into the existing content form and audit engine. Committed as `1885b2e`; the frontend and backend are both deployed, and the backend now has speech configured.
 
 ### 8.1 Build and automated checks
 
@@ -209,7 +209,7 @@ dist/assets/index-BNmdHiQv.js   640.03 kB │ gzip: 162.91 kB
 ✓ built in 15.53s
 ```
 
-`npm run build` includes `tsc`; no type errors. The video tests use generated media and mocked provider calls; they do not make paid requests.
+`npm run build` includes `tsc`; no type errors. The video tests use generated media and mocked provider calls; they do not make paid requests. These numbers are the snapshot at `1885b2e`; the final tree, which adds the assistant, passes **111** tests and builds **686.85 kB** JS (see §1 and the README).
 
 ### 8.2 End-to-end flow (real FFmpeg/RapidOCR + local speech mock)
 
@@ -269,15 +269,18 @@ The 20-scenario matrix, exact commands, and per-test mapping are in [VIDEO_AUDIT
 | Backend deploy (2026-10-30) | `dep-dbi1uadg1s2s73doco9g` served `9c99044`; health reported the `video` block with system FFmpeg `5.1.9`; the upload status, `/video/retry`, `/video/cancel`, and `/frames/...` routes returned **401** without a session (routes live) |
 | Real image OCR on the live API | With `OCR_PROVIDER=auto`: upload `201`, extraction `processed`, **2 lines**, **97.3%** mean confidence, **51.6 s** cold start; real text `INKLOOM OCRSMOKE 2026 / GUARANTEED100%RESULTS` |
 | Real video job on the live API | 8 s MP4 (H.264 + AAC) uploaded; job reached `processing` with **1** sampled frame; the service restarted at **04:46:59 UTC** during frame OCR and returned **502**; Render logs show a fresh uvicorn start. No audit was recorded for this upload, and the ephemeral database reset cleared the smoke records |
-| Final live configuration | `dep-dbi22tjbc2fs739ssca0`: `OCR_PROVIDER=none`, `TRANSCRIPTION_PROVIDER=openai_whisper` with `configured: false` (missing `TRANSCRIPTION_API_KEY`/`OPENAI_API_KEY`); health online; **no paid speech call** |
+| Final live configuration | `dep-dbid68dg1s2s73elp56g` at commit `57936c9`: `OCR_PROVIDER=none`; `TRANSCRIPTION_PROVIDER=openai_whisper` with `configured: true`, `model: "whisper-large-v3-turbo"`, `TRANSCRIPTION_API_BASE=https://api.groq.com/openai/v1`; health online at 17:27:50 UTC; **no paid speech call** |
+| Real live transcription (2026-10-30) | Generated 5.74 s MP4 with the spoken sentence “Acme Cloud is the cheapest platform for every team.” Upload `0302f78b-1004-413b-b047-bab020b0f450`: speech `completed` with **1 timestamped segment**; visual `unavailable`; video status `partial`. Audit `512c8a80-5119-49f2-9c06-ec65d18f0afb`: `partially_verified`, a **high-severity** `Policy violation: cheapest` finding at **Spoken 00:00**, plus one OCR inspection-limit finding |
+| Live frontend (2026-10-30) | `dpl_4dw5W5W7wfFs3qpkbUJUCR3SX8T6` at commit `516825a`; `assets/index-MIQiRlJY.js` (686,881 bytes) + `assets/index-BExhdNgb.css` (77,954 bytes); floating launcher, orb, grounded assistant answers, creator insights denial, **0 console messages**. Later README-only commits redeploy the same assets |
 
-The pipeline is deployed, but neither extraction stage is active in production. Speech needs a server-side provider key. OCR needs an instance larger than 512 MB; enabling it on the free instance restarted the service during a real video frame-OCR job, so it was reverted instead of leaving the demo crash-prone.
+The pipeline is live with speech-to-text working end to end. OCR remains the only disabled extraction stage: it needs an instance larger than 512 MB; enabling it on the free instance restarted the service during a real video frame-OCR job, so it was reverted instead of leaving the demo crash-prone. Live video audits therefore finish as `partial` with an explicit inspection-limit finding rather than claiming on-screen coverage.
 
 ### 8.6 Not covered
 
-- No real paid provider call.
-- The live video flow was exercised only up to the extraction job: it restarted the 512 MB instance during frame OCR, so no live video audit or findings were produced.
-- OCR was not re-tested after the revert to `none`; the live site reports OCR as disabled.
+- No paid provider call. The live speech call used Groq's free tier; paid-provider quota, latency, and response-shape differences remain unmeasured.
+- The live video flow was verified with a generated 5.74 s clip only. The user's reported 2:54 video was not re-uploaded after the deploy reseeded the ephemeral demo storage, so longer real footage is untested.
+- On-screen OCR has not run live since it was disabled. No live audit has included on-screen findings, and image/scanned-PDF checks report OCR as disabled.
+- Official business metrics, provider rate limits under load, and multi-instance video jobs were not measured.
 - No full 22-journey regression re-run or responsive sweep for the new panel; the focused flow was desktop Chromium only.
 - No noisy/animated/non-Latin video OCR, speaker diarization, translation, or visual-quality judgement.
 - Frame sampling can miss short overlays.

@@ -4,7 +4,7 @@
 
 Inkloom AI is a working, evidence-first brand-governance demo for the fictional **Acme Cloud Technologies** workspace. It runs locally with SQLite and no external services. Every finding comes from a deterministic rule match or a source-backed approved fact; images and scanned PDF pages are read by a local OCR engine whose output is stored and inspected, never simulated.
 
-**Last verified:** 2026-10-30. Automatic video auditing (speech-to-text plus on-screen OCR) was implemented and verified locally with **102 backend tests**, a clean production build, and a real video upload/audit flow. It was committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel as `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`. The Render API was then deployed at `9c99044` (backend code `1885b2e`); it reports the `video` block with FFmpeg `5.1.9`, but OCR was reverted to `none` after a real video job exhausted the 512 MB instance, and no speech-provider key is configured. See [Deployment](#deployment).
+**Last verified:** 2026-10-30. Automatic video auditing (speech-to-text plus on-screen OCR) was implemented and verified locally with **111 backend tests**, a clean production build, and a real video upload/audit flow. It was committed as `1885b2e` and pushed to GitHub `main`. The final frontend commit is `516825a` (deployment `dpl_4dw5W5W7wfFs3qpkbUJUCR3SX8T6`); the Render API runs `57936c9` as `dep-dbid68dg1s2s73elp56g` with FFmpeg `5.1.9` and Groq `whisper-large-v3-turbo` configured. A real 5.74 s MP4 upload transcribed correctly and produced a timestamped high-severity spoken finding. OCR was reverted to `none` after a real video job exhausted the 512 MB instance, so live video audits finish as `partial`. See [Deployment](#deployment).
 
 ---
 
@@ -101,11 +101,11 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 
 | Check | Result |
 | --- | --- |
-| Backend pytest suite | **102 passed**, 0 failed, 1 third-party deprecation warning, 35.78 s |
+| Backend pytest suite | **111 passed**, 0 failed, 1 third-party deprecation warning, 74.10 s |
 | Video pipeline tests | **18 passed**, 0 failed, 20.47 s |
-| Frontend helper tests | **27 passed**, 0 failed (711.62 ms) |
+| Frontend helper tests | **27 passed**, 0 failed (625.85 ms) |
 | TypeScript check | **0 errors** (`npx tsc --noEmit`) |
-| Vite production build | 1,625 modules; JS 640.03 kB (gzip 162.91 kB), CSS 58.74 kB (gzip 11.02 kB); one chunk-size advisory |
+| Vite production build | 1,629 modules; JS 686.85 kB (gzip 175.52 kB), CSS 77.95 kB (gzip 14.49 kB); one chunk-size advisory |
 | Automatic video flow (2026-10-30, local) | Uploaded a 4 s MP4 with no transcript; both stages completed; audit produced **2 critical findings** (`On-screen 00:00`, `Spoken 00:02`), score **40**, verification `verified`; authenticated frame preview, timestamp seek, and refresh recovery passed; 0 console errors. Speech used a local OpenAI-compatible mock; FFmpeg, RapidOCR, storage, and audit engine were real |
 | Unconfigured speech-to-text (2026-10-30, local) | Second stack with `TRANSCRIPTION_PROVIDER=none`: panel showed `Partial results` (speech `Unavailable`, OCR `Complete`); the audit stored `partially_verified`, kept the on-screen contradiction, added one `Inspection limit` for unanalyzed speech, score **62**, and created no spoken findings or timestamps |
 | End-to-end browser journeys (2026-10-30, prior redesign build) | **22 of 22 passed**: direct open, workspace switch, create/audit/correct/re-audit, submission, claim, comment, request changes, revision 3, approval, 14-event audit trail, image OCR, mixed PDF, insights, empty workspace, unauthorized actions, workspace isolation, refresh persistence. Console errors: 0 |
@@ -113,7 +113,8 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 | Overlay checks (prior redesign build) | Drawer, menus, and dialogs settled opaque and on-screen at 1440/1024/768/390 px with no horizontal overflow |
 | Live deployment smoke (2026-10-29) | Historical: commit `ccf799b` on Vercel and Render; Round 3 dashboard, content, insights, onboarding, and 390 px drawer passed; session **201**, role-only header **401**, insights **200**; production OCR disabled |
 | Live redesign smoke (2026-10-30) | Deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` READY and aliased; dark canvas `rgb(7, 11, 24)`, 14 glass surfaces, sidebar/header rendered, **0 JS errors**, no horizontal overflow at 1440 and 390 px, workspace menu opaque at 390 px |
-| Live backend deploy (2026-10-30) | Deploy `dep-dbi1uadg1s2s73doco9g` served `9c99044`; health shows the `video` block and FFmpeg `5.1.9`; video status/retry/cancel/frame routes return **401** without a session. Real image OCR: 2 lines, **97.3%**, **51.6 s** cold. An 8 s video job restarted the 512 MB instance at 04:46:59 UTC during frame OCR; OCR reverted to `none` in `dep-dbi22tjbc2fs739ssca0`. Speech key still missing; no paid call |
+| Live backend deploy (2026-10-30) | Deploy `dep-dbi1uadg1s2s73doco9g` served `9c99044`; health showed the `video` block and FFmpeg `5.1.9`; video status/retry/cancel/frame routes returned **401** without a session. Real image OCR: 2 lines, **97.3%**, **51.6 s** cold. An 8 s video job restarted the 512 MB instance at 04:46:59 UTC during frame OCR; OCR reverted to `none` in `dep-dbi22tjbc2fs739ssca0`. No paid call |
+| Live transcription and audit (2026-10-30) | Deploy `dep-dbid68dg1s2s73elp56g` at `57936c9` with `TRANSCRIPTION_MODEL=whisper-large-v3-turbo` via Groq; health `configured: true`. A generated 5.74 s MP4 transcribed to 1 timestamped segment; audit `512c8a80-5119-49f2-9c06-ec65d18f0afb` stored `partially_verified` with a high-severity `Policy violation: cheapest` finding at `Spoken 00:00` plus one OCR inspection-limit finding; video status `partial`. Groq free tier; **no paid call** |
 
 Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIFICATION.md); the video pipeline details and scenario matrix are in [VIDEO_AUDITING.md](docs/VIDEO_AUDITING.md).
 
@@ -121,13 +122,13 @@ Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIF
 
 | Component | Status | URL |
 | --- | --- | --- |
-| Frontend (Vercel, Vite) | Live — 3D-glass redesign + video-auditing UI, commit `1885b2e` | <https://inkloom-ai-rho.vercel.app> |
-| API (Render, FastAPI) | Live — commit `9c99044` (video pipeline; OCR and speech unavailable) | <https://inkloom-api.onrender.com> |
+| Frontend (Vercel, Vite) | Live — bright redesign + assistant + video UI, commit `516825a` | <https://inkloom-ai-rho.vercel.app> |
+| API (Render, FastAPI) | Live — commit `57936c9` (video pipeline; speech configured, OCR disabled) | <https://inkloom-api.onrender.com> |
 | GitHub source | Public | <https://github.com/hvavinash30/inkloom-ai> |
 
-The automatic video-auditing work was committed as `1885b2e`, pushed to GitHub `main`, and Vercel built production deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm` to READY on 2026-10-30, aliased to the production URL. The live frontend serves `assets/index-B4UXtfvY.js` (640,060 bytes) and `assets/index-L7Up5fEq.css` (58,737 bytes); the local build emits a different JS hash because `VITE_API_BASE_URL` is baked in at build time. The Render API was deployed manually to `9c99044` (backend code `1885b2e`) as `dep-dbi1uadg1s2s73doco9g` at 04:39 UTC; health now reports the `video` block with system FFmpeg `5.1.9`, and the video status, retry, cancel, and frame routes exist.
+The final frontend commit is `516825a`, built as production deployment `dpl_4dw5W5W7wfFs3qpkbUJUCR3SX8T6` and aliased to the production URL. It serves `assets/index-MIQiRlJY.js` (686,881 bytes) and `assets/index-BExhdNgb.css` (77,954 bytes); later README-only commits rebuild the same assets. The Render API runs `57936c9` as `dep-dbid68dg1s2s73elp56g`; health reports the `video` block with system FFmpeg `5.1.9`, and the video status, retry, cancel, and frame routes exist.
 
-**Production extraction stages are currently unavailable.** `TRANSCRIPTION_PROVIDER=openai_whisper` is set, but no `TRANSCRIPTION_API_KEY` or `OPENAI_API_KEY` is configured, so speech is not transcribed. `OCR_PROVIDER` was set to `auto` in `dep-dbi20d142hec73c7ip9g`: a real image audit completed OCR (2 lines, 97.3% mean confidence, 51.6 s cold), but the follow-up 8 s video job restarted the 512 MB instance at 04:46:59 UTC during frame OCR. Deploy `dep-dbi22tjbc2fs739ssca0` reverted OCR to `none`. No provider credential is included in the repository.
+**Speech-to-text is live; on-screen OCR is not.** `TRANSCRIPTION_PROVIDER=openai_whisper` points at Groq's OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`) with `whisper-large-v3-turbo` and a server-side free-tier key, so `configured: true`. A real 5.74 s MP4 upload produced one timestamped transcript segment and a high-severity spoken finding; the audit finished as `partial` because OCR is disabled. `OCR_PROVIDER=auto` was tested earlier: a real image audit completed OCR (2 lines, 97.3% mean confidence, 51.6 s cold), but the follow-up 8 s video job restarted the 512 MB instance at 04:46:59 UTC during frame OCR. Deploy `dep-dbi22tjbc2fs739ssca0` reverted OCR to `none`. No provider credential is included in the repository.
 
 The live smoke covered the deployed shell, Overview, workspace menu, dark styling, responsive overflow, and console health at 1440 and 390 px. The full 22-journey suite was executed locally, not against the live deployment.
 
@@ -143,23 +144,23 @@ These are explicit product boundaries, not hidden gaps:
 
 - **Demo identity, real sessions.** Tokens are server-issued, hashed, expiring, and workspace-scoped, but accounts are fictional and there is no external identity provider. Replace with Supabase Auth before real use.
 - **Local OCR, bounded.** Clean printed Latin-script text reads well; handwriting, low-resolution scans, stylized video overlays, and complex layouts may fail and are reported honestly. OCR adds latency and is synchronous.
-- **Speech-to-text requires manual provider configuration.** `TRANSCRIPTION_PROVIDER=none` is the default. Without `openai_whisper` plus a server-side key, the speech stage is unavailable; on-screen analysis still runs when OCR is available, and the audit records the gap. Provider timestamps are preserved, and missing timestamps are never invented.
+- **Speech-to-text requires manual provider configuration.** `TRANSCRIPTION_PROVIDER=none` is the default. Without `openai_whisper` plus a server-side key, the speech stage is unavailable; on-screen analysis still runs when OCR is available, and the audit records the gap. The live deployment is configured with Groq's free-tier `whisper-large-v3-turbo` and has transcribed a real upload. Provider timestamps are preserved, missing timestamps are never invented, and the free tier's 25 MB audio cap can reject long videos.
 - **Video analysis is sampled.** Frames are taken at a bounded interval, so short overlays can be missed. Only visible text is checked; logo, colour, layout, motion, and audio tone are human-review items.
 - **Video jobs are in-process.** One worker per API process with persisted progress, cancel/retry, and startup recovery. A restart marks in-flight work failed (retryable); it does not resume mid-stage. Multi-instance deployment needs a shared queue.
-- **Automatic video auditing is deployed, but both extraction stages are unavailable in production.** The live API includes the pipeline; OCR is disabled because a real video job exhausted the 512 MB free instance, and no speech provider key is configured. Users see explicit unavailable/partial states and processing-issue findings. A real paid provider call was not made during verification (a local OpenAI-compatible mock was used).
+- **Automatic video auditing is live with speech only.** The live API transcribes uploaded video through Groq and stores timestamped spoken findings, but OCR is disabled because a real video job exhausted the 512 MB free instance, so live audits finish as `partial` with an explicit inspection-limit finding. Users see honest unavailable/partial states. No paid provider call was made during verification (local tests used a mock; the live call used Groq's free tier).
 - **No LLM in the audit path.** The assistant is deterministic and grounded in stored records; an optional LLM only drafts correction wording when configured.
 - **No external research or benchmarking.** Research records are internal documentation; evaluation is a five-case synthetic regression fixture.
 - **No background jobs, notifications, or scheduled re-reviews.** All actions are user-triggered.
 - **Single-node storage.** SQLite and local uploads are suitable for the demo; production needs Postgres, object storage, and real migrations (Alembic).
 - **Supabase RLS is not the demo’s runtime boundary.** The migrations provide policy definitions for a production Postgres deployment; the local API uses a trusted SQLAlchemy connection.
-- **The redesign is deployed but live-tested only at smoke level.** The 2026-10-30 dark 3D-glass interface is live on Vercel; the 22 browser journeys were run locally, and only shell, Overview, menu, styling, overflow, and console health were rechecked against the deployment.
+- **The current frontend is live but live-tested only at smoke level.** Vercel serves the 2026-10-30 bright redesign, assistant, and video UI (commit `516825a`); the 22 browser journeys were run locally, and only the shell, assistant drawer, video pipeline, and console health were rechecked against the deployment.
 - **Frontend verification is Chromium-only.** Widths 390/768/1024/1440 px were tested; Safari, Firefox, real devices, screen readers, and automated axe audits were not.
 
 ---
 
 ## Recommended next steps (not implemented)
 
-1. Add a backend-only `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`) on Render, then make one real (paid) provider call and record latency, quota, and response-shape results.
+1. Re-run the live video flow with a longer real recording; the current check used a generated 5.74 s clip, and the originally reported 2:54 video was lost when the deploy reseeded the ephemeral filesystem.
 2. Move OCR to an instance with more than 512 MB (or an external worker), set `OCR_PROVIDER=auto`, and repeat the real image/video upload check; revert if the instance restarts.
 3. Re-run the full journey suite against the live deployment, not just the smoke check.
 4. Replace demo sign-in with Supabase Auth and map verified identities to workspace roles.

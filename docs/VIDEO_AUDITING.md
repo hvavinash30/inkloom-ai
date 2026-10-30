@@ -1,6 +1,6 @@
 # Automatic Video Auditing
 
-Status: implemented and verified locally on 2026-10-30. Committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel (`dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`, production alias). The Render API was deployed at `9c99044` (backend code `1885b2e`) as `dep-dbi22tjbc2fs739ssca0`; it serves the pipeline and reports FFmpeg `5.1.9`, but `OCR_PROVIDER=none` and no speech key keep both extraction stages unavailable in production. OCR was enabled briefly, succeeded once on a real image (2 lines, 97.3%, 51.6 s), then restarted the 512 MB instance during a video frame job and was reverted.
+Status: implemented and verified locally on 2026-10-30, and speech-to-text is now verified live. Committed as `1885b2e` and pushed to GitHub `main`; the frontend was deployed to Vercel (`dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`, later rebuilt at the same assets from `516825a`). The Render API currently runs commit `57936c9` as `dep-dbid68dg1s2s73elp56g` with FFmpeg `5.1.9` and Groq's OpenAI-compatible `whisper-large-v3-turbo` configured. A real 5.74 s MP4 upload produced a timestamped spoken finding and a `partially_verified` audit. `OCR_PROVIDER=none` remains: OCR succeeded once on a real image (2 lines, 97.3%, 51.6 s), then restarted the 512 MB instance during a video frame job and was reverted, so live video audits are `partial` until OCR runs on a larger instance.
 Scope: the existing Inkloom AI application. This is not a separate video application, and the
 manual-transcript and transcript-only paths still work.
 
@@ -277,8 +277,8 @@ RapidOCR, audit engine, persistence) was real.
 | Command | Result |
 | --- | --- |
 | `cd backend && .venv\Scripts\python.exe -m pytest tests/test_video_pipeline.py -q` | **18 passed** in 20.47 s |
-| `cd backend && .venv\Scripts\python.exe -m pytest -q` | **102 passed**, 0 failed, 1 third-party deprecation warning, 35.78 s |
-| `cd frontend && npm run build` | `tsc` + Vite build succeeded; 1,625 modules, JS 640.03 kB (gzip 162.91 kB), CSS 58.74 kB (gzip 11.02 kB) |
+| `cd backend && .venv\Scripts\python.exe -m pytest -q` (current working tree) | **111 passed**, 0 failed, 1 third-party deprecation warning, 74.10 s |
+| `cd frontend && npm run build` (current working tree) | `tsc` + Vite build succeeded; 1,629 modules, JS 686.85 kB (gzip 175.52 kB), CSS 77.95 kB (gzip 14.49 kB) |
 
 The video tests cover: persisted speech + visual stages; audit without a manual transcript; manual
 transcript precedence; speech unconfigured; provider failure with visual results preserved; OCR
@@ -358,17 +358,34 @@ correction actions. Re-checked in the browser: the limit card shows the correcte
 | 19 | Timestamp seek and frame preview | Browser E2E; authenticated Blob frame and seek to 00:02 |
 | 20 | Refresh recovery | Browser reload; persisted video state, findings, metadata |
 
-### 7.5 Not verified
+### 7.5 Live production check (speech only)
 
-- No real paid provider call was made; the provider contract was exercised with a local
-  OpenAI-compatible mock. The first production call should be monitored for quota, latency, and
-  response-shape differences.
-- The live pipeline was exercised against production on 2026-10-30. With `OCR_PROVIDER=auto`, a
-  real PNG audit completed OCR (2 lines, 97.3% mean confidence, 51.6 s cold start). The next 8 s
-  MP4 job reached `processing` with 1 sampled frame, then the 512 MB Render instance restarted at
-  04:46:59 UTC during frame OCR; OCR was reverted to `none`. No audit was run on that video, so
-  the live end-to-end video audit remains unverified on this host. Speech was never available
-  live because no provider key is configured.
+The Render API was configured with `TRANSCRIPTION_PROVIDER=openai_whisper`,
+`TRANSCRIPTION_API_BASE=https://api.groq.com/openai/v1`, `TRANSCRIPTION_MODEL=whisper-large-v3-turbo`,
+and a server-side Groq free-tier key, then redeployed. Health reported the provider, model, and
+`configured: true`.
+
+| Check | Measured result |
+| --- | --- |
+| Fixture | Generated 5.74 s MP4 with a real spoken sentence: “Acme Cloud is the cheapest platform for every team.” |
+| Upload | Stored as `video`; job progressed to `partial` because OCR is disabled |
+| Speech stage | `Completed`; transcript matched the spoken sentence; **1 timestamped segment** |
+| Visual stage | `Unavailable` (`OCR_PROVIDER=none`); recorded as an inspection-limit finding |
+| Audit | `partially_verified`; a **high-severity** `Policy violation: cheapest` finding at **Spoken 00:00**, plus one OCR inspection-limit finding |
+| Cost | Groq free tier; no paid provider call |
+
+The user's originally reported 2:54 video was not re-uploaded after the deploy reseeded the
+ephemeral demo storage, so only the generated clip has been exercised live.
+
+### 7.6 Not verified
+
+- No **paid** provider call was made. The local provider contract was exercised with an
+  OpenAI-compatible mock; the live call used Groq's free tier. Paid-provider latency, quota, and
+  response-shape differences remain unmeasured.
+- Live OCR is not re-tested after the revert to `none`; live image and scanned-PDF checks report
+  OCR as disabled. The earlier live image OCR success (2 lines, 97.3%, 51.6 s) ended with the
+  instance restarting during the first live video frame job, so no live audit ever included
+  on-screen findings.
 - OCR was verified on clean generated frames, not on noisy, handwritten, animated, or non-Latin
   video text.
 - Chromium only; no Safari/Firefox, mobile-device, screen-reader, or axe pass for the new panel.
@@ -381,7 +398,9 @@ correction actions. Re-checked in the browser: the limit card shows the correcte
 ## 8. Known limitations and boundaries
 
 - Speech-to-text requires a configured provider; the default is none. Without it, on-screen
-  analysis still runs and the audit reports the missing spoken coverage.
+  analysis still runs and the audit reports the missing spoken coverage. The live deployment uses
+  Groq's free-tier `whisper-large-v3-turbo`, which enforces a 25 MB audio limit; long videos may
+  exceed it, and the failure is reported rather than hidden.
 - Provider timestamps are preserved, not recalculated. If the provider returns no timestamps,
   findings have no timestamps rather than invented ones.
 - OCR reads printed text; stylized, animated, low-contrast, or very small on-screen text may be
