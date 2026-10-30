@@ -16,6 +16,7 @@ import { api } from '../services/api';
 import { buildNavigation, isItemActive, routeTitle } from '../lib/navigation';
 import type { Route } from '../lib/router';
 import { cn } from './ui';
+import { AssistantOrb } from './AssistantOrb';
 import { RoleSwitcher } from './RoleSwitcher';
 import { useToast } from './Toast';
 
@@ -531,19 +532,38 @@ export function Shell({ route, children }: { route: Route; children: React.React
       </div>
 
       {!assistantOpen && session?.capabilities.includes('assistant.use') ? (
-        <button
-          type="button"
-          onClick={() => openAssistant({ ...assistantContext, voice: true })}
-          className="group fixed bottom-5 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 via-brand-500 to-violet-500 text-white shadow-glow-brand transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:bottom-7 sm:right-7"
-          aria-label="Open Inkloom voice assistant"
-          title="Ask Inkloom by voice"
-        >
-          <span className="absolute inset-0 rounded-full bg-brand-400/40 animate-pulse-ring" aria-hidden />
-          <Mic className="relative h-6 w-6" aria-hidden />
-          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-semibold text-ink-700 opacity-0 shadow-elevated transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 lg:block">
-            Ask Inkloom
-          </span>
-        </button>
+        <div className="fixed bottom-5 right-4 z-40 flex flex-col items-end gap-2.5 sm:bottom-7 sm:right-7">
+          <button
+            type="button"
+            onClick={() => openAssistant({ ...assistantContext, voice: true })}
+            className="group relative flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line-strong)] bg-white/95 text-brand-700 shadow-subtle backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+            aria-label="Open Inkloom voice assistant"
+            title="Ask Inkloom by voice"
+          >
+            <Mic className="h-4 w-4" aria-hidden />
+            <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-semibold text-ink-700 opacity-0 shadow-elevated transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 lg:block">
+              Ask with voice
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openAssistant(assistantContext)}
+            className="group relative flex h-14 w-14 items-center justify-center rounded-full border border-brand-100 bg-white shadow-elevated transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+            aria-label="Open Inkloom AI assistant"
+            aria-haspopup="dialog"
+            title="Ask Inkloom"
+          >
+            <span
+              className="absolute inset-0 rounded-full bg-gradient-to-br from-brand-400/20 via-cyan-300/20 to-violet-400/25 blur-[5px]"
+              aria-hidden
+            />
+            <span className="absolute inset-0 rounded-full bg-brand-400/25 animate-pulse-ring" aria-hidden />
+            <AssistantOrb state="idle" size={40} className="relative" />
+            <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-semibold text-ink-700 opacity-0 shadow-elevated transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 lg:block">
+              Ask Inkloom
+            </span>
+          </button>
+        </div>
       ) : null}
     </div>
   );

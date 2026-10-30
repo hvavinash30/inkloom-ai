@@ -326,6 +326,7 @@ export interface DashboardData {
     documents: number;
     scored_documents: number;
     average_score: number;
+    average_risk_band: RiskLevel | null;
     pending_reviews: number;
     open_high_findings: number;
     approved_content: number;
@@ -356,6 +357,8 @@ export interface DashboardData {
     title: string;
     score: number;
     risk_level: RiskLevel;
+    status: DocumentStatus;
+    audited_at: string | null;
     updated_at: string;
   }[];
   campaigns: { id: string; name: string; status: string; assets_count: number }[];
@@ -946,6 +949,8 @@ export interface AssistantResponse {
   suggested_actions: AssistantAction[];
   limitations: string[];
   diagnostic_info?: Record<string, unknown> | null;
+  provider?: string | null;
+  ai_error?: string | null;
 }
 
 export interface AssistantRequest {

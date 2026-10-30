@@ -3,10 +3,14 @@ import {
   AlertTriangle,
   ArrowRight,
   BookOpenCheck,
+  Check,
+  Copy,
   ExternalLink,
   Info,
   Loader2,
+  MessageSquarePlus,
   Mic,
+  RotateCcw,
   Send,
   Sparkles,
   Square,
@@ -18,6 +22,7 @@ import { useSession } from '../context/SessionContext';
 import { api, ApiError } from '../services/api';
 import { navigate, parseRoute } from '../lib/router';
 import { routeRequirement } from '../lib/navigation';
+import { copyToClipboard } from '../lib/clipboard';
 import {
   getSpeechRecognitionConstructor,
   microphoneAvailable,
@@ -28,6 +33,8 @@ import {
 } from '../lib/speech';
 import type { AssistantResponse, ContentDocument } from '../types';
 import { Button, cn } from './ui';
+import { AssistantOrb, ORB_STATE_LABEL, type AssistantOrbState } from './AssistantOrb';
+import { MarkdownMessage } from './MarkdownMessage';
 
 interface ChatLink {
   label: string;
@@ -73,6 +80,9 @@ const VOICE_ERRORS: Record<string, string> = {
   'aborted': '',
 };
 
+const RECOGNITION_START_TIMEOUT_MS = 10_000;
+const RECOGNITION_MAX_DURATION_MS = 30_000;
+
 function verificationTone(response: AssistantResponse) {
   if (response.verification === 'verified_from_workspace_records') {
     return {
@@ -103,20 +113,35 @@ function cleanSpeechQuery(value: string): string {
     .trim();
 }
 
+function reduceMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+  );
+}
+
 export function AssistantDrawer() {
   const { assistantOpen, assistantSeed, closeAssistant, can } = useSession();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [canStop, setCanStop] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [seedKey, setSeedKey] = useState<string>('');
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
+  const [stopNote, setStopNote] = useState(false);
   const [speakReplies, setSpeakReplies] = useState(false);
+  const [responding, setResponding] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [voicePhase, setVoicePhase] = useState<'idle' | 'starting' | 'listening' | 'processing'>('idle');
+  const [voicePhase, setVoicePhase] = useState<
+    'idle' | 'requesting' | 'listening' | 'finishing' | 'processing'
+  >('idle');
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [interim, setInterim] = useState('');
   const [heard, setHeard] = useState('');
   const [levels, setLevels] = useState<number[]>(() => Array.from({ length: 14 }, () => 0.12));
+  const [waveformActive, setWaveformActive] = useState(false);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copyErrorId, setCopyErrorId] = useState<number | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -125,20 +150,34 @@ export function AssistantDrawer() {
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const nextId = useRef(1);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceSessionRef = useRef(0);
   const finalTranscriptRef = useRef('');
+  const interimTranscriptRef = useRef('');
   const discardRecognitionRef = useRef(false);
   const recognitionErroredRef = useRef(false);
+  const voiceSubmittedRef = useRef(false);
+  const startTimerRef = useRef<number | null>(null);
+  const maxTimerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const levelsFrameRef = useRef<number | null>(null);
   const speakRepliesRef = useRef(speakReplies);
   const commandHandlerRef = useRef<(text: string, viaVoice: boolean) => void>(() => undefined);
+  const requestAbortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+  const lastRequestRef = useRef('');
+  const startListeningRef = useRef<() => void>(() => undefined);
+  const openHandledRef = useRef(false);
+  const conversationKeyRef = useRef('');
+  const openRef = useRef(assistantOpen);
+  const copyTimerRef = useRef<number | null>(null);
   speakRepliesRef.current = speakReplies;
+  openRef.current = assistantOpen;
 
   const recognitionSupported = getSpeechRecognitionConstructor() !== null;
   const synthesisSupported = speechSynthesisAvailable();
-  const currentSeedKey = `${assistantSeed.documentId || ''}|${assistantSeed.campaignId || ''}|${assistantSeed.findingId || ''}|${assistantSeed.voice ? 'voice' : 'text'}`;
+  const secureContext = typeof window === 'undefined' || window.isSecureContext !== false;
 
   const cleanupCapture = useCallback(() => {
     if (levelsFrameRef.current !== null) {
@@ -153,69 +192,418 @@ export function AssistantDrawer() {
     if (context && context.state !== 'closed') {
       void context.close().catch(() => undefined);
     }
+    setWaveformActive(false);
     setLevels((current) => current.map(() => 0.12));
+  }, []);
+
+  const clearVoiceTimers = useCallback(() => {
+    if (startTimerRef.current !== null) {
+      window.clearTimeout(startTimerRef.current);
+      startTimerRef.current = null;
+    }
+    if (maxTimerRef.current !== null) {
+      window.clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
   }, []);
 
   const stopSpeakingPlayback = useCallback(() => {
     stopSpeaking();
+    setResponding(false);
     setSpeaking(false);
   }, []);
 
   const speakReply = useCallback((text: string) => {
     if (!speakRepliesRef.current || !speechSynthesisAvailable()) return;
-    setSpeaking(true);
-    speakText(text, {
-      onEnd: () => setSpeaking(false),
-      onError: () => setSpeaking(false),
+    setResponding(true);
+    const started = speakText(text, {
+      onStart: () => {
+        setResponding(false);
+        setSpeaking(true);
+      },
+      onEnd: () => {
+        setResponding(false);
+        setSpeaking(false);
+      },
+      onError: () => {
+        setResponding(false);
+        setSpeaking(false);
+      },
     });
+    if (!started) {
+      setResponding(false);
+      setSpeaking(false);
+    }
+  }, []);
+
+  const abortRequestSilently = useCallback(() => {
+    requestIdRef.current += 1;
+    const controller = requestAbortRef.current;
+    requestAbortRef.current = null;
+    if (controller) controller.abort();
+    setSending(false);
+    setCanStop(false);
   }, []);
 
   const requestAnswer = useCallback(
-    async (message: string) => {
+    async (message: string, options: { viaVoice?: boolean; appendUser?: boolean } = {}) => {
+      const trimmed = message.trim();
+      if (!trimmed || requestAbortRef.current) return;
+      const appendUser = options.appendUser ?? true;
+      const viaVoice = options.viaVoice ?? false;
+      const controller = new AbortController();
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      requestAbortRef.current = controller;
+      lastRequestRef.current = trimmed;
+      if (appendUser) {
+        setMessages((items) => [
+          ...items,
+          { id: nextId.current++, role: 'user', text: trimmed, viaVoice },
+        ]);
+      }
       setSending(true);
+      setCanStop(true);
       setError(null);
+      setRetryMessage(null);
+      setStopNote(false);
+      setVoiceError(null);
+      stopSpeakingPlayback();
+
       try {
-        const response = await api.assistantChat({
-          message,
-          page_context: assistantSeed.pageContext || window.location.hash.replace(/^#/, '') || '/',
-          document_id: assistantSeed.documentId,
-          campaign_id: assistantSeed.campaignId,
-          finding_id: assistantSeed.findingId,
-        });
+        const response = await api.assistantChat(
+          {
+            message: trimmed,
+            page_context:
+              assistantSeed.pageContext || window.location.hash.replace(/^#/, '') || '/',
+            document_id: assistantSeed.documentId,
+            campaign_id: assistantSeed.campaignId,
+            finding_id: assistantSeed.findingId,
+          },
+          controller.signal
+        );
+        if (requestIdRef.current !== requestId) return;
         setMessages((items) => [
           ...items,
           { id: nextId.current++, role: 'assistant', text: response.reply, response },
         ]);
         speakReply(response.reply);
       } catch (caught) {
-        setError(caught instanceof ApiError ? caught.detail : 'The assistant could not answer this request.');
+        if (requestIdRef.current !== requestId) return;
+        if (caught instanceof DOMException && caught.name === 'AbortError') {
+          setStopNote(true);
+        } else {
+          setError(
+            caught instanceof ApiError
+              ? caught.detail
+              : 'The assistant could not answer this request. Check the connection and try again.'
+          );
+          setRetryMessage(trimmed);
+        }
       } finally {
+        if (requestIdRef.current !== requestId) return;
+        requestAbortRef.current = null;
         setSending(false);
-        if (recognitionSupported) {
+        setCanStop(false);
+        if (!reduceMotion()) {
           window.setTimeout(() => inputRef.current?.focus(), 60);
+        } else {
+          inputRef.current?.focus();
         }
       }
     },
-    [assistantSeed.campaignId, assistantSeed.documentId, assistantSeed.findingId, assistantSeed.pageContext, recognitionSupported, speakReply]
+    [assistantSeed, speakReply, stopSpeakingPlayback]
   );
 
   const pushUserMessage = (text: string, viaVoice: boolean) => {
     setMessages((items) => [...items, { id: nextId.current++, role: 'user', text, viaVoice }]);
   };
 
-  const send = async (message: string) => {
-    const trimmed = message.trim();
-    if (!trimmed || sending) return;
-    setInput('');
+  const stopVoiceCapture = useCallback(
+    (discard: boolean) => {
+      const recognition = recognitionRef.current;
+      recognitionRef.current = null;
+      clearVoiceTimers();
+      cleanupCapture();
+      if (discard) {
+        discardRecognitionRef.current = true;
+        voiceSessionRef.current += 1;
+        try {
+          recognition?.abort();
+        } catch {
+          // Recognition already stopped.
+        }
+        setVoicePhase('idle');
+        setInterim('');
+        setHeard('');
+        return;
+      }
+      try {
+        recognition?.stop();
+      } catch {
+        try {
+          recognition?.abort();
+        } catch {
+          // Recognition already stopped.
+        }
+      }
+      setVoicePhase('finishing');
+    },
+    [cleanupCapture, clearVoiceTimers]
+  );
+
+  const attachWaveform = useCallback(
+    async (session: number) => {
+      if (reduceMotion()) return;
+      if (!microphoneAvailable()) return;
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (voiceSessionRef.current !== session || discardRecognitionRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const AudioContextCtor =
+          window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextCtor) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const context = new AudioContextCtor();
+        if (context.state === 'suspended') {
+          await context.resume().catch(() => undefined);
+        }
+        if (
+          voiceSessionRef.current !== session ||
+          discardRecognitionRef.current ||
+          context.state === 'closed'
+        ) {
+          stream.getTracks().forEach((track) => track.stop());
+          void context.close().catch(() => undefined);
+          return;
+        }
+        const source = context.createMediaStreamSource(stream);
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 64;
+        analyser.smoothingTimeConstant = 0.72;
+        source.connect(analyser);
+        streamRef.current = stream;
+        audioContextRef.current = context;
+        analyserRef.current = analyser;
+        setWaveformActive(true);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        let lastPaint = 0;
+        const paint = (time: number) => {
+          if (!analyserRef.current) return;
+          levelsFrameRef.current = window.requestAnimationFrame(paint);
+          if (time - lastPaint < 70) return;
+          lastPaint = time;
+          analyser.getByteFrequencyData(data);
+          const next: number[] = [];
+          for (let index = 0; index < 14; index += 1) {
+            const sample = data[Math.min(data.length - 1, index * 2)];
+            next.push(Math.max(0.12, Math.min(1, sample / 180)));
+          }
+          setLevels(next);
+        };
+        levelsFrameRef.current = window.requestAnimationFrame(paint);
+      } catch {
+        stream?.getTracks().forEach((track) => track.stop());
+        // The recognizer can still work without the decorative live level meter.
+      }
+    },
+    []
+  );
+
+  const startListening = () => {
+    if (!openRef.current) return;
+    if (voicePhase !== 'idle') return;
+    if (sending || requestAbortRef.current) {
+      setVoiceError('Wait for the current answer before using the microphone, or type below.');
+      return;
+    }
+    const Recognizer = getSpeechRecognitionConstructor();
+    if (!Recognizer) {
+      setVoiceError('Voice input is not available in this browser. You can type your question below.');
+      return;
+    }
+    if (!secureContext) {
+      setVoiceError(
+        'Voice input requires a secure connection. Open Inkloom over HTTPS or on localhost, or type your question below.'
+      );
+      return;
+    }
+
     setVoiceError(null);
-    pushUserMessage(trimmed, false);
-    await requestAnswer(trimmed);
+    setError(null);
+    setStopNote(false);
+    setInterim('');
+    setHeard('');
+    finalTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
+    discardRecognitionRef.current = false;
+    recognitionErroredRef.current = false;
+    voiceSubmittedRef.current = false;
+    stopSpeakingPlayback();
+
+    setVoicePhase('requesting');
+    const session = voiceSessionRef.current + 1;
+    voiceSessionRef.current = session;
+    const isCurrent = () => voiceSessionRef.current === session;
+
+    const recognition = new Recognizer();
+    recognitionRef.current = recognition;
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    let started = false;
+    let finished = false;
+
+    recognition.onstart = () => {
+      if (!isCurrent()) return;
+      started = true;
+      clearVoiceTimers();
+      setVoicePhase('listening');
+      setVoiceError(null);
+      maxTimerRef.current = window.setTimeout(() => {
+        if (!isCurrent() || finished) return;
+        stopVoiceCapture(false);
+      }, RECOGNITION_MAX_DURATION_MS);
+    };
+
+    recognition.onresult = (event) => {
+      if (!isCurrent()) return;
+      let interimText = '';
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result[0]?.transcript ?? '';
+        if (result.isFinal) {
+          finalTranscriptRef.current = `${finalTranscriptRef.current} ${transcript}`.trim();
+        } else {
+          interimText += transcript;
+        }
+      }
+      interimTranscriptRef.current = interimText;
+      setInterim(interimText);
+      setHeard(finalTranscriptRef.current);
+    };
+
+    recognition.onerror = (event) => {
+      if (!isCurrent()) return;
+      const code = event.error;
+      if (code === 'aborted') return;
+      finished = true;
+      recognitionErroredRef.current = true;
+      const message =
+        VOICE_ERRORS[code] ??
+        `Speech recognition stopped with the error “${code}”. Try again or type your question.`;
+      if (message) setVoiceError(message);
+      setVoicePhase('idle');
+      setInterim('');
+      setHeard('');
+      recognitionRef.current = null;
+      clearVoiceTimers();
+      cleanupCapture();
+    };
+
+    recognition.onend = () => {
+      if (!isCurrent() || finished) return;
+      finished = true;
+      recognitionRef.current = null;
+      clearVoiceTimers();
+      cleanupCapture();
+      if (discardRecognitionRef.current || voiceSubmittedRef.current) {
+        setVoicePhase('idle');
+        return;
+      }
+      const transcript = (finalTranscriptRef.current || interimTranscriptRef.current).trim();
+      setInterim('');
+      if (recognitionErroredRef.current && !transcript) {
+        setVoicePhase('idle');
+        setHeard('');
+        return;
+      }
+      if (!transcript) {
+        setVoicePhase('idle');
+        setHeard('');
+        setVoiceError(
+          'I did not catch any speech. Press the microphone and try again, or type your question.'
+        );
+        return;
+      }
+      voiceSubmittedRef.current = true;
+      setHeard('');
+      setVoicePhase('processing');
+      commandHandlerRef.current(transcript, true);
+    };
+
+    try {
+      // Start synchronously inside the click so the browser keeps the user activation
+      // and owns the microphone before any other capture request is made.
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      voiceSessionRef.current += 1;
+      setVoicePhase('idle');
+      setVoiceError(
+        'Speech recognition could not start. Close other apps using the microphone, then try again or type below.'
+      );
+      cleanupCapture();
+      clearVoiceTimers();
+      return;
+    }
+
+    startTimerRef.current = window.setTimeout(() => {
+      if (!isCurrent() || started) return;
+      finished = true;
+      voiceSessionRef.current += 1;
+      recognitionErroredRef.current = true;
+      setVoicePhase('idle');
+      setVoiceError(
+        'Speech recognition did not start within a few seconds. Allow microphone access when your browser asks, then press the microphone to try again.'
+      );
+      recognitionRef.current = null;
+      clearVoiceTimers();
+      cleanupCapture();
+      try {
+        recognition.abort();
+      } catch {
+        // Recognition never started.
+      }
+    }, RECOGNITION_START_TIMEOUT_MS);
+
+    void attachWaveform(session);
+  };
+  startListeningRef.current = startListening;
+
+  const send = (message: string) => {
+    const trimmed = message.trim();
+    if (!trimmed || sending || requestAbortRef.current) return;
+    if (voicePhase !== 'idle') stopVoiceCapture(true);
+    setInput('');
+    void requestAnswer(trimmed);
+  };
+
+  const stopGeneration = () => {
+    requestAbortRef.current?.abort();
+  };
+
+  const retryLast = () => {
+    const message = retryMessage || lastRequestRef.current;
+    if (!message || sending) return;
+    setError(null);
+    setRetryMessage(null);
+    setStopNote(false);
+    void requestAnswer(message, { appendUser: false });
   };
 
   const openDocument = async (query: string): Promise<boolean> => {
     const cleaned = cleanSpeechQuery(query);
     if (cleaned.length < 2) return false;
     setSending(true);
+    setCanStop(false);
     setError(null);
     try {
       const documents = await api.listDocuments({ search: cleaned, limit: 5 });
@@ -223,7 +611,12 @@ export function AssistantDrawer() {
         const reply = `I could not find a document matching “${cleaned}”. You can browse everything in Content.`;
         setMessages((items) => [
           ...items,
-          { id: nextId.current++, role: 'assistant', text: reply, links: [{ label: 'Browse content', path: '/content' }] },
+          {
+            id: nextId.current++,
+            role: 'assistant',
+            text: reply,
+            links: [{ label: 'Browse content', path: '/content' }],
+          },
         ]);
         speakReply(reply);
         return true;
@@ -246,7 +639,9 @@ export function AssistantDrawer() {
       navigate(`/content/${first.id}`);
       return true;
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.detail : 'Document search is unavailable right now.');
+      setError(
+        caught instanceof ApiError ? caught.detail : 'Document search is unavailable right now.'
+      );
       return true;
     } finally {
       setSending(false);
@@ -255,10 +650,14 @@ export function AssistantDrawer() {
 
   const handleVoiceCommand = async (text: string, viaVoice = true) => {
     const recognized = cleanSpeechQuery(text);
-    if (!recognized) return;
+    if (!recognized) {
+      setVoicePhase('idle');
+      return;
+    }
     setVoicePhase('processing');
     pushUserMessage(recognized, viaVoice);
-    setHeard(recognized);
+    setHeard('');
+    setInterim('');
 
     try {
       for (const command of ROUTE_COMMANDS) {
@@ -266,14 +665,22 @@ export function AssistantDrawer() {
         const requirement = routeRequirement(parseRoute(command.path));
         if (requirement && !can(requirement)) {
           const reply = `Your current demo role cannot open ${command.label}. Switch roles or ask me something else.`;
-          setMessages((items) => [...items, { id: nextId.current++, role: 'assistant', text: reply }]);
+          setMessages((items) => [
+            ...items,
+            { id: nextId.current++, role: 'assistant', text: reply },
+          ]);
           speakReply(reply);
           return;
         }
         const reply = `Opening ${command.label}.`;
         setMessages((items) => [
           ...items,
-          { id: nextId.current++, role: 'assistant', text: reply, links: [{ label: command.label, path: command.path }] },
+          {
+            id: nextId.current++,
+            role: 'assistant',
+            text: reply,
+            links: [{ label: command.label, path: command.path }],
+          },
         ]);
         speakReply(reply);
         navigate(command.path);
@@ -293,11 +700,13 @@ export function AssistantDrawer() {
         if (await openDocument(query)) return;
       }
 
-      await requestAnswer(recognized);
+      await requestAnswer(recognized, { appendUser: false, viaVoice: true });
     } finally {
       setVoicePhase('idle');
-      if (recognitionSupported) {
+      if (!reduceMotion()) {
         window.setTimeout(() => inputRef.current?.focus(), 60);
+      } else {
+        inputRef.current?.focus();
       }
     }
   };
@@ -305,209 +714,101 @@ export function AssistantDrawer() {
     void handleVoiceCommand(text, viaVoice);
   };
 
-  const ensureAnalyser = async (): Promise<string | null> => {
-    if (!microphoneAvailable()) return null;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const AudioContextCtor =
-        window.AudioContext ??
-        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextCtor) {
-        stream.getTracks().forEach((track) => track.stop());
-        return null;
-      }
-      const context = new AudioContextCtor();
-      const source = context.createMediaStreamSource(stream);
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 64;
-      analyser.smoothingTimeConstant = 0.72;
-      source.connect(analyser);
-      streamRef.current = stream;
-      audioContextRef.current = context;
-      analyserRef.current = analyser;
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      let lastPaint = 0;
-      const paint = (time: number) => {
-        if (!analyserRef.current) return;
-        levelsFrameRef.current = window.requestAnimationFrame(paint);
-        if (time - lastPaint < 70) return;
-        lastPaint = time;
-        analyser.getByteFrequencyData(data);
-        const next: number[] = [];
-        for (let index = 0; index < 14; index += 1) {
-          const sample = data[Math.min(data.length - 1, index * 2)];
-          next.push(Math.max(0.12, Math.min(1, sample / 180)));
-        }
-        setLevels(next);
-      };
-      levelsFrameRef.current = window.requestAnimationFrame(paint);
-      return null;
-    } catch (caught) {
-      const name = caught instanceof DOMException ? caught.name : '';
-      if (name === 'NotAllowedError' || name === 'SecurityError') {
-        return 'Microphone permission was denied. Allow microphone access for this site in your browser settings, then try again.';
-      }
-      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        return 'No microphone was detected. Connect a microphone, then try again.';
-      }
-      return null;
+  const copyResponse = async (id: number, text: string) => {
+    if (copyTimerRef.current !== null) {
+      window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = null;
     }
+    const copied = await copyToClipboard(text);
+    if (copied) {
+      setCopiedId(id);
+      setCopyErrorId(null);
+    } else {
+      setCopyErrorId(id);
+      setCopiedId(null);
+    }
+    copyTimerRef.current = window.setTimeout(() => {
+      setCopiedId(null);
+      setCopyErrorId(null);
+      copyTimerRef.current = null;
+    }, 2400);
   };
 
-  const stopListening = () => {
-    const recognition = recognitionRef.current;
-    if (recognition) {
-      try {
-        recognition.stop();
-      } catch {
-        try {
-          recognition.abort();
-        } catch {
-          // Recognition already stopped.
-        }
-      }
-    }
-  };
-
-  const startListening = async () => {
-    if (!recognitionSupported || voicePhase !== 'idle') return;
-    setVoiceError(null);
+  const newConversation = () => {
+    abortRequestSilently();
+    stopVoiceCapture(true);
+    stopSpeakingPlayback();
+    setMessages([]);
+    setInput('');
     setError(null);
-    setInterim('');
+    setRetryMessage(null);
+    setStopNote(false);
+    setVoiceError(null);
     setHeard('');
-    finalTranscriptRef.current = '';
-    discardRecognitionRef.current = false;
-    recognitionErroredRef.current = false;
-
-    const captureIssue = await ensureAnalyser();
-    if (captureIssue) {
-      cleanupCapture();
-      setVoiceError(captureIssue);
-      return;
-    }
-
-    const Recognizer = getSpeechRecognitionConstructor();
-    if (!Recognizer) {
-      setVoiceError('Voice input is not available in this browser. You can type your question below.');
-      cleanupCapture();
-      return;
-    }
-
-    setVoicePhase('starting');
-    const recognition = new Recognizer();
-    recognitionRef.current = recognition;
-    recognition.lang = 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setVoicePhase('listening');
-      setVoiceError(null);
-    };
-    recognition.onresult = (event) => {
-      let interimText = '';
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const transcript = result[0]?.transcript ?? '';
-        if (result.isFinal) {
-          finalTranscriptRef.current = `${finalTranscriptRef.current} ${transcript}`.trim();
-        } else {
-          interimText += transcript;
-        }
-      }
-      setInterim(interimText);
-      setHeard(`${finalTranscriptRef.current} ${interimText}`.trim());
-    };
-    recognition.onerror = (event) => {
-      recognitionErroredRef.current = event.error !== 'aborted';
-      const message = VOICE_ERRORS[event.error];
-      if (message) setVoiceError(message);
-      setVoicePhase('idle');
-      setInterim('');
-      cleanupCapture();
-    };
-    recognition.onend = () => {
-      recognitionRef.current = null;
-      const transcript = finalTranscriptRef.current.trim();
-      setInterim('');
-      cleanupCapture();
-      if (discardRecognitionRef.current) {
-        setVoicePhase('idle');
-        return;
-      }
-      if (recognitionErroredRef.current) {
-        setVoicePhase('idle');
-        return;
-      }
-      if (!transcript) {
-        setVoicePhase('idle');
-        setVoiceError('I did not catch any speech. Press the microphone and try again, or type your question.');
-        return;
-      }
-      setVoicePhase('processing');
-      commandHandlerRef.current(transcript, true);
-    };
-
-    try {
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      cleanupCapture();
-      setVoicePhase('idle');
-      setVoiceError('Speech recognition could not start. Close other apps using the microphone, then try again.');
-    }
+    setInterim('');
+    lastRequestRef.current = '';
+    window.requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const handleClose = () => {
-    discardRecognitionRef.current = true;
-    const recognition = recognitionRef.current;
-    recognitionRef.current = null;
-    if (recognition) {
-      try {
-        recognition.abort();
-      } catch {
-        // Recognition already stopped.
-      }
-    }
-    cleanupCapture();
+    stopVoiceCapture(true);
     stopSpeakingPlayback();
-    setVoicePhase('idle');
     closeAssistant();
   };
 
   useEffect(() => {
-    if (!assistantOpen) return;
-    const key = `${currentSeedKey}|${window.location.hash}`;
-    if (key !== seedKey) {
-      setSeedKey(key);
+    if (!assistantOpen) {
+      openHandledRef.current = false;
+      return;
+    }
+    if (openHandledRef.current) return;
+    openHandledRef.current = true;
+
+    const contextKey = `${assistantSeed.documentId || ''}|${assistantSeed.campaignId || ''}|${assistantSeed.findingId || ''}`;
+    if (contextKey !== conversationKeyRef.current) {
+      conversationKeyRef.current = contextKey;
+      abortRequestSilently();
       setMessages([]);
-      setInput(assistantSeed.prompt || '');
       setError(null);
+      setRetryMessage(null);
+      setStopNote(false);
       setVoiceError(null);
       setHeard('');
       setInterim('');
-      setVoicePhase('idle');
-      setSpeakReplies(Boolean(assistantSeed.voice) && speechSynthesisAvailable());
+      setInput(assistantSeed.prompt || '');
+    } else if (assistantSeed.prompt) {
+      setInput(assistantSeed.prompt);
     }
-    const restore = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    restoreFocusRef.current = restore;
+    if (assistantSeed.voice && speechSynthesisAvailable()) setSpeakReplies(true);
+    setVoiceError(null);
+    setStopNote(false);
+
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = window.requestAnimationFrame(() => {
-      if (assistantSeed.voice) {
+      if (assistantSeed.voice && getSpeechRecognitionConstructor()) {
+        startListeningRef.current();
         micRef.current?.focus();
       } else {
         inputRef.current?.focus();
       }
     });
     return () => window.cancelAnimationFrame(frame);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assistantOpen, currentSeedKey]);
+  }, [assistantOpen, assistantSeed, abortRequestSilently]);
 
   useEffect(() => {
     if (!assistantOpen) {
       cleanupCapture();
+      clearVoiceTimers();
       stopSpeakingPlayback();
+      voiceSessionRef.current += 1;
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        // Recognition already stopped.
+      }
       recognitionRef.current = null;
+      setVoicePhase('idle');
       return;
     }
     const previousOverflow = document.body.style.overflow;
@@ -518,7 +819,7 @@ export function AssistantDrawer() {
       if (target?.isConnected) target.focus();
       restoreFocusRef.current = null;
     };
-  }, [assistantOpen, cleanupCapture, stopSpeakingPlayback]);
+  }, [assistantOpen, cleanupCapture, clearVoiceTimers, stopSpeakingPlayback]);
 
   useEffect(() => {
     if (!assistantOpen) return;
@@ -566,23 +867,32 @@ export function AssistantDrawer() {
   }, [assistantOpen]);
 
   useEffect(() => {
-    if (assistantOpen) {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }
-  }, [messages, sending, assistantOpen]);
+    if (!assistantOpen) return;
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: reduceMotion() ? 'auto' : 'smooth',
+    });
+  }, [messages, sending, assistantOpen, voiceError, stopNote]);
 
   useEffect(
     () => () => {
+      requestIdRef.current += 1;
+      requestAbortRef.current?.abort();
+      requestAbortRef.current = null;
+      voiceSessionRef.current += 1;
       discardRecognitionRef.current = true;
       try {
         recognitionRef.current?.abort();
       } catch {
         // Recognition already stopped.
       }
+      recognitionRef.current = null;
+      if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
       cleanupCapture();
+      clearVoiceTimers();
       stopSpeaking();
     },
-    [cleanupCapture]
+    [cleanupCapture, clearVoiceTimers]
   );
 
   if (!assistantOpen) return null;
@@ -604,19 +914,42 @@ export function AssistantDrawer() {
         : ['What needs my attention today?', 'What does the audit score mean?', 'Which approved facts are outdated?'];
 
   const listening = voicePhase === 'listening';
-  const busy = voicePhase === 'starting' || voicePhase === 'processing';
+  const requesting = voicePhase === 'requesting';
+  const finishing = voicePhase === 'finishing';
+  const voiceProcessing = voicePhase === 'processing';
+  const micDisabled = sending || finishing || voiceProcessing;
+
+  const orbState: AssistantOrbState = listening
+    ? 'listening'
+    : requesting || finishing || voiceProcessing || sending
+      ? 'processing'
+      : speaking
+        ? 'speaking'
+        : responding
+          ? 'responding'
+          : stopNote
+            ? 'stopped'
+            : error || voiceError
+              ? 'error'
+              : 'idle';
 
   const voiceStatus = !recognitionSupported
     ? 'Speech recognition is not available in this browser. Type your question below.'
-    : voicePhase === 'starting'
-      ? 'Requesting microphone access…'
-      : voicePhase === 'listening'
-        ? 'Listening now. Speak, then press the stop button.'
-        : voicePhase === 'processing'
-          ? 'Processing your speech…'
-          : speaking
-            ? 'Reading the answer aloud. Press stop to silence it.'
-            : 'Press the microphone to speak, or type below.';
+    : !secureContext
+      ? 'Voice input needs an HTTPS connection. Type your question below.'
+      : requesting
+        ? 'Requesting microphone access… grant permission if your browser asks.'
+        : listening
+          ? 'Listening now. Speak, then press the stop button.'
+          : finishing
+            ? 'Finishing the recognition session…'
+            : voiceProcessing
+              ? 'Processing your speech…'
+              : speaking
+                ? 'Reading the answer aloud. Press stop to silence it.'
+                : sending
+                  ? 'Waiting for the assistant’s answer…'
+                  : 'Press the microphone to speak, or type below.';
 
   return (
     <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-labelledby="assistant-title">
@@ -631,35 +964,39 @@ export function AssistantDrawer() {
         tabIndex={-1}
         className="animate-slide-in-right absolute inset-y-0 right-0 flex w-full max-w-[480px] flex-col border-l border-[var(--line)] bg-white shadow-elevated focus:outline-none"
       >
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-3.5">
+        <div className="flex items-start justify-between gap-2 border-b border-[var(--line)] px-4 py-3.5">
           <div className="flex min-w-0 items-start gap-2.5">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-glow-brand">
-              <Sparkles className="h-4 w-4" aria-hidden />
-            </div>
+            <AssistantOrb
+              state={orbState}
+              size={42}
+              className="mt-0.5"
+              label={`Inkloom AI orb — ${ORB_STATE_LABEL[orbState]}`}
+            />
             <div className="min-w-0">
               <h2 id="assistant-title" className="font-display text-sm font-bold text-ink-900">
-                Inkloom Assistant
+                Inkloom AI
               </h2>
               <p className="mt-0.5 text-[11px] leading-4 text-ink-500">
                 Grounded in workspace records. Not a legal opinion.
               </p>
-              <span
-                className={cn(
-                  'mt-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                  recognitionSupported
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-[var(--line)] bg-ink-50 text-ink-500'
-                )}
-              >
-                <span
-                  className={cn('h-1.5 w-1.5 rounded-full', recognitionSupported ? 'bg-emerald-500' : 'bg-ink-300')}
-                  aria-hidden
-                />
-                {recognitionSupported ? 'Voice input supported' : 'Voice input unavailable'}
-              </span>
+              {!recognitionSupported ? (
+                <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  <AlertTriangle className="h-2.5 w-2.5" aria-hidden />
+                  Voice input unavailable — type instead
+                </p>
+              ) : null}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={newConversation}
+              aria-label="Start a new conversation"
+              title="New conversation"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+            >
+              <MessageSquarePlus className="h-4 w-4" aria-hidden />
+            </button>
             {synthesisSupported ? (
               <button
                 type="button"
@@ -689,7 +1026,7 @@ export function AssistantDrawer() {
               className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
               aria-label="Close assistant"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden />
             </button>
           </div>
         </div>
@@ -699,20 +1036,32 @@ export function AssistantDrawer() {
             <button
               ref={micRef}
               type="button"
-              onClick={listening ? stopListening : startListening}
-              disabled={busy}
-              aria-pressed={listening}
-              aria-label={listening ? 'Stop voice input' : 'Start voice input'}
+              onClick={() => {
+                if (listening) stopVoiceCapture(false);
+                else if (requesting) stopVoiceCapture(true);
+                else startListening();
+              }}
+              disabled={micDisabled}
+              aria-pressed={listening || requesting}
+              aria-label={
+                listening
+                  ? 'Stop voice input and use what was heard'
+                  : requesting
+                    ? 'Cancel starting voice input'
+                    : 'Start voice input'
+              }
               className={cn(
-                'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white shadow-glow-brand transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70',
+                'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white shadow-glow-brand transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
                 listening
                   ? 'bg-gradient-to-br from-rose-500 to-rose-600'
-                  : 'bg-gradient-to-br from-brand-600 via-brand-500 to-violet-500 hover:from-brand-700 hover:to-violet-600'
+                  : requesting
+                    ? 'bg-gradient-to-br from-brand-500 to-violet-500'
+                    : 'bg-gradient-to-br from-brand-600 via-brand-500 to-violet-500 hover:from-brand-700 hover:to-violet-600'
               )}
             >
               {listening ? (
                 <Square className="h-4 w-4" aria-hidden />
-              ) : busy ? (
+              ) : requesting || voiceProcessing || finishing ? (
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
               ) : (
                 <Mic className="h-5 w-5" aria-hidden />
@@ -725,29 +1074,36 @@ export function AssistantDrawer() {
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-ink-900">
                 {listening ? <span className="h-2 w-2 rounded-full bg-rose-500" aria-hidden /> : null}
-                {listening ? 'Listening' : busy ? 'Working' : 'Voice assistant'}
+                {listening
+                  ? 'Listening'
+                  : requesting
+                    ? 'Starting microphone'
+                    : finishing
+                      ? 'Finishing'
+                      : voiceProcessing
+                        ? 'Processing speech'
+                        : speaking
+                          ? 'Reading aloud'
+                          : 'Voice input'}
               </p>
               <p className="mt-0.5 text-[11px] leading-4 text-ink-500" aria-live="polite">
                 {voiceStatus}
               </p>
             </div>
 
-            {listening || speaking ? (
-              <div className="flex h-10 shrink-0 items-end gap-[3px]" aria-hidden>
+            {listening && waveformActive ? (
+              <div className="hidden h-10 shrink-0 items-end gap-[3px] sm:flex" aria-hidden>
                 {levels.map((level, index) => (
                   <span
                     key={index}
-                    className={cn(
-                      'w-[3px] rounded-full transition-[height] duration-100',
-                      listening ? 'bg-gradient-to-t from-brand-500 to-aqua-400' : 'bg-brand-300'
-                    )}
-                    style={{ height: speaking && !listening ? `${8 + ((index * 5) % 18)}px` : `${6 + level * 26}px` }}
+                    className="w-[3px] rounded-full bg-gradient-to-t from-brand-500 to-aqua-400 transition-[height] duration-100"
+                    style={{ height: `${6 + level * 26}px` }}
                   />
                 ))}
               </div>
             ) : null}
 
-            {speaking ? (
+            {speaking || responding ? (
               <button
                 type="button"
                 onClick={stopSpeakingPlayback}
@@ -759,9 +1115,11 @@ export function AssistantDrawer() {
             ) : null}
           </div>
 
-          {heard ? (
+          {heard || interim ? (
             <div className="mt-2.5 rounded-lg border border-[var(--line)] bg-white/80 px-2.5 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Recognized speech</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">
+                Recognized speech
+              </p>
               <p className="mt-0.5 text-xs leading-5 text-ink-700">
                 {heard}
                 {interim ? <span className="text-ink-400"> {interim}</span> : null}
@@ -776,13 +1134,22 @@ export function AssistantDrawer() {
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden />
               <span className="min-w-0 flex-1">{voiceError}</span>
+              {recognitionSupported && secureContext && !sending ? (
+                <button
+                  type="button"
+                  onClick={startListening}
+                  className="shrink-0 rounded-md border border-amber-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                >
+                  Try again
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setVoiceError(null)}
                 className="shrink-0 rounded text-amber-700 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                 aria-label="Dismiss voice message"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" aria-hidden />
               </button>
             </div>
           ) : null}
@@ -793,11 +1160,9 @@ export function AssistantDrawer() {
           <p className="truncate text-[11px] text-ink-500">{contextLabel}</p>
         </div>
 
-        <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
           <div className="flex gap-2.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 ring-1 ring-brand-100">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            </div>
+            <AssistantOrb state="idle" size={28} className="mt-0.5" />
             <div className="max-w-[88%] rounded-xl rounded-tl-sm border border-[var(--line)] bg-ink-50/70 px-3.5 py-2.5 text-sm leading-6 text-ink-700">
               {INTRO}
             </div>
@@ -839,104 +1204,153 @@ export function AssistantDrawer() {
               );
             }
             const response = message.response;
-            if (!response) {
-              return (
-                <div key={message.id} className="flex gap-2.5">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 ring-1 ring-brand-100">
-                    <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                  </div>
-                  <div className="min-w-0 max-w-[90%] space-y-2">
-                    <div className="whitespace-pre-wrap break-words rounded-xl rounded-tl-sm border border-[var(--line)] bg-white px-3.5 py-2.5 text-sm leading-6 text-ink-700 shadow-subtle">
-                      {message.text}
-                    </div>
-                    {message.links?.length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {message.links.map((link) => (
-                          <button
-                            key={link.path}
-                            type="button"
-                            onClick={() => {
-                              navigate(link.path);
-                              handleClose();
-                            }}
-                            className="inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                          >
-                            {link.label}
-                            <ExternalLink className="h-3 w-3" aria-hidden />
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            }
-            const tone = verificationTone(response);
+            const tone = response ? verificationTone(response) : null;
+            const copied = copiedId === message.id;
+            const copyFailed = copyErrorId === message.id;
             return (
               <div key={message.id} className="flex gap-2.5">
                 <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 ring-1 ring-brand-100">
                   <Sparkles className="h-3.5 w-3.5" aria-hidden />
                 </div>
                 <div className="min-w-0 max-w-[90%] space-y-2.5">
-                  <div className="whitespace-pre-wrap break-words rounded-xl rounded-tl-sm border border-[var(--line)] bg-white px-3.5 py-2.5 text-sm leading-6 text-ink-700 shadow-subtle">
-                    {response.reply}
+                  <div className="rounded-xl rounded-tl-sm border border-[var(--line)] bg-white px-3.5 py-2.5 text-sm leading-6 text-ink-700 shadow-subtle">
+                    <MarkdownMessage text={message.text} />
                   </div>
-                  <div className={cn('rounded-lg border px-3 py-2', tone.className)}>
-                    <p className="flex items-start gap-1.5 text-[11px] font-semibold leading-4">
-                      {response.verification === 'unable_to_verify' ? (
-                        <AlertTriangle className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', tone.icon)} aria-hidden />
-                      ) : (
-                        <BookOpenCheck className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', tone.icon)} aria-hidden />
+
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-ink-400">
+                    <button
+                      type="button"
+                      onClick={() => void copyResponse(message.id, message.text)}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300',
+                        copied
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : copyFailed
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : 'border-[var(--line)] bg-white text-ink-500 hover:border-brand-200 hover:text-brand-700'
                       )}
-                      {tone.label}
-                    </p>
-                    <p className="mt-1 text-[11px] leading-4 opacity-80">{response.verification_note}</p>
+                      aria-label={copied ? 'Response copied' : 'Copy response'}
+                    >
+                      {copied ? (
+                        <Check className="h-3 w-3" aria-hidden />
+                      ) : (
+                        <Copy className="h-3 w-3" aria-hidden />
+                      )}
+                      <span aria-live="polite">{copied ? 'Copied' : copyFailed ? 'Copy failed' : 'Copy'}</span>
+                    </button>
+                    {response ? (
+                      <span
+                        title={
+                          response.mode === 'grounded_llm'
+                            ? 'A server-side AI provider rephrased the verified record-based answer.'
+                            : 'The answer was assembled by the rules engine from stored workspace records.'
+                        }
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold',
+                          response.mode === 'grounded_llm'
+                            ? 'border-violet-200 bg-violet-50 text-violet-700'
+                            : 'border-slate-200 bg-slate-50 text-ink-500'
+                        )}
+                      >
+                        {response.mode === 'grounded_llm'
+                          ? `AI wording${response.provider ? ` · ${response.provider}` : ''}`
+                          : 'Records engine'}
+                      </span>
+                    ) : null}
                   </div>
-                  {response.grounding.length > 0 ? (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Evidence used</p>
-                      {response.grounding.map((item, index) => (
-                        <div key={index} className="rounded-lg border border-[var(--line)] bg-ink-50/70 px-2.5 py-2">
-                          <p className="text-[11px] font-medium text-ink-800">{item.title}</p>
-                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ink-500">{item.detail}</p>
-                          {item.source_reference ? (
-                            <p className="mt-1 truncate text-[10px] text-ink-400">Source: {item.source_reference}</p>
-                          ) : null}
-                        </div>
+
+                  {message.links?.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.links.map((link) => (
+                        <button
+                          key={link.path}
+                          type="button"
+                          onClick={() => {
+                            navigate(link.path);
+                            handleClose();
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                        >
+                          {link.label}
+                          <ExternalLink className="h-3 w-3" aria-hidden />
+                        </button>
                       ))}
                     </div>
                   ) : null}
-                  {response.suggested_actions.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {response.suggested_actions.map((action, index) =>
-                        action.route ? (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              navigate(action.route as string);
-                              handleClose();
-                            }}
-                            className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white px-2 py-1 text-[11px] font-medium text-ink-600 transition-colors hover:border-brand-200 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                          >
-                            {action.label}
-                            <ExternalLink className="h-3 w-3" aria-hidden />
-                          </button>
-                        ) : null
-                      )}
-                    </div>
-                  ) : null}
-                  {response.limitations.length > 0 ? (
-                    <details className="text-[10px] text-ink-400">
-                      <summary className="cursor-pointer select-none hover:text-ink-700">Limitations</summary>
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                        {response.limitations.map((limitation, index) => (
-                          <li key={index} className="leading-4">
-                            {limitation}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
+
+                  {response && tone ? (
+                    <>
+                      <div className={cn('rounded-lg border px-3 py-2', tone.className)}>
+                        <p className="flex items-start gap-1.5 text-[11px] font-semibold leading-4">
+                          {response.verification === 'unable_to_verify' ? (
+                            <AlertTriangle className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', tone.icon)} aria-hidden />
+                          ) : (
+                            <BookOpenCheck className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', tone.icon)} aria-hidden />
+                          )}
+                          {tone.label}
+                        </p>
+                        <p className="mt-1 text-[11px] leading-4 opacity-80">{response.verification_note}</p>
+                      </div>
+
+                      {response.ai_error ? (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900">
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden />
+                          <span>
+                            <strong className="font-semibold">AI wording unavailable.</strong>{' '}
+                            {response.ai_error} The verified record-based answer above is shown instead.
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {response.grounding.length > 0 ? (
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Evidence used</p>
+                          {response.grounding.map((item, index) => (
+                            <div key={index} className="rounded-lg border border-[var(--line)] bg-ink-50/70 px-2.5 py-2">
+                              <p className="text-[11px] font-medium text-ink-800">{item.title}</p>
+                              <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ink-500">{item.detail}</p>
+                              {item.source_reference ? (
+                                <p className="mt-1 truncate text-[10px] text-ink-400">Source: {item.source_reference}</p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {response.suggested_actions.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {response.suggested_actions.map((action, index) =>
+                            action.route ? (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => {
+                                  navigate(action.route as string);
+                                  handleClose();
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white px-2 py-1 text-[11px] font-medium text-ink-600 transition-colors hover:border-brand-200 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                              >
+                                {action.label}
+                                <ExternalLink className="h-3 w-3" aria-hidden />
+                              </button>
+                            ) : null
+                          )}
+                        </div>
+                      ) : null}
+
+                      {response.limitations.length > 0 ? (
+                        <details className="text-[10px] text-ink-400">
+                          <summary className="cursor-pointer select-none hover:text-ink-700">Limitations</summary>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                            {response.limitations.map((limitation, index) => (
+                              <li key={index} className="leading-4">
+                                {limitation}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ) : null}
+                    </>
                   ) : null}
                 </div>
               </div>
@@ -944,17 +1358,71 @@ export function AssistantDrawer() {
           })}
 
           {sending ? (
-            <div className="flex items-center gap-2 text-xs text-ink-500" aria-live="polite">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-ink-500" aria-live="polite">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-brand-600 ring-1 ring-brand-100">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
               </div>
-              Checking stored workspace records…
+              <span className="min-w-0 flex-1">Checking stored workspace records…</span>
+              {canStop ? (
+                <button
+                  type="button"
+                  onClick={stopGeneration}
+                  className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white px-2 py-1 text-[11px] font-semibold text-ink-700 transition-colors hover:border-rose-200 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                >
+                  <Square className="h-3 w-3" aria-hidden />
+                  Stop generation
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {stopNote ? (
+            <div
+              role="status"
+              className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-ink-700"
+            >
+              <span className="min-w-0 flex-1">Generation stopped. No answer was added.</span>
+              {lastRequestRef.current ? (
+                <button
+                  type="button"
+                  onClick={retryLast}
+                  className="inline-flex items-center gap-1 rounded-md border border-[var(--line-strong)] bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-700 hover:border-brand-200 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                >
+                  <RotateCcw className="h-3 w-3" aria-hidden />
+                  Retry
+                </button>
+              ) : null}
             </div>
           ) : null}
 
           {error ? (
-            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
-              {error}
+            <div
+              role="alert"
+              className="flex flex-wrap items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800"
+            >
+              <span className="min-w-0 flex-1">{error}</span>
+              {retryMessage ? (
+                <button
+                  type="button"
+                  onClick={retryLast}
+                  disabled={sending}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-60"
+                >
+                  <RotateCcw className="h-3 w-3" aria-hidden />
+                  Retry
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setRetryMessage(null);
+                }}
+                className="shrink-0 rounded text-rose-600 hover:text-rose-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                aria-label="Dismiss error"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
             </div>
           ) : null}
         </div>
@@ -977,8 +1445,15 @@ export function AssistantDrawer() {
               className="w-full resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-5 text-ink-900 placeholder:text-ink-400 focus:outline-none"
             />
             <div className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1">
-              <span className="text-[10px] text-ink-400">Enter to send · Shift + Enter for a new line</span>
-              <Button size="sm" onClick={() => void send(input)} disabled={!input.trim() || sending} aria-label="Send message">
+              <span className="hidden text-[10px] text-ink-400 sm:inline">
+                Enter to send · Shift + Enter for a new line
+              </span>
+              <Button
+                size="sm"
+                onClick={() => void send(input)}
+                disabled={!input.trim() || sending}
+                aria-label="Send message"
+              >
                 <Send className="h-3.5 w-3.5" aria-hidden />
                 Send
               </Button>
@@ -989,7 +1464,7 @@ export function AssistantDrawer() {
             <p className="text-[10px] leading-4 text-ink-400">
               Spoken input is handled by your browser's speech service. Assistant answers always come from stored
               workspace records through the Inkloom backend; when a grounded LLM is configured, it is used with those
-              records.
+              records. The assistant can open records but cannot approve, publish, or delete content.
             </p>
           </div>
         </div>

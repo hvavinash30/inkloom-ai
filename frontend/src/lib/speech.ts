@@ -72,7 +72,7 @@ function plainSpeech(text: string): string {
 
 export function speakText(
   text: string,
-  options: { onEnd?: () => void; onError?: () => void } = {}
+  options: { onStart?: () => void; onEnd?: () => void; onError?: () => void } = {}
 ): boolean {
   if (!speechSynthesisAvailable()) {
     options.onError?.();
@@ -93,6 +93,7 @@ export function speakText(
     voices.find((voice) => voice.lang === 'en-US' && /Google|Samantha|Aria|Jenny/i.test(voice.name)) ||
     voices.find((voice) => voice.lang.startsWith('en'));
   if (preferred) utterance.voice = preferred;
+  utterance.onstart = () => options.onStart?.();
   utterance.onend = () => options.onEnd?.();
   utterance.onerror = () => options.onError?.();
   window.speechSynthesis.speak(utterance);

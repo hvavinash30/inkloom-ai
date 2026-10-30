@@ -707,25 +707,36 @@ export function ScoreRing({
   size = 64,
   strokeWidth = 5,
   label,
+  decimals = 0,
 }: {
   score: number;
   size?: number;
   strokeWidth?: number;
   label?: string;
+  decimals?: number;
 }) {
   const tone = scoreTone(score);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(100, Math.max(0, score)) / 100) * circumference;
+  const clamped = Math.min(100, Math.max(0, score));
+  const offset = circumference - (clamped / 100) * circumference;
   const color =
     score >= 85 ? '#10b981' : score >= 70 ? '#f59e0b' : score >= 50 ? '#f97316' : '#ef4467';
+  const [armed, setArmed] = React.useState(false);
+  React.useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setArmed(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+  const display = decimals > 0 ? clamped.toFixed(decimals) : String(Math.round(clamped));
   return (
     <div
       className="relative inline-flex shrink-0 items-center justify-center"
       style={{ width: size, height: size }}
-      title={`Audit score ${score} out of 100`}
+      role="img"
+      aria-label={`Audit score ${display} out of 100${label ? `, ${label}` : ''}`}
+      title={`Audit score ${display} out of 100`}
     >
-      <svg width={size} height={size} className="-rotate-90">
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true" focusable="false">
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(24, 53, 114, 0.1)" strokeWidth={strokeWidth} />
         <circle
           cx={size / 2}
@@ -736,13 +747,13 @@ export function ScoreRing({
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 500ms ease', filter: `drop-shadow(0 2px 4px ${color}33)` }}
+          strokeDashoffset={armed ? offset : circumference}
+          style={{ transition: 'stroke-dashoffset 650ms cubic-bezier(0.22, 1, 0.36, 1)', filter: `drop-shadow(0 2px 4px ${color}33)` }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={cn('font-display font-bold tabular-nums', tone.text)} style={{ fontSize: size * 0.28 }}>
-          {Math.round(score)}
+          {display}
         </span>
         {label ? <span className="text-[9px] font-semibold uppercase tracking-wide text-ink-400">{label}</span> : null}
       </div>

@@ -35,7 +35,15 @@ import {
   StatusBadge,
   cn,
 } from '../components/ui';
-import { ROLE_LABEL, RISK_LABEL, relativeTime, scoreTone } from '../lib/format';
+import {
+  DOCUMENT_STATUS_LABEL,
+  RISK_LABEL,
+  RISK_STYLE,
+  ROLE_LABEL,
+  STATUS_STYLE,
+  relativeTime,
+  scoreTone,
+} from '../lib/format';
 import type { DashboardData, DocumentSummary } from '../types';
 
 const TABLE_GRID = 'grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_136px_68px_16px]';
@@ -812,8 +820,11 @@ export function DashboardPage() {
   const hasCheckedVersions = stats.scored_documents > 0;
   const averageValue = hasCheckedVersions ? stats.average_score.toFixed(1) : '—';
   const averageHint = `${stats.scored_documents} current version${stats.scored_documents === 1 ? '' : 's'} checked`;
+  const averageRiskBand = hasCheckedVersions ? stats.average_risk_band : null;
   const qualityLabel = hasCheckedVersions
-    ? RISK_LABEL[stats.average_score >= 85 ? 'low' : stats.average_score >= 70 ? 'medium' : 'high']
+    ? averageRiskBand
+      ? RISK_LABEL[averageRiskBand]
+      : 'Checked'
     : 'No checks yet';
 
   const statCards: {
@@ -1233,32 +1244,73 @@ export function DashboardPage() {
 
         <aside className="min-w-0 space-y-6">
           <Panel>
-            <PanelHeader title="Quality snapshot" />
+            <PanelHeader
+              title="Quality snapshot"
+              description="Scores from the latest checked version of each document."
+            />
             <div className="p-4 sm:p-5">
               <div className="flex items-center gap-4">
                 {hasCheckedVersions ? (
-                  <ScoreRing score={stats.average_score} label="average" size={82} strokeWidth={7} />
+                  <ScoreRing
+                    score={stats.average_score}
+                    label="average"
+                    size={82}
+                    strokeWidth={7}
+                    decimals={1}
+                  />
                 ) : (
                   <div className="flex h-[82px] w-[82px] shrink-0 items-center justify-center rounded-full border border-dashed border-ink-200 bg-ink-50 text-lg font-semibold text-ink-400">
                     —
                   </div>
                 )}
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink-900">{qualityLabel}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="text-sm font-semibold text-ink-900">{qualityLabel}</p>
+                    {averageRiskBand ? (
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                          RISK_STYLE[averageRiskBand]
+                        )}
+                      >
+                        {RISK_LABEL[averageRiskBand]} band
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-xs leading-5 text-ink-500">
                     {hasCheckedVersions
-                      ? `Average across ${stats.scored_documents} latest checked version${stats.scored_documents === 1 ? '' : 's'}.`
+                      ? `Average of ${stats.scored_documents} recently checked version${stats.scored_documents === 1 ? '' : 's'} — one latest version per document.`
                       : 'Run a check on a current version to establish a baseline.'}
                   </p>
+                  {hasCheckedVersions ? (
+                    <p className="mt-1 text-[10px] leading-4 text-ink-400">
+                      Content risk from stored findings — not a legal risk assessment.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
               {data.recent_scores.length > 0 ? (
                 <div className="mt-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-400">Recent audits</p>
-                  <div className="mt-2.5 space-y-2.5">
-                    {data.recent_scores.slice(0, 4).map((item) => {
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-400">
+                      Recently checked documents
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/content')}
+                      className="rounded text-[10px] font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  <div className="mt-2.5 space-y-3">
+                    {data.recent_scores.slice(0, 5).map((item, index) => {
                       const tone = scoreTone(item.score);
+                      const statusLabel = DOCUMENT_STATUS_LABEL[item.status] ?? item.status;
+                      const auditedLabel = item.audited_at
+                        ? `Checked ${relativeTime(item.audited_at)}`
+                        : 'Check time unavailable';
                       return (
                         <button
                           key={item.document_id}
@@ -1266,18 +1318,38 @@ export function DashboardPage() {
                           onClick={() => navigate(`/content/${item.document_id}`)}
                           className="group block w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                         >
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="min-w-0 truncate text-xs text-ink-600 group-hover:text-ink-900">
-                              {item.title}
+                          <span className="flex items-start justify-between gap-2">
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-medium text-ink-700 group-hover:text-ink-950">
+                                {item.title}
+                              </span>
+                              <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                                <span
+                                  className={cn(
+                                    'rounded border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide',
+                                    STATUS_STYLE[item.status] ??
+                                      'border-slate-200 bg-slate-100 text-ink-600'
+                                  )}
+                                >
+                                  {statusLabel}
+                                </span>
+                                <span className="text-[10px] text-ink-400">{auditedLabel}</span>
+                              </span>
                             </span>
-                            <span className={cn('shrink-0 text-xs font-semibold tabular-nums', tone.text)}>
-                              {item.score}
+                            <span className="shrink-0 text-right">
+                              <span className={cn('text-sm font-semibold tabular-nums', tone.text)}>
+                                {Math.round(item.score)}
+                              </span>
+                              <span className="text-[9px] text-ink-400">/100</span>
                             </span>
                           </span>
-                          <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-ink-100" aria-hidden>
+                          <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-ink-100">
                             <span
-                              className={cn('block h-full rounded-full', tone.bar)}
-                              style={{ width: `${Math.min(100, Math.max(0, item.score))}%` }}
+                              className={cn('score-grow block h-full rounded-full', tone.bar)}
+                              style={{
+                                width: `${Math.min(100, Math.max(0, item.score))}%`,
+                                animationDelay: `${index * 60}ms`,
+                              }}
                             />
                           </span>
                         </button>
@@ -1291,10 +1363,24 @@ export function DashboardPage() {
                 <summary className="cursor-pointer select-none rounded text-xs font-medium text-ink-500 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
                   How is this score calculated?
                 </summary>
-                <p className="mt-2 text-[11px] leading-5 text-ink-500">
-                  Each open finding deducts points from 100 based on its category and severity. Checks compare your
-                  content against active workspace rules and approved facts. Human approvals are tracked separately.
-                </p>
+                <div className="mt-2 space-y-2 text-[11px] leading-5 text-ink-500">
+                  <p>
+                    Each latest checked version starts at 100. Every open finding deducts points by
+                    category and severity — up to 30 for a critical confirmed contradiction, as little as 1
+                    for a low style suggestion — and the total is floored at 0.
+                  </p>
+                  <p>
+                    This average is the mean of those stored scores. Snapshot bands: Clean 100 · Low
+                    90–99.9 · Medium 70–89.9 · High 40–69.9 · Critical below 40. A document's own risk
+                    badge can escalate independently when critical or high findings fall in risky
+                    categories.
+                  </p>
+                  <p>
+                    Checks compare content against active workspace rules and approved facts. Human review
+                    decisions and approvals are tracked separately; this is a content-governance signal,
+                    not a legal or regulatory risk assessment.
+                  </p>
+                </div>
               </details>
             </div>
           </Panel>

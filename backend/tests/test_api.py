@@ -14,7 +14,10 @@ import pytest
 from helpers import demo_login
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.main import app
+from app.services import ai_provider, assistant_service
+from app.services.ai_provider import AIResponse
 
 
 CREATOR: dict[str, str] = {}
@@ -594,6 +597,233 @@ def test_assistant_suggestions_are_grounded(client):
     )
     assert queue.status_code == 200, queue.text
     assert "reviewers and admins" in queue.json()["reply"]
+
+
+def test_dashboard_quality_snapshot_uses_stored_status_and_band(client):
+    payload = client.get("/api/v1/dashboard/", headers=CREATOR).json()
+    stats = payload["stats"]
+    assert stats["average_risk_band"] in {"clean", "low", "medium", "high", "critical", None}
+    assert payload["recent_scores"], "Demo workspace should have scored documents"
+    for row in payload["recent_scores"]:
+        assert row["status"] in {"draft", "audited", "in_review", "changes_requested", "approved", "rejected"}
+        assert row["audited_at"], "Recent scores must expose when the audit ran"
+        assert 0 <= row["score"] <= 100
+    audited_times = [row["audited_at"] for row in payload["recent_scores"]]
+    assert audited_times == sorted(audited_times, reverse=True)
+
+
+def test_assistant_rules_apply_when_no_provider_is_configured(client):
+    payload = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "What needs my attention today?"},
+    ).json()
+    assert payload["mode"] == "rule_based"
+    assert payload["ai_error"] is None
+    assert payload["provider"] is None
+
+
+def test_assistant_uses_configured_provider_for_grounded_wording(client, monkeypatch):
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openai")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key-not-a-real-credential")
+    ai_provider.reset_rate_limits()
+    captured: dict[str, str] = {}
+
+    def fake_complete_json(system_prompt, user_prompt, required_keys):
+        captured["system"] = system_prompt
+        captured["user"] = user_prompt
+        captured["keys"] = ",".join(required_keys)
+        return (
+            AIResponse(ok=True, text='{"reply": "Rewritten."}', provider="openai", model="test-model"),
+            {"reply": "Two items are waiting for review and one high-risk finding is open."},
+        )
+
+    monkeypatch.setattr(assistant_service.ai_provider, "complete_json", fake_complete_json)
+
+    response = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "What needs my attention today?"},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["mode"] == "grounded_llm"
+    assert payload["reply"].startswith("Two items")
+    assert payload["verification"] == "verified_from_workspace_records"
+    assert payload["provider"] == "openai"
+    assert payload["ai_error"] is None
+    assert payload["diagnostic_info"]["ai"]["model"] == "test-model"
+    assert "Hard rules" in captured["system"]
+    assert "Grounded answer to rewrite" in captured["user"]
+    assert captured["keys"] == "reply"
+    assert "test-key" not in response.text
+
+
+def test_assistant_provider_failure_falls_back_honestly(client, monkeypatch):
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openai")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key-not-a-real-credential")
+    ai_provider.reset_rate_limits()
+
+    def failing_complete_json(system_prompt, user_prompt, required_keys):
+        return (
+            AIResponse(
+                ok=False,
+                provider="openai",
+                error_kind=ai_provider.TIMEOUT,
+                error_message="The openai request timed out after 20s.",
+            ),
+            None,
+        )
+
+    monkeypatch.setattr(assistant_service.ai_provider, "complete_json", failing_complete_json)
+
+    response = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "What needs my attention today?"},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["mode"] == "rule_based"
+    assert "timed out" in payload["ai_error"]
+    assert payload["verification"] == "verified_from_workspace_records"
+    assert payload["reply"]
+    assert any("could not refine" in item for item in payload["limitations"])
+    assert payload["diagnostic_info"]["ai"]["error_kind"] == ai_provider.TIMEOUT
+
+
+def test_assistant_finding_context_offers_corrections_then_allows_follow_up(client):
+    created = client.post(
+        "/api/v1/audits/submit-and-audit",
+        headers=CREATOR,
+        json={
+            "title": unique_title("Assistant correction context"),
+            "content_type": "social_media",
+            "content_text": (
+                "AcmeCloud is the #1 fastest platform with 100% uptime at INR 11,499!!!"
+            ),
+        },
+    )
+    assert created.status_code == 201, created.text
+    document = created.json()
+    finding = next(
+        item for item in findings_for(client, document) if item["suggested_correction"]
+    )
+
+    correction = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={
+            "message": "What correction do you suggest for this finding?",
+            "document_id": document["id"],
+            "finding_id": finding["id"],
+        },
+    )
+    assert correction.status_code == 200, correction.text
+    payload = correction.json()
+    assert payload["verification"] == "verified_from_workspace_records"
+    assert finding["suggested_correction"] in payload["reply"]
+    assert "not applied" in payload["reply"]
+    assert "has not been changed" in payload["reply"]
+    assert f"/content/{document['id']}" in {
+        action["route"] for action in payload["suggested_actions"]
+    }
+
+    follow_up = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={
+            "message": "Give me a summary of this document.",
+            "document_id": document["id"],
+            "finding_id": finding["id"],
+        },
+    )
+    assert follow_up.status_code == 200, follow_up.text
+    follow_payload = follow_up.json()
+    assert follow_payload["reply"] != payload["reply"]
+    assert document["title"] in follow_payload["reply"]
+
+
+def test_assistant_governance_insights_respect_admin_capability(client):
+    admin = client.post(
+        "/api/v1/assistant/chat",
+        headers=ADMIN,
+        json={"message": "Show me governance insights."},
+    )
+    assert admin.status_code == 200, admin.text
+    admin_payload = admin.json()
+    assert admin_payload["verification"] == "verified_from_workspace_records"
+    assert "Governance health" in admin_payload["reply"]
+    assert "/insights" in {action["route"] for action in admin_payload["suggested_actions"]}
+    assert "organization admins" not in admin_payload["reply"]
+
+    creator = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "Show me governance insights."},
+    )
+    assert creator.status_code == 200, creator.text
+    creator_payload = creator.json()
+    assert "organization admins" in creator_payload["reply"]
+    assert "Governance health" not in creator_payload["reply"]
+    assert "/insights" not in {
+        action["route"] for action in creator_payload["suggested_actions"]
+    }
+
+
+def test_assistant_explains_review_process_by_role(client):
+    creator = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "How does the approval workflow work?"},
+    )
+    assert creator.status_code == 200, creator.text
+    creator_payload = creator.json()
+    assert creator_payload["verification"] == "general_guidance"
+    assert "version-bound" in creator_payload["reply"]
+    assert "cannot submit, approve, publish, or delete" in creator_payload["reply"]
+    assert "/content" in {
+        action["route"] for action in creator_payload["suggested_actions"]
+    }
+
+    reviewer = client.post(
+        "/api/v1/assistant/chat",
+        headers=REVIEWER,
+        json={"message": "How does the approval workflow work?"},
+    )
+    assert reviewer.status_code == 200, reviewer.text
+    assert "/reviews" in {
+        action["route"] for action in reviewer.json()["suggested_actions"]
+    }
+
+
+def test_assistant_navigation_actions_use_registered_routes(client):
+    facts = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "Which approved facts are outdated?"},
+    ).json()
+    assert "/brand?tab=facts" in {
+        action["route"] for action in facts["suggested_actions"]
+    }
+
+    rules = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "What do the brand rules say?"},
+    ).json()
+    assert "/brand?tab=rules" in {
+        action["route"] for action in rules["suggested_actions"]
+    }
+
+    queue = client.post(
+        "/api/v1/assistant/chat",
+        headers=REVIEWER,
+        json={"message": "What is waiting in the review queue?"},
+    ).json()
+    assert "/reviews" in {
+        action["route"] for action in queue["suggested_actions"]
+    }
 
 
 def test_upload_limits_and_type_checks(client):

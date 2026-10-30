@@ -158,7 +158,8 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new ApiError(
       0,
       'Cannot reach Inkloom. Make sure the service is running, then try again.'
@@ -494,10 +495,11 @@ export const api = {
     }),
   getIntegrations: () => request<IntegrationsResponse>('/organization/integrations'),
 
-  assistantChat: (payload: AssistantRequest) =>
+  assistantChat: (payload: AssistantRequest, signal?: AbortSignal) =>
     request<AssistantResponse>('/assistant/chat', {
       method: 'POST',
       body: JSON.stringify(payload),
+      signal,
     }),
 
   uploadFile: (file: File, kind?: string) => {

@@ -268,6 +268,19 @@
     transform-origin: center bottom;
     animation: waveform 900ms ease-in-out infinite;
   }
+  .score-grow {
+    transform-origin: left center;
+    animation: score-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes score-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 @keyframes fade-in {
@@ -318,6 +331,225 @@
   }
   50% {
     transform: scaleY(1);
+  }
+}
+
+.assistant-orb {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  isolation: isolate;
+  --orb-a: 16s;
+  --orb-b: 22s;
+  --orb-c: 28s;
+  --orb-halo: 7s;
+  --orb-core: 7s;
+}
+
+.assistant-orb--listening {
+  --orb-a: 5s;
+  --orb-b: 7s;
+  --orb-c: 9s;
+  --orb-halo: 2.4s;
+  --orb-core: 2.4s;
+}
+
+.assistant-orb--processing {
+  --orb-a: 1.9s;
+  --orb-b: 2.7s;
+  --orb-c: 3.5s;
+  --orb-halo: 1.4s;
+  --orb-core: 1.6s;
+}
+
+.assistant-orb--responding {
+  --orb-a: 3.2s;
+  --orb-b: 4.3s;
+  --orb-c: 5.6s;
+  --orb-halo: 2.6s;
+  --orb-core: 3s;
+}
+
+.assistant-orb--speaking {
+  --orb-a: 4.4s;
+  --orb-b: 5.8s;
+  --orb-c: 7.2s;
+  --orb-halo: 2.8s;
+  --orb-core: 3.4s;
+}
+
+.assistant-orb__halo {
+  position: absolute;
+  inset: -16%;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(79, 70, 229, 0.3) 0%,
+    rgba(34, 211, 238, 0.16) 48%,
+    rgba(168, 85, 247, 0.1) 62%,
+    transparent 74%
+  );
+  filter: blur(5px);
+  animation: orb-pulse var(--orb-halo) ease-in-out infinite;
+}
+
+.assistant-orb__tilt {
+  position: absolute;
+  inset: 2%;
+  border-radius: 9999px;
+}
+
+.assistant-orb__tilt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+}
+
+.assistant-orb__tilt--a {
+  transform: rotate3d(1, 0.12, 0, 67deg) rotateZ(14deg);
+}
+
+.assistant-orb__tilt--b {
+  transform: rotate3d(0.16, 1, 0.3, 69deg) rotateZ(-38deg);
+}
+
+.assistant-orb__tilt--c {
+  transform: rotate3d(1, 0.5, 0.08, 57deg) rotateZ(72deg);
+}
+
+.assistant-orb__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  animation: orb-spin linear infinite;
+}
+
+.assistant-orb__ring--a {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(47, 107, 255, 0.95) 46deg,
+    rgba(34, 211, 238, 0.95) 92deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  animation-duration: var(--orb-a);
+}
+
+.assistant-orb__ring--b {
+  background: conic-gradient(
+    from 120deg,
+    transparent 0deg,
+    rgba(168, 85, 247, 0.9) 38deg,
+    rgba(99, 102, 241, 0.95) 84deg,
+    transparent 140deg,
+    transparent 360deg
+  );
+  animation-duration: var(--orb-b);
+  animation-direction: reverse;
+}
+
+.assistant-orb__ring--c {
+  background: conic-gradient(
+    from 220deg,
+    transparent 0deg,
+    rgba(34, 211, 238, 0.85) 30deg,
+    transparent 88deg,
+    transparent 360deg
+  );
+  animation-duration: var(--orb-c);
+  opacity: 0.8;
+}
+
+.assistant-orb__core {
+  position: absolute;
+  inset: 27%;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.95) 0 7%, rgba(255, 255, 255, 0.5) 15%, transparent 36%),
+    radial-gradient(circle at 70% 76%, rgba(168, 85, 247, 0.95) 0 20%, transparent 62%),
+    radial-gradient(circle at 28% 74%, rgba(34, 211, 238, 0.95) 0 16%, transparent 60%),
+    linear-gradient(148deg, #2f6bff 0%, #6366f1 46%, #a855f7 100%);
+  box-shadow:
+    inset 0 -4px 9px rgba(30, 27, 75, 0.35),
+    inset 0 3px 8px rgba(255, 255, 255, 0.4),
+    0 0 16px rgba(79, 70, 229, 0.45);
+  animation: orb-breathe var(--orb-core) ease-in-out infinite;
+}
+
+.assistant-orb--listening .assistant-orb__core {
+  box-shadow:
+    inset 0 -4px 9px rgba(30, 27, 75, 0.32),
+    inset 0 3px 8px rgba(255, 255, 255, 0.45),
+    0 0 24px rgba(34, 211, 238, 0.6);
+}
+
+.assistant-orb--processing .assistant-orb__ring--a {
+  animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+.assistant-orb--error .assistant-orb__ring--a {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(244, 63, 94, 0.9) 46deg,
+    rgba(251, 146, 60, 0.9) 92deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+}
+
+.assistant-orb--error .assistant-orb__halo {
+  background: radial-gradient(
+    circle,
+    rgba(244, 63, 94, 0.24) 0%,
+    rgba(251, 146, 60, 0.12) 52%,
+    transparent 74%
+  );
+}
+
+.assistant-orb--error .assistant-orb__ring,
+.assistant-orb--error .assistant-orb__halo,
+.assistant-orb--error .assistant-orb__core,
+.assistant-orb--stopped .assistant-orb__ring,
+.assistant-orb--stopped .assistant-orb__halo,
+.assistant-orb--stopped .assistant-orb__core {
+  animation-play-state: paused;
+}
+
+.assistant-orb--stopped {
+  opacity: 0.6;
+}
+
+@keyframes orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes orb-pulse {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
   }
 }
 

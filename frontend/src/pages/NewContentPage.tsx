@@ -423,7 +423,7 @@ export function NewContentPage() {
       setUpload(fresh);
       toast(
         rerunSpeech
-          ? 'Speech transcription was re-queued and will call the configured provider again.'
+          ? 'Speech transcription was re-queued. If a provider is still configured, it will be called again.'
           : 'Video analysis was re-queued. Completed stages are reused where possible.',
         'info'
       );

@@ -35,3 +35,5 @@ class AssistantChatResponse(BaseModel):
     suggested_actions: List[AssistantActionSuggestion] = []
     limitations: List[str] = []
     diagnostic_info: Optional[Dict[str, Any]] = None
+    provider: Optional[str] = None
+    ai_error: Optional[str] = None

@@ -60,6 +60,12 @@ import type {
 
 type TabId = 'facts' | 'rules' | 'assets';
 
+function requestedTab(): TabId | null {
+  const query = window.location.hash.split('?')[1] || '';
+  const value = new URLSearchParams(query).get('tab');
+  return value === 'facts' || value === 'rules' || value === 'assets' ? value : null;
+}
+
 const FACT_STATUS_CLASS: Record<string, string> = {
   verified: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   needs_review: 'border-amber-200 bg-amber-50 text-amber-800',
@@ -258,7 +264,15 @@ export function BrandLibraryPage() {
   const facts = data?.[1] || [];
   const assets = data?.[2] || [];
 
-  const [tab, setTab] = useState<TabId>('facts');
+  const [tab, setTab] = useState<TabId>(() => requestedTab() || 'facts');
+  useEffect(() => {
+    const applyRequestedTab = () => {
+      const next = requestedTab();
+      if (next) setTab(next);
+    };
+    window.addEventListener('hashchange', applyRequestedTab);
+    return () => window.removeEventListener('hashchange', applyRequestedTab);
+  }, []);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const deferred = useDeferredValue(query.trim().toLowerCase());

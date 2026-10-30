@@ -33,6 +33,7 @@ def _document_summary(db: Session, document: ContentDocument) -> dict:
         "risk_level": run.risk_level if run else None,
         "verification_status": run.verification_status if run else None,
         "total_findings": run.total_findings if run else None,
+        "latest_audited_at": run.created_at if run else None,
         "approval_stale": bool(
             document.approved_version_id
             and version
@@ -53,8 +54,19 @@ def build_dashboard(db: Session, actor: Actor) -> dict:
         summary = _document_summary(db, document)
         if summary["latest_score"] is not None:
             latest.append((document, summary))
+    latest.sort(
+        key=lambda pair: pair[1]["latest_audited_at"] or datetime.min,
+        reverse=True,
+    )
     scores = [summary["latest_score"] for _, summary in latest]
     average = round(sum(scores) / len(scores), 1) if scores else 0.0
+    average_risk_band = (
+        "clean" if average >= 100
+        else "low" if average >= 90
+        else "medium" if average >= 70
+        else "high" if average >= 40
+        else "critical"
+    ) if scores else None
 
     open_high = 0
     for document, _ in latest:
@@ -161,6 +173,8 @@ def build_dashboard(db: Session, actor: Actor) -> dict:
                 "title": document.title,
                 "score": summary["latest_score"],
                 "risk_level": summary["risk_level"],
+                "status": document.status,
+                "audited_at": summary["latest_audited_at"],
                 "updated_at": document.updated_at,
             }
         )
@@ -204,6 +218,7 @@ def build_dashboard(db: Session, actor: Actor) -> dict:
             "documents": len(documents),
             "scored_documents": len(latest),
             "average_score": average,
+            "average_risk_band": average_risk_band,
             "pending_reviews": pending_reviews,
             "open_high_findings": open_high,
             "approved_content": approved,
