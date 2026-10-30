@@ -26,16 +26,16 @@ import { AccessDeniedPage, NotFoundPage } from './pages/Errors';
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F6F8FB] px-6">
+    <div className="flex min-h-screen items-center justify-center px-6">
       <div className="flex flex-col items-center text-center" aria-busy="true" aria-label="Loading workspace">
-        <span className="flex h-11 w-11 animate-pulse items-center justify-center rounded-xl bg-[#0B1B33] shadow-elevated">
-          <svg viewBox="0 0 32 32" width="24" height="24" fill="none" aria-hidden>
+        <span className="glow-brand relative flex h-12 w-12 animate-pulse items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-400 via-brand-500 to-violet-500">
+          <svg viewBox="0 0 32 32" width="26" height="26" fill="none" aria-hidden>
             <path d="M9 8v16M23 8v16M9 16h14" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-            <circle cx="9" cy="8" r="1.6" fill="#BFDBFE" />
-            <circle cx="23" cy="24" r="1.6" fill="#BFDBFE" />
+            <circle cx="9" cy="8" r="1.6" fill="#EAF2FF" />
+            <circle cx="23" cy="24" r="1.6" fill="#EAF2FF" />
           </svg>
         </span>
-        <p className="mt-4 text-sm font-semibold text-slate-800">Loading the Inkloom workspace</p>
+        <p className="mt-4 text-sm font-semibold text-slate-100">Loading the Inkloom workspace</p>
         <p className="mt-1 text-xs text-slate-400">Preparing your workspace…</p>
       </div>
     </div>
@@ -44,16 +44,16 @@ function LoadingScreen() {
 
 function ApiUnavailable({ message, retry }: { message: string; retry: () => void }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F6F8FB] px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <Card className="w-full max-w-lg p-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-400/25 bg-amber-400/10 text-amber-300">
             <ServerOff className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-slate-950">Inkloom is not reachable</h1>
-            <p className="mt-1.5 text-sm leading-6 text-slate-600">{message}</p>
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-500">
+            <h1 className="text-base font-semibold text-white">Inkloom is not reachable</h1>
+            <p className="mt-1.5 text-sm leading-6 text-slate-300">{message}</p>
+            <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5 text-xs leading-5 text-slate-400">
               Workspace records could not be loaded. Make sure the Inkloom service is running, then retry. If the
               problem continues, contact your workspace administrator.
             </div>

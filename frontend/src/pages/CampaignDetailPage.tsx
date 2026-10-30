@@ -56,15 +56,15 @@ function AssetGlyph({ type }: { type: AssetType }) {
 }
 
 const READINESS_STYLE: Record<string, { wrap: string; label: string }> = {
-  ready: { wrap: 'border-emerald-200 bg-emerald-50/70', label: 'text-emerald-900' },
-  blocked: { wrap: 'border-rose-200 bg-rose-50/70', label: 'text-rose-900' },
-  needs_attention: { wrap: 'border-amber-200 bg-amber-50/70', label: 'text-amber-900' },
-  no_assets: { wrap: 'border-slate-200 bg-slate-50', label: 'text-slate-900' },
+  ready: { wrap: 'border-emerald-400/25 bg-emerald-400/10', label: 'text-emerald-200' },
+  blocked: { wrap: 'border-rose-400/25 bg-rose-500/10', label: 'text-rose-200' },
+  needs_attention: { wrap: 'border-amber-400/25 bg-amber-400/10', label: 'text-amber-200' },
+  no_assets: { wrap: 'border-white/10 bg-white/[0.035]', label: 'text-slate-100' },
 };
 
 function CheckStatusIcon({ status }: { status: ReadinessCheck['status'] }) {
-  if (status === 'passed') return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />;
-  if (status === 'needs_attention') return <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />;
+  if (status === 'passed') return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" />;
+  if (status === 'needs_attention') return <AlertTriangle className="h-4 w-4 shrink-0 text-amber-300" />;
   if (status === 'manual') return <UserRoundCheck className="h-4 w-4 shrink-0 text-slate-400" />;
   return <CircleDot className="h-4 w-4 shrink-0 text-slate-300" />;
 }
@@ -159,7 +159,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
   if (loading) {
     return (
       <div>
-        <div className="mb-6 h-24 animate-pulse rounded-xl border border-slate-100 bg-white" />
+        <div className="mb-6 h-24 animate-pulse rounded-xl border border-white/[0.07] bg-white/[0.04]" />
         <LoadingBlock rows={4} />
       </div>
     );
@@ -276,10 +276,10 @@ export function CampaignDetailPage({ id }: { id: string }) {
 
   const statusClass =
     campaign.status === 'active'
-      ? 'border-blue-200 bg-blue-50 text-blue-800'
+      ? 'border-blue-400/25 bg-blue-500/10 text-blue-200'
       : campaign.status === 'completed'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-        : 'border-slate-200 bg-slate-50 text-slate-600';
+        ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200'
+        : 'border-white/10 bg-white/[0.035] text-slate-300';
 
   return (
     <div>
@@ -313,11 +313,11 @@ export function CampaignDetailPage({ id }: { id: string }) {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
         <span className={cn('rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', statusClass)}>
           {titleCase(campaign.status)}
         </span>
-        {campaign.is_demo ? <Badge className="border-amber-200 bg-amber-50 text-amber-800">Demo campaign</Badge> : null}
+        {campaign.is_demo ? <Badge className="border-amber-400/25 bg-amber-400/10 text-amber-200">Demo campaign</Badge> : null}
         <span>Owned by {campaign.created_by_name || 'the workspace'}</span>
         <span>·</span>
         <span>{campaign.assets_count} asset{campaign.assets_count === 1 ? '' : 's'}</span>
@@ -335,26 +335,26 @@ export function CampaignDetailPage({ id }: { id: string }) {
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
-          <div className={cn('rounded-xl border p-5', readinessTone.wrap)}>
+          <div className={cn('rounded-2xl border p-5', readinessTone.wrap)}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className={cn('text-sm font-semibold', readinessTone.label)}>
                   {readinessLabel(readiness?.result)}
                 </p>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-300">
                   {readiness?.summary || 'Attach assets and run a check to assess campaign readiness.'}
                 </p>
               </div>
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-medium',
+                  'inline-flex items-center gap-1.5 rounded-full bg-[#0b1224]/70 px-2.5 py-1 text-[11px] font-medium',
                   readiness?.result === 'ready'
-                    ? 'text-emerald-700'
+                    ? 'text-emerald-300'
                     : readiness?.result === 'blocked'
-                      ? 'text-rose-700'
+                      ? 'text-rose-300'
                       : readiness?.result === 'needs_attention'
-                        ? 'text-amber-700'
-                        : 'text-slate-600'
+                        ? 'text-amber-300'
+                        : 'text-slate-300'
                 )}
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -364,18 +364,18 @@ export function CampaignDetailPage({ id }: { id: string }) {
             {readiness?.checks?.length ? (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {readiness.checks.map((check) => (
-                  <div key={check.key} className="flex items-start gap-2.5 rounded-lg border border-white/70 bg-white/70 p-3">
+                  <div key={check.key} className="flex items-start gap-2.5 rounded-lg border border-white/20 bg-[#0b1224]/70 p-3">
                     <CheckStatusIcon status={check.status} />
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-slate-800">{check.label}</p>
-                      <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{check.detail}</p>
+                      <p className="text-xs font-medium text-slate-200">{check.label}</p>
+                      <p className="mt-0.5 text-[11px] leading-4 text-slate-400">{check.detail}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : null}
             {readiness?.disclaimer ? (
-              <p className="mt-3 text-[10px] leading-4 text-slate-500">{readiness.disclaimer}</p>
+              <p className="mt-3 text-[10px] leading-4 text-slate-400">{readiness.disclaimer}</p>
             ) : null}
           </div>
 
@@ -403,10 +403,10 @@ export function CampaignDetailPage({ id }: { id: string }) {
             {tab === 'assets' ? (
               campaign.assets.length === 0 ? (
                 <div className="p-5">
-                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center">
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.035] px-6 py-10 text-center">
                     <Layers className="mx-auto h-6 w-6 text-slate-400" />
-                    <p className="mt-3 text-sm font-semibold text-slate-800">No assets attached</p>
-                    <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-500">
+                    <p className="mt-3 text-sm font-semibold text-slate-200">No assets attached</p>
+                    <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-400">
                       Attach content so Inkloom can compare its stored claims with other campaign assets and the
                       approved brand facts.
                     </p>
@@ -419,7 +419,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
                   </div>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-white/[0.08]">
                   {campaign.assets.map((asset) => (
                     <div
                       key={asset.id}
@@ -430,11 +430,11 @@ export function CampaignDetailPage({ id }: { id: string }) {
                         onClick={() => navigate(`/content/${asset.id}`)}
                         className="group flex min-w-0 items-start gap-2.5 text-left"
                       >
-                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-slate-400">
                           <AssetGlyph type={asset.asset_type} />
                         </span>
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-slate-800 group-hover:text-brand-800">
+                          <span className="block truncate text-sm font-medium text-slate-200 group-hover:text-brand-200">
                             {asset.title}
                           </span>
                           <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-slate-400">
@@ -444,7 +444,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
                             {asset.approval_stale ? (
                               <>
                                 <span>·</span>
-                                <span className="font-medium text-amber-600">Approval stale</span>
+                                <span className="font-medium text-amber-300">Approval stale</span>
                               </>
                             ) : null}
                             {asset.created_by_name ? (
@@ -479,10 +479,10 @@ export function CampaignDetailPage({ id }: { id: string }) {
             {tab === 'conflicts' ? (
               campaign.conflicts.length === 0 ? (
                 <div className="p-5">
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 px-6 py-10 text-center">
-                    <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-600" />
-                    <p className="mt-3 text-sm font-semibold text-emerald-950">No conflicts recorded</p>
-                    <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-emerald-800/80">
+                  <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-6 py-10 text-center">
+                    <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-300" />
+                    <p className="mt-3 text-sm font-semibold text-emerald-100">No conflicts recorded</p>
+                    <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-emerald-200/80">
                       {can('campaign.resolve')
                         ? 'Run a cross-asset check to compare stored prices, SLA figures, and other approved claims.'
                         : 'A reviewer or admin can run a cross-asset check when assets are attached.'}
@@ -503,8 +503,8 @@ export function CampaignDetailPage({ id }: { id: string }) {
                       <div
                         key={conflict.id}
                         className={cn(
-                          'rounded-xl border p-4',
-                          open ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200 bg-slate-50/40'
+                          'rounded-2xl border p-4',
+                          open ? 'border-rose-400/25 bg-rose-500/10' : 'border-white/10 bg-white/[0.035]'
                         )}
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -513,8 +513,8 @@ export function CampaignDetailPage({ id }: { id: string }) {
                               className={cn(
                                 'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
                                 open
-                                  ? 'border-rose-200 bg-rose-100/60 text-rose-800'
-                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  ? 'border-rose-400/25 bg-rose-500/15 text-rose-200'
+                                  : 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300'
                               )}
                             >
                               {open ? <Swords className="h-2.5 w-2.5" /> : <CheckCircle2 className="h-2.5 w-2.5" />}
@@ -531,40 +531,40 @@ export function CampaignDetailPage({ id }: { id: string }) {
                             </span>
                           ) : null}
                         </div>
-                        <h3 className="mt-2 text-sm font-semibold text-slate-900">{conflict.topic}</h3>
+                        <h3 className="mt-2 text-sm font-semibold text-slate-100">{conflict.topic}</h3>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          <div className="rounded-lg border border-white bg-white px-3 py-2.5">
+                          <div className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2.5">
                             <p className="text-[10px] font-medium text-slate-400">{conflict.asset_a_title}</p>
-                            <p className="mt-0.5 break-words text-sm font-medium text-slate-800">{conflict.asset_a_value}</p>
+                            <p className="mt-0.5 break-words text-sm font-medium text-slate-200">{conflict.asset_a_value}</p>
                             {conflict.asset_a_location ? (
                               <p className="mt-0.5 text-[10px] text-slate-400">{conflict.asset_a_location}</p>
                             ) : null}
                           </div>
-                          <div className="rounded-lg border border-white bg-white px-3 py-2.5">
+                          <div className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2.5">
                             <p className="text-[10px] font-medium text-slate-400">{conflict.asset_b_title}</p>
-                            <p className="mt-0.5 break-words text-sm font-medium text-slate-800">{conflict.asset_b_value}</p>
+                            <p className="mt-0.5 break-words text-sm font-medium text-slate-200">{conflict.asset_b_value}</p>
                             {conflict.asset_b_location ? (
                               <p className="mt-0.5 text-[10px] text-slate-400">{conflict.asset_b_location}</p>
                             ) : null}
                           </div>
                         </div>
                         {conflict.approved_value ? (
-                          <div className="mt-2 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-700">
+                          <div className="mt-2 rounded-lg border border-brand-400/15 bg-brand-500/10 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-300">
                               Approved source value
                             </p>
-                            <p className="mt-0.5 break-words text-xs leading-5 text-slate-700">{conflict.approved_value}</p>
+                            <p className="mt-0.5 break-words text-xs leading-5 text-slate-300">{conflict.approved_value}</p>
                             {conflict.source_reference ? (
-                              <p className="mt-0.5 text-[10px] text-slate-500">Source: {conflict.source_reference}</p>
+                              <p className="mt-0.5 text-[10px] text-slate-400">Source: {conflict.source_reference}</p>
                             ) : null}
                           </div>
                         ) : null}
                         {conflict.evidence_note ? (
-                          <p className="mt-2 text-[11px] leading-5 text-slate-500">{conflict.evidence_note}</p>
+                          <p className="mt-2 text-[11px] leading-5 text-slate-400">{conflict.evidence_note}</p>
                         ) : null}
                         {!open && conflict.resolution_notes ? (
-                          <p className="mt-2 rounded-lg bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
-                            <span className="font-medium text-slate-700">Resolution record: </span>
+                          <p className="mt-2 rounded-lg bg-white/[0.04] px-3 py-2 text-[11px] leading-5 text-slate-300">
+                            <span className="font-medium text-slate-300">Resolution record: </span>
                             {conflict.resolution_notes}
                           </p>
                         ) : null}
@@ -589,8 +589,8 @@ export function CampaignDetailPage({ id }: { id: string }) {
             {tab === 'map' ? (
               <div className="p-4">
                 {graphLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+                  <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-400">
+                    <Loader2 className="h-4 w-4 animate-spin text-brand-300" />
                     Building the claim map from stored records…
                   </div>
                 ) : graphError ? (
@@ -606,12 +606,12 @@ export function CampaignDetailPage({ id }: { id: string }) {
                       ).map(([type, count]) => (
                         <span
                           key={type}
-                          className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium text-slate-600"
+                          className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-[10px] font-medium text-slate-300"
                         >
                           {titleCase(type.replace('_', ' '))} · {count}
                         </span>
                       ))}
-                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] text-slate-500">
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] text-slate-400">
                         {graph.links.length} relationships
                       </span>
                     </div>
@@ -622,14 +622,14 @@ export function CampaignDetailPage({ id }: { id: string }) {
                           {graph.nodes
                             .filter((node) => node.type === 'campaign' || node.type === 'asset')
                             .map((node) => (
-                              <div key={node.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                              <div key={node.id} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5">
                                 <div className="flex items-center justify-between gap-2">
-                                  <p className="min-w-0 truncate text-xs font-medium text-slate-800">{node.label}</p>
+                                  <p className="min-w-0 truncate text-xs font-medium text-slate-200">{node.label}</p>
                                   <span className="shrink-0 text-[9px] uppercase tracking-wide text-slate-400">
                                     {node.type}
                                   </span>
                                 </div>
-                                <p className="mt-0.5 text-[10px] text-slate-500">
+                                <p className="mt-0.5 text-[10px] text-slate-400">
                                   {node.status ? titleCase(node.status) : titleCase(String(node.metadata.asset_type || ''))}
                                   {node.type === 'asset' ? ' asset' : ''}
                                 </p>
@@ -643,29 +643,29 @@ export function CampaignDetailPage({ id }: { id: string }) {
                         </p>
                         <div className="space-y-2">
                           {graph.nodes.filter((node) => node.type === 'approved_fact' || node.type === 'conflict').length === 0 ? (
-                            <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">
+                            <p className="rounded-lg border border-dashed border-white/10 px-3 py-6 text-center text-xs text-slate-400">
                               No approved facts or conflicts are linked yet.
                             </p>
                           ) : (
                             graph.nodes
                               .filter((node) => node.type === 'approved_fact' || node.type === 'conflict')
                               .map((node) => (
-                                <div key={node.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                                <div key={node.id} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5">
                                   <div className="flex items-center justify-between gap-2">
-                                    <p className="min-w-0 truncate text-xs font-medium text-slate-800">{node.label}</p>
+                                    <p className="min-w-0 truncate text-xs font-medium text-slate-200">{node.label}</p>
                                     <span
                                       className={cn(
                                         'shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
                                         node.type === 'conflict'
-                                          ? 'bg-rose-50 text-rose-700'
-                                          : 'bg-brand-50 text-brand-700'
+                                          ? 'bg-rose-500/10 text-rose-300'
+                                          : 'bg-brand-500/10 text-brand-300'
                                       )}
                                     >
                                       {node.type === 'conflict' ? 'Conflict' : 'Approved fact'}
                                     </span>
                                   </div>
                                   {node.status ? (
-                                    <p className="mt-0.5 text-[10px] text-slate-500">{titleCase(node.status)}</p>
+                                    <p className="mt-0.5 text-[10px] text-slate-400">{titleCase(node.status)}</p>
                                   ) : null}
                                 </div>
                               ))
@@ -673,19 +673,19 @@ export function CampaignDetailPage({ id }: { id: string }) {
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
+                    <div className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-3 py-2.5">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Relationships</p>
                       <ul className="mt-1.5 space-y-1">
                         {graph.links.map((link, index) => {
                           const source = graph.nodes.find((node) => node.id === link.source)?.label || link.source;
                           const target = graph.nodes.find((node) => node.id === link.target)?.label || link.target;
                           return (
-                            <li key={`${link.source}-${link.target}-${index}`} className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
-                              <span className="font-medium text-slate-700">{source}</span>
+                            <li key={`${link.source}-${link.target}-${index}`} className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-300">
+                              <span className="font-medium text-slate-300">{source}</span>
                               <Link2 className="h-3 w-3 text-slate-400" />
                               <span>{titleCase(link.relationship)}</span>
                               <ArrowRight className="h-3 w-3 text-slate-300" />
-                              <span className="font-medium text-slate-700">{target}</span>
+                              <span className="font-medium text-slate-300">{target}</span>
                             </li>
                           );
                         })}
@@ -706,34 +706,34 @@ export function CampaignDetailPage({ id }: { id: string }) {
         <aside className="min-w-0 space-y-5">
           <Card className="p-4">
             <SectionHeading title="Campaign details" />
-            <dl className="mt-3 divide-y divide-slate-100">
+            <dl className="mt-3 divide-y divide-white/[0.08]">
               <div className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                 <dt className="text-[11px] text-slate-400">Audience</dt>
-                <dd className="min-w-0 text-right text-xs font-medium text-slate-700">
+                <dd className="min-w-0 text-right text-xs font-medium text-slate-300">
                   {campaign.target_audience || 'Not set'}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                 <dt className="text-[11px] text-slate-400">Launch target</dt>
-                <dd className="text-right text-xs font-medium text-slate-700">{formatDate(campaign.launch_target)}</dd>
+                <dd className="text-right text-xs font-medium text-slate-300">{formatDate(campaign.launch_target)}</dd>
               </div>
               <div className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                 <dt className="text-[11px] text-slate-400">Owner</dt>
-                <dd className="text-right text-xs font-medium text-slate-700">{campaign.created_by_name || '—'}</dd>
+                <dd className="text-right text-xs font-medium text-slate-300">{campaign.created_by_name || '—'}</dd>
               </div>
               <div className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                 <dt className="text-[11px] text-slate-400">Created</dt>
-                <dd className="text-right text-xs font-medium text-slate-700">{formatDate(campaign.created_at)}</dd>
+                <dd className="text-right text-xs font-medium text-slate-300">{formatDate(campaign.created_at)}</dd>
               </div>
               <div className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                 <dt className="text-[11px] text-slate-400">Approved assets</dt>
-                <dd className="text-right text-xs font-medium text-slate-700">
+                <dd className="text-right text-xs font-medium text-slate-300">
                   {approvedAssets} of {campaign.assets_count}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                 <dt className="text-[11px] text-slate-400">Open conflicts</dt>
-                <dd className={cn('text-right text-xs font-semibold', unresolved.length ? 'text-rose-700' : 'text-emerald-700')}>
+                <dd className={cn('text-right text-xs font-semibold', unresolved.length ? 'text-rose-300' : 'text-emerald-300')}>
                   {unresolved.length}
                 </dd>
               </div>
@@ -744,19 +744,19 @@ export function CampaignDetailPage({ id }: { id: string }) {
             <div className="flex items-start gap-2.5">
               <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
               <div>
-                <p className="text-xs font-semibold text-slate-800">Assets in this campaign</p>
+                <p className="text-xs font-semibold text-slate-200">Assets in this campaign</p>
                 <div className="mt-2 space-y-1.5">
                   {campaign.assets.length === 0 ? (
-                    <p className="text-[11px] text-slate-500">None attached yet.</p>
+                    <p className="text-[11px] text-slate-400">None attached yet.</p>
                   ) : (
                     campaign.assets.map((asset) => (
                       <button
                         key={asset.id}
                         type="button"
                         onClick={() => navigate(`/content/${asset.id}`)}
-                        className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left hover:bg-slate-50"
+                        className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left hover:bg-white/[0.06]"
                       >
-                        <span className="min-w-0 truncate text-[11px] text-slate-600">{asset.title}</span>
+                        <span className="min-w-0 truncate text-[11px] text-slate-300">{asset.title}</span>
                         <span className="shrink-0 text-[10px] text-slate-400">{ASSET_TYPE_LABEL[asset.asset_type]}</span>
                       </button>
                     ))
@@ -825,7 +825,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
             </Select>
           </Field>
           {editError ? (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{editError}</p>
+            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{editError}</p>
           ) : null}
         </div>
       </Modal>
@@ -862,25 +862,25 @@ export function CampaignDetailPage({ id }: { id: string }) {
             </Select>
           </Field>
           {attachable.length === 0 ? (
-            <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            <p className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs text-slate-400">
               Every accessible content item is already in this campaign.
             </p>
           ) : null}
           {attachId ? (
-            <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+            <div className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5">
               {(() => {
                 const doc = attachable.find((item) => item.id === attachId);
                 if (!doc) return null;
                 return (
-                  <p className="text-xs text-slate-600">
-                    <span className="font-medium text-slate-800">{doc.title}</span>
+                  <p className="text-xs text-slate-300">
+                    <span className="font-medium text-slate-200">{doc.title}</span>
                     <br />
                     {CONTENT_TYPE_LABEL[doc.content_type as keyof typeof CONTENT_TYPE_LABEL] || titleCase(doc.content_type)} ·{' '}
                     {ASSET_TYPE_LABEL[doc.asset_type]} · v{doc.current_version_number}
                     {doc.campaign_id ? (
                       <>
                         <br />
-                        <span className="text-amber-700">Currently attached to another campaign — attaching moves it here.</span>
+                        <span className="text-amber-300">Currently attached to another campaign — attaching moves it here.</span>
                       </>
                     ) : null}
                   </p>
@@ -889,7 +889,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
             </div>
           ) : null}
           {attachError ? (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{attachError}</p>
+            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{attachError}</p>
           ) : null}
         </div>
       </Modal>
@@ -934,12 +934,12 @@ export function CampaignDetailPage({ id }: { id: string }) {
             />
           </Field>
           {conflictTarget?.source_reference ? (
-            <p className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+            <p className="rounded-lg border border-brand-400/15 bg-brand-500/10 px-3 py-2 text-[11px] leading-5 text-slate-300">
               Approved source: {conflictTarget.source_reference}
             </p>
           ) : null}
           {resolveError ? (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{resolveError}</p>
+            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{resolveError}</p>
           ) : null}
           <InfoCallout tone="warning" title="This records a decision, not an edit">
             The underlying assets are not changed automatically. Update the affected text, re-run their checks, then

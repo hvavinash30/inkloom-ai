@@ -37,10 +37,10 @@ import type { ResearchRecord, ResearchSource } from '../types';
 const SECTION_ORDER = ['literature', 'survey', 'interviews', 'competitor', 'validation', 'traceability'];
 
 const STATUS_CLASS: Record<string, string> = {
-  planned: 'border-slate-200 bg-slate-50 text-slate-600',
-  in_progress: 'border-blue-200 bg-blue-50 text-blue-800',
-  completed: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  validated: 'border-emerald-300 bg-emerald-100/70 text-emerald-900',
+  planned: 'border-white/10 bg-white/[0.035] text-slate-300',
+  in_progress: 'border-blue-400/25 bg-blue-500/10 text-blue-200',
+  completed: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+  validated: 'border-emerald-400/35 bg-emerald-400/15 text-emerald-200',
 };
 
 type SourceDraft = { title: string; url: string; note: string };
@@ -120,7 +120,7 @@ function DetailValue({ value }: { value: unknown }) {
         {value.map((item, index) => (
           <li
             key={index}
-            className="rounded-md border border-slate-200/80 bg-white px-2.5 py-2"
+            className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-2"
           >
             <DetailValue value={item} />
           </li>
@@ -287,7 +287,7 @@ export function ResearchPage() {
   if (loading) {
     return (
       <div>
-        <div className="mb-6 h-20 animate-pulse rounded-xl border border-slate-100 bg-white" />
+        <div className="mb-6 h-20 animate-pulse rounded-xl border border-white/[0.07] bg-white/[0.04]" />
         <LoadingBlock rows={4} />
       </div>
     );
@@ -356,7 +356,7 @@ export function ResearchPage() {
             ))}
           </Select>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           {filtered.length} of {records.length} records
         </p>
       </div>
@@ -379,18 +379,18 @@ export function ResearchPage() {
           {grouped.map(([section, items]) => (
             <section key={section} className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-semibold text-slate-900">{sectionLabels[section] || titleCase(section)}</h2>
-                <Badge className="border-slate-200 bg-slate-50 text-slate-500">{items.length}</Badge>
+                <h2 className="text-sm font-semibold text-slate-100">{sectionLabels[section] || titleCase(section)}</h2>
+                <Badge className="border-white/10 bg-white/[0.035] text-slate-400">{items.length}</Badge>
               </div>
               <div className="space-y-4">
                 {items.map((record) => (
                   <Card key={record.id} className="flex flex-col p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-semibold text-slate-900">{record.title}</h3>
+                        <h3 className="text-sm font-semibold text-slate-100">{record.title}</h3>
                         <StatusBadge status={record.status} />
                         {record.is_demo ? (
-                          <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-800">
+                          <span className="rounded border border-amber-400/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-200">
                             Demo
                           </span>
                         ) : null}
@@ -400,16 +400,16 @@ export function ResearchPage() {
                         Edit
                       </Button>
                     </div>
-                    {record.summary ? <p className="mt-1.5 text-xs leading-5 text-slate-500">{record.summary}</p> : null}
+                    {record.summary ? <p className="mt-1.5 text-xs leading-5 text-slate-400">{record.summary}</p> : null}
 
                     {Object.keys(record.details).length > 0 ? (
-                      <dl className="mt-3 space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
+                      <dl className="mt-3 space-y-1.5 rounded-lg border border-white/[0.07] bg-white/[0.035] px-3 py-2.5">
                         {Object.entries(record.details).map(([key, value]) => (
                           <div key={key} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
                             <dt className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:w-28 sm:pt-0.5">
                               {titleCase(key)}
                             </dt>
-                            <dd className="min-w-0 break-words text-[11px] leading-5 text-slate-600">
+                            <dd className="min-w-0 break-words text-[11px] leading-5 text-slate-300">
                               <DetailValue value={value} />
                             </dd>
                           </div>
@@ -422,7 +422,7 @@ export function ResearchPage() {
                         Sources ({record.sources.length})
                       </p>
                       {record.sources.length === 0 ? (
-                        <p className="mt-1 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-[11px] text-slate-400">
+                        <p className="mt-1 rounded-lg border border-dashed border-white/10 px-3 py-2 text-[11px] text-slate-400">
                           No sources recorded. This record cannot be marked completed or validated.
                         </p>
                       ) : (
@@ -431,7 +431,7 @@ export function ResearchPage() {
                             <li key={`${source.title}-${index}`} className="flex items-start gap-2 text-[11px] leading-4">
                               <BookOpen className="mt-0.5 h-3 w-3 shrink-0 text-slate-300" />
                               <span className="min-w-0">
-                                <span className="font-medium text-slate-700">{source.title}</span>
+                                <span className="font-medium text-slate-300">{source.title}</span>
                                 {source.url ? (
                                   <>
                                     {' '}
@@ -439,7 +439,7 @@ export function ResearchPage() {
                                       href={source.url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="inline-flex items-center gap-0.5 break-all font-medium text-brand-700 hover:underline"
+                                      className="inline-flex items-center gap-0.5 break-all font-medium text-brand-300 hover:underline"
                                     >
                                       Open source
                                       <ExternalLink className="h-2.5 w-2.5 shrink-0" />
@@ -454,17 +454,17 @@ export function ResearchPage() {
                       )}
                     </div>
 
-                    <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                    <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] pt-3">
                       <span className="text-[10px] text-slate-400">
                         Owner {record.owner_name || '—'} · Updated {relativeTime(record.updated_at)}
                       </span>
                       {record.status === 'validated' || record.status === 'completed' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300">
                           <CheckCircle2 className="h-3 w-3" />
                           {record.status === 'validated' ? 'Validated in records' : 'Completed in records'}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-amber-700">Work not completed</span>
+                        <span className="text-[10px] text-amber-300">Work not completed</span>
                       )}
                     </div>
                   </Card>
@@ -562,7 +562,7 @@ export function ResearchPage() {
           </Field>
           <div>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-slate-700">Sources</p>
+              <p className="text-xs font-medium text-slate-300">Sources</p>
               <Button
                 variant="ghost"
                 size="sm"
@@ -574,13 +574,13 @@ export function ResearchPage() {
             </div>
             <div className="mt-2 space-y-2">
               {form.sources.map((source, index) => (
-                <div key={index} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                <div key={index} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Source {index + 1}</p>
                     {form.sources.length > 1 ? (
                       <button
                         type="button"
-                        className="rounded p-1 text-slate-400 hover:bg-white hover:text-rose-600"
+                        className="rounded p-1 text-slate-400 hover:bg-white/[0.06] hover:text-rose-300"
                         onClick={() => setForm({ ...form, sources: form.sources.filter((_, position) => position !== index) })}
                         aria-label={`Remove source ${index + 1}`}
                       >
@@ -626,7 +626,7 @@ export function ResearchPage() {
             </InfoCallout>
           )}
           {formError ? (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{formError}</p>
+            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{formError}</p>
           ) : null}
         </div>
       </Modal>

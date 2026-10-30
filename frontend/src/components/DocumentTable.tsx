@@ -48,14 +48,14 @@ export function DocumentTable({
 
   return (
     <div>
-      <div className="hidden border-b border-slate-100 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 md:grid md:grid-cols-[minmax(0,1fr)_116px_132px_78px_92px] md:items-center md:gap-3">
+      <div className="hidden border-b border-white/[0.07] px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 md:grid md:grid-cols-[minmax(0,1fr)_116px_132px_78px_92px] md:items-center md:gap-3">
         <span>Content</span>
         <span>Status</span>
         <span>Latest check</span>
         <span>Version</span>
         <span className="text-right">Updated</span>
       </div>
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-white/[0.08]">
         {documents.map((doc) => {
           const run = doc.latest_audit;
           return (
@@ -64,20 +64,20 @@ export function DocumentTable({
               type="button"
               onClick={() => navigate(`/content/${doc.id}`)}
               className={cn(
-                'group block w-full px-4 py-3 text-left transition-colors hover:bg-slate-50/70 focus-visible:bg-slate-50 focus-visible:outline-none',
+                'group block w-full px-4 py-3 text-left transition-colors hover:bg-white/[0.06] focus-visible:bg-white/[0.035] focus-visible:outline-none',
                 compact ? '' : 'md:grid md:grid-cols-[minmax(0,1fr)_116px_132px_78px_92px] md:items-center md:gap-3'
               )}
             >
               <div className="flex min-w-0 items-start gap-2.5">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-500">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.035] text-slate-400">
                   <AssetIcon assetType={doc.asset_type} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-medium text-slate-800 group-hover:text-slate-950">
+                    <span className="truncate text-sm font-medium text-slate-200 group-hover:text-white">
                       {doc.title}
                     </span>
-                    <ArrowUpRight className="hidden h-3 w-3 shrink-0 text-slate-300 group-hover:text-slate-500 sm:block" />
+                    <ArrowUpRight className="hidden h-3 w-3 shrink-0 text-slate-300 group-hover:text-slate-400 sm:block" />
                   </span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-slate-400">
                     <span>{documentMeta(doc)}</span>
@@ -92,7 +92,7 @@ export function DocumentTable({
                     {doc.approval_stale ? (
                       <>
                         <span aria-hidden>·</span>
-                        <span className="font-medium text-amber-700">Approval stale</span>
+                        <span className="font-medium text-amber-300">Approval stale</span>
                       </>
                     ) : null}
                   </span>
@@ -114,7 +114,7 @@ export function DocumentTable({
                   </span>
                 ) : null}
               </div>
-              <span className="hidden text-xs tabular-nums text-slate-500 md:block">
+              <span className="hidden text-xs tabular-nums text-slate-400 md:block">
                 v{doc.current_version_number}
               </span>
               <span className="hidden text-right text-[11px] text-slate-400 md:block">

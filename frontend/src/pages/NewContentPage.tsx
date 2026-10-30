@@ -298,7 +298,7 @@ export function NewContentPage() {
             <button
               type="button"
               onClick={health.reload}
-              className="font-medium text-amber-900 underline underline-offset-2"
+              className="font-medium text-amber-200 underline underline-offset-2"
             >
               Retry
             </button>
@@ -309,7 +309,7 @@ export function NewContentPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
           <Card className="p-4">
-            <p className="text-xs font-semibold text-slate-900">1. Choose a content format</p>
+            <p className="text-xs font-semibold text-slate-100">1. Choose a content format</p>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
               {MODES.map((item) => {
                 const Icon = item.icon;
@@ -323,20 +323,20 @@ export function NewContentPage() {
                     className={cn(
                       'rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
                       active
-                        ? 'border-brand-300 bg-brand-50/70'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                        ? 'border-brand-400/40 bg-brand-500/10'
+                        : 'border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.06]'
                     )}
                   >
                     <span
                       className={cn(
                         'flex h-7 w-7 items-center justify-center rounded-lg',
-                        active ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500'
+                        active ? 'bg-brand-600 text-white' : 'bg-white/[0.06] text-slate-400'
                       )}
                     >
                       <Icon className="h-3.5 w-3.5" />
                     </span>
-                    <span className="mt-2 block text-xs font-semibold text-slate-800">{item.label}</span>
-                    <span className="mt-0.5 block text-[10px] leading-4 text-slate-500">{item.description}</span>
+                    <span className="mt-2 block text-xs font-semibold text-slate-200">{item.label}</span>
+                    <span className="mt-0.5 block text-[10px] leading-4 text-slate-400">{item.description}</span>
                   </button>
                 );
               })}
@@ -344,7 +344,7 @@ export function NewContentPage() {
           </Card>
 
           <Card className="p-4 sm:p-5">
-            <p className="text-xs font-semibold text-slate-900">2. Describe the content</p>
+            <p className="text-xs font-semibold text-slate-100">2. Describe the content</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <Field
                 label="Title"
@@ -385,7 +385,7 @@ export function NewContentPage() {
                 htmlFor="content-campaign"
                 hint={
                   campaigns.error ? (
-                    <span role="alert" className="text-amber-700">
+                    <span role="alert" className="text-amber-300">
                       Campaigns could not be loaded. You can still create content without one.{' '}
                       <button
                         type="button"
@@ -417,7 +417,7 @@ export function NewContentPage() {
           </Card>
 
           <Card className="p-4 sm:p-5">
-            <p className="text-xs font-semibold text-slate-900">3. Add the content</p>
+            <p className="text-xs font-semibold text-slate-100">3. Add the content</p>
 
             {mode === 'text' ? (
               <div className="mt-3">
@@ -499,14 +499,14 @@ export function NewContentPage() {
                               : undefined
                         }
                         className={cn(
-                          'flex w-full flex-col items-center justify-center rounded-xl border border-dashed bg-slate-50/60 px-5 py-9 text-center transition-colors hover:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+                          'flex w-full flex-col items-center justify-center rounded-xl border border-dashed bg-white/[0.035] px-5 py-9 text-center transition-colors hover:bg-brand-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
                           fieldErrors.file
-                            ? 'border-rose-300 hover:border-rose-400'
-                            : 'border-slate-300 hover:border-brand-300'
+                            ? 'border-rose-400/35 hover:border-rose-400'
+                            : 'border-white/15 hover:border-brand-400/40'
                         )}
                       >
                         <UploadCloud className="h-6 w-6 text-slate-400" />
-                        <span className="mt-2 text-sm font-medium text-slate-700">
+                        <span className="mt-2 text-sm font-medium text-slate-300">
                           Choose a {mode === 'pdf' ? 'PDF' : mode === 'image' ? 'PNG, JPEG, or WebP image' : 'MP4, WebM, or MOV video'}
                         </span>
                         <span className="mt-1 text-[11px] text-slate-400">
@@ -518,13 +518,13 @@ export function NewContentPage() {
                         </span>
                       </button>
                     ) : (
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                      <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
                         <div className="flex flex-wrap items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-500 shadow-subtle">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] text-slate-400 shadow-subtle">
                             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-800">{file.name}</p>
+                            <p className="truncate text-sm font-medium text-slate-200">{file.name}</p>
                             <p className="text-[11px] text-slate-400">
                               {formatFileSize(file.size)}
                               {upload ? ` · stored as ${upload.kind}` : ''}
@@ -534,7 +534,7 @@ export function NewContentPage() {
                             type="button"
                             onClick={clearFile}
                             disabled={uploading}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/[0.06] hover:text-slate-300"
                             aria-label="Remove selected file"
                           >
                             <X className="h-4 w-4" />
@@ -542,17 +542,17 @@ export function NewContentPage() {
                         </div>
 
                         {upload ? (
-                          <div className="mt-2.5 rounded-lg border border-slate-200 bg-white p-2.5 text-[11px] leading-5 text-slate-600">
-                            <p className="flex items-center gap-1.5 font-medium text-slate-700">
+                          <div className="mt-2.5 rounded-lg border border-white/10 bg-white/[0.04] p-2.5 text-[11px] leading-5 text-slate-300">
+                            <p className="flex items-center gap-1.5 font-medium text-slate-300">
                               {upload.extraction_status === 'processed' ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
                               ) : (
-                                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                                <AlertTriangle className="h-3.5 w-3.5 text-amber-300" />
                               )}
                               Extraction status: {upload.extraction_status.replace(/_/g, ' ')}
                               {upload.page_count ? ` · ${upload.page_count} pages` : ''}
                             </p>
-                            <p className="mt-1 text-slate-500">{upload.extraction_message}</p>
+                            <p className="mt-1 text-slate-400">{upload.extraction_message}</p>
                           </div>
                         ) : null}
 
@@ -563,7 +563,7 @@ export function NewContentPage() {
                     <p
                       id="content-upload-error"
                       role="alert"
-                      className="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-[11px] text-rose-700"
+                      className="mt-2 rounded-md bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300"
                     >
                       {uploadError}
                     </p>
@@ -572,7 +572,7 @@ export function NewContentPage() {
                     <p
                       id="content-file-error"
                       role="alert"
-                      className="mt-2 text-xs leading-5 text-rose-600"
+                      className="mt-2 text-xs leading-5 text-rose-300"
                     >
                       {fieldErrors.file}
                     </p>
@@ -584,7 +584,7 @@ export function NewContentPage() {
                     <button
                       type="button"
                       onClick={() => setShowFallback((value) => !value)}
-                      className="text-[11px] font-medium text-brand-700 hover:underline"
+                      className="text-[11px] font-medium text-brand-300 hover:underline"
                     >
                       {showFallback ? 'Hide manual page text' : 'No extractable text? Add page text manually'}
                     </button>
@@ -654,13 +654,13 @@ export function NewContentPage() {
                       />
                     </Field>
                     {segments.length > 0 ? (
-                      <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
-                        <p className="text-[11px] font-medium text-slate-700">
+                      <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                        <p className="text-[11px] font-medium text-slate-300">
                           {segments.length} timestamped segment{segments.length === 1 ? '' : 's'} parsed
                         </p>
                         <div className="mt-1.5 max-h-28 space-y-1 overflow-y-auto pr-1">
                           {segments.slice(0, 6).map((segment, index) => (
-                            <p key={`${segment.timestamp_seconds}-${index}`} className="flex gap-2 text-[11px] text-slate-500">
+                            <p key={`${segment.timestamp_seconds}-${index}`} className="flex gap-2 text-[11px] text-slate-400">
                               <span className="shrink-0 font-mono text-slate-400">{formatSeconds(segment.timestamp_seconds)}</span>
                               <span className="min-w-0 truncate">{segment.text}</span>
                             </p>
@@ -691,11 +691,11 @@ export function NewContentPage() {
                   type="checkbox"
                   checked={saveDraft}
                   onChange={(event) => setSaveDraft(event.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  className="mt-0.5 h-4 w-4 rounded border-white/15 text-brand-300 focus:ring-brand-500"
                 />
                 <span>
-                  <span className="block text-xs font-medium text-slate-800">Save as draft without a check</span>
-                  <span className="block text-[11px] leading-5 text-slate-500">
+                  <span className="block text-xs font-medium text-slate-200">Save as draft without a check</span>
+                  <span className="block text-[11px] leading-5 text-slate-400">
                     The content is stored, but no audit runs until you check it from the content page.
                   </span>
                 </span>
@@ -722,7 +722,7 @@ export function NewContentPage() {
                 ref={errorRef}
                 role="alert"
                 tabIndex={-1}
-                className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                className="mt-3 rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs leading-5 text-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-300"
               >
                 {error}
               </p>
@@ -737,8 +737,8 @@ export function NewContentPage() {
 
         <aside className="min-w-0 space-y-5">
           <Card className="p-4">
-            <p className="text-xs font-semibold text-slate-900">What runs on save</p>
-            <ul className="mt-3 space-y-2.5 text-[11px] leading-5 text-slate-500">
+            <p className="text-xs font-semibold text-slate-100">What runs on save</p>
+            <ul className="mt-3 space-y-2.5 text-[11px] leading-5 text-slate-400">
               {[
                 'Deterministic rules from the active policy library',
                 'Contradictions against active approved facts',
@@ -751,7 +751,7 @@ export function NewContentPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-3 border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">
+            <div className="mt-3 border-t border-white/[0.07] pt-3 text-[11px] leading-5 text-slate-400">
               No external AI or transcription service is called. Image and scanned-PDF text is read locally on the
               server with OCR; if a page or format cannot be inspected, the check says so rather than returning invented
               findings.
@@ -759,8 +759,8 @@ export function NewContentPage() {
           </Card>
 
           <Card className="p-4">
-            <p className="text-xs font-semibold text-slate-900">File handling</p>
-            <ul className="mt-2.5 space-y-2 text-[11px] leading-5 text-slate-500">
+            <p className="text-xs font-semibold text-slate-100">File handling</p>
+            <ul className="mt-2.5 space-y-2 text-[11px] leading-5 text-slate-400">
               <li>Files are stored under a server-owned directory with generated names.</li>
               <li>Downloads use your signed-in session and are isolated to this workspace; there are no public file URLs.</li>
               <li>PDFs must pass a signature check and the server page limit.</li>

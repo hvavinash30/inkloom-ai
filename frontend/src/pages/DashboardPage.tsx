@@ -112,28 +112,28 @@ function KpiCard({
   onClick?: () => void;
 }) {
   const className = cn(
-    'flex min-h-[148px] flex-col rounded-xl border border-slate-200/80 bg-white p-4 text-left shadow-panel sm:p-5',
+    'glass flex min-h-[148px] flex-col rounded-2xl p-4 text-left sm:p-5',
     onClick &&
-      'transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2'
+      'lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2'
   );
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <span className="text-xs font-medium leading-5 text-slate-600">{label}</span>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200/80 bg-slate-50 text-slate-600">
+        <span className="text-xs font-medium leading-5 text-slate-300">{label}</span>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.035] text-slate-300">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
       </div>
       <div className="mt-2 flex items-center gap-2">
-        <span className="text-[26px] font-semibold leading-none tracking-tight text-slate-950 tabular-nums sm:text-[28px]">
+        <span className="text-[26px] font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[28px]">
           {value}
         </span>
         <span className={cn('h-1.5 w-1.5 rounded-full', KPI_DOT[tone])} aria-hidden />
       </div>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-400">{hint}</p>
       {typeof meter === 'number' ? (
         <div className="mt-auto pt-3" aria-hidden>
-          <div className="h-1 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
             <div
               className={cn('h-full rounded-full', scoreTone(meter).bar)}
               style={{ width: `${Math.min(100, Math.max(0, meter))}%` }}
@@ -155,7 +155,7 @@ function KpiCard({
 
 function Panel({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <section className={cn('overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-panel', className)}>
+    <section className={cn('glass overflow-hidden rounded-2xl', className)}>
       {children}
     </section>
   );
@@ -173,13 +173,13 @@ function PanelHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-slate-100 px-4 py-4 sm:px-5">
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-white/[0.07] px-4 py-4 sm:px-5">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{title}</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight text-slate-100">{title}</h2>
           {meta}
         </div>
-        {description ? <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">{description}</p> : null}
+        {description ? <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -188,7 +188,7 @@ function PanelHeader({
 
 function CountPill({ count, label }: { count: number; label: string }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-brand-200/70 bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
+    <span className="inline-flex items-center rounded-full border border-brand-400/25 bg-brand-500/10 px-2 py-0.5 text-[11px] font-semibold text-brand-300">
       <span className="tabular-nums">{count}</span>
       <span className="sr-only"> {label}</span>
     </span>
@@ -199,7 +199,7 @@ function TableColumns({ first }: { first: string }) {
   return (
     <div
       className={cn(
-        'hidden items-center gap-x-3 border-b border-slate-100 bg-slate-50/60 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 md:grid sm:px-5',
+        'hidden items-center gap-x-3 border-b border-white/[0.07] bg-white/[0.035] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 md:grid sm:px-5',
         TABLE_GRID
       )}
       aria-hidden
@@ -214,7 +214,7 @@ function TableColumns({ first }: { first: string }) {
 
 function ScoreChip({ score }: { score: number | null }) {
   if (score === null) {
-    return <span className="text-xs text-slate-500">Not checked</span>;
+    return <span className="text-xs text-slate-400">Not checked</span>;
   }
   const tone = scoreTone(score);
   return (
@@ -239,7 +239,7 @@ function MobileBadges({ doc }: { doc: DocumentSummary }) {
       <span
         className={cn(
           'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
-          doc.latest_score === null ? 'border-slate-200 bg-slate-50 text-slate-600' : cn(tone.bg, tone.border, tone.text)
+          doc.latest_score === null ? 'border-white/10 bg-white/[0.035] text-slate-300' : cn(tone.bg, tone.border, tone.text)
         )}
       >
         <span className="sr-only">Check score: </span>
@@ -256,7 +256,7 @@ function QueueRow({ doc, showAuthor }: { doc: DocumentSummary; showAuthor: boole
       <button
         type="button"
         onClick={() => navigate(`/content/${doc.id}`)}
-        className="group block w-full text-left transition-colors hover:bg-slate-50/70 focus-visible:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        className="group block w-full text-left transition-colors hover:bg-white/[0.06] focus-visible:bg-brand-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
       >
         <span
           className={cn(
@@ -265,10 +265,10 @@ function QueueRow({ doc, showAuthor }: { doc: DocumentSummary; showAuthor: boole
           )}
         >
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-slate-900" title={doc.title}>
+            <span className="block truncate text-sm font-medium text-slate-100" title={doc.title}>
               {doc.title}
             </span>
-            <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-5 text-slate-500">
+            <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-5 text-slate-400">
               {showAuthor && doc.created_by_name ? (
                 <>
                   <span className="max-w-[12rem] truncate">{doc.created_by_name}</span>
@@ -287,7 +287,7 @@ function QueueRow({ doc, showAuthor }: { doc: DocumentSummary; showAuthor: boole
               <span aria-hidden>·</span>
               <span>{queueTiming(doc)}</span>
               {doc.approval_stale ? (
-                <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+                <span className="inline-flex items-center gap-1 font-medium text-amber-300">
                   <span className="h-1 w-1 rounded-full bg-amber-500" aria-hidden />
                   Approval stale
                 </span>
@@ -304,7 +304,7 @@ function QueueRow({ doc, showAuthor }: { doc: DocumentSummary; showAuthor: boole
               <ScoreChip score={doc.latest_score} />
             </span>
             <ChevronRight
-              className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-600"
+              className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-300"
               aria-hidden
             />
           </span>
@@ -320,21 +320,21 @@ function RecentRow({ doc }: { doc: DocumentSummary }) {
       <button
         type="button"
         onClick={() => navigate(`/content/${doc.id}`)}
-        className="group block w-full text-left transition-colors hover:bg-slate-50/70 focus-visible:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        className="group block w-full text-left transition-colors hover:bg-white/[0.06] focus-visible:bg-brand-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
       >
         <span className={cn('grid items-center gap-x-3 gap-y-2 px-4 py-3.5 sm:px-5', TABLE_GRID)}>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-slate-900" title={doc.title}>
+            <span className="block truncate text-sm font-medium text-slate-100" title={doc.title}>
               {doc.title}
             </span>
-            <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-5 text-slate-500">
+            <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-5 text-slate-400">
               <span className="capitalize">{doc.asset_type}</span>
               <span aria-hidden>·</span>
               <span>v{doc.current_version_number}</span>
               <span aria-hidden>·</span>
               <span>Updated {relativeTime(doc.updated_at)}</span>
               {doc.approval_stale ? (
-                <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+                <span className="inline-flex items-center gap-1 font-medium text-amber-300">
                   <span className="h-1 w-1 rounded-full bg-amber-500" aria-hidden />
                   Approval stale
                 </span>
@@ -351,7 +351,7 @@ function RecentRow({ doc }: { doc: DocumentSummary }) {
               <ScoreChip score={doc.latest_score} />
             </span>
             <ChevronRight
-              className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-600"
+              className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-300"
               aria-hidden
             />
           </span>
@@ -377,13 +377,13 @@ function AttentionList({
 }) {
   if (items.length === 0) {
     return (
-      <div className="m-4 flex items-start gap-3 rounded-lg border border-emerald-200/80 bg-emerald-50/50 px-4 py-3.5 sm:m-5">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+      <div className="m-4 flex items-start gap-3 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-4 py-3.5 sm:m-5">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" aria-hidden />
         <div>
-          <p className="text-sm font-medium text-emerald-950">
+          <p className="text-sm font-medium text-emerald-100">
             {canReviewQueue ? 'No additional signals' : "You're caught up"}
           </p>
-          <p className="mt-0.5 text-xs leading-5 text-emerald-800/80">
+          <p className="mt-0.5 text-xs leading-5 text-emerald-200/80">
             {canReviewQueue
               ? 'Everything currently awaiting attention is already listed in your review queue.'
               : 'No review requests or urgent findings are waiting for you right now.'}
@@ -394,7 +394,7 @@ function AttentionList({
   }
 
   return (
-    <ul className="divide-y divide-slate-100">
+    <ul className="divide-y divide-white/[0.08]">
       {items.map((item, index) => {
         const Icon = attentionIcon(item.kind);
         const high = item.severity === 'high';
@@ -403,25 +403,25 @@ function AttentionList({
             <button
               type="button"
               onClick={() => navigate(item.route)}
-              className="group flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50/70 focus-visible:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 sm:px-5"
+              className="group flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.06] focus-visible:bg-brand-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 sm:px-5"
             >
               <span
                 className={cn(
                   'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                  high ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'
+                  high ? 'bg-rose-500/10 text-rose-300' : 'bg-amber-400/10 text-amber-300'
                 )}
               >
                 <Icon className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-slate-900">{item.title}</span>
+                  <span className="text-sm font-medium text-slate-100">{item.title}</span>
                   <SeverityBadge severity={high ? 'high' : 'medium'} />
                 </span>
-                <span className="mt-0.5 block text-xs leading-5 text-slate-500">{item.description}</span>
+                <span className="mt-0.5 block text-xs leading-5 text-slate-400">{item.description}</span>
               </span>
               <ChevronRight
-                className="mt-1.5 h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-600"
+                className="mt-1.5 h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-300"
                 aria-hidden
               />
             </button>
@@ -442,13 +442,13 @@ function QueueEmpty({
   if (pendingTotal > 0) {
     return (
       <div className="flex flex-col items-center px-5 py-9 text-center">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500/10 text-brand-300">
           <ClipboardCheck className="h-5 w-5" aria-hidden />
         </span>
-        <p className="mt-3 text-sm font-medium text-slate-900">
+        <p className="mt-3 text-sm font-medium text-slate-100">
           {canReviewQueue ? 'Review items are ready' : 'Open submissions are outside this list'}
         </p>
-        <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+        <p className="mt-1 max-w-sm text-xs leading-5 text-slate-400">
           {pendingTotal} item{pendingTotal === 1 ? '' : 's'} {pendingTotal === 1 ? 'is' : 'are'} awaiting review.
           {canReviewQueue
             ? ' Open the review queue to inspect each exact version.'
@@ -469,13 +469,13 @@ function QueueEmpty({
 
   return (
     <div className="flex flex-col items-center px-5 py-9 text-center">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300">
         <CheckCircle2 className="h-5 w-5" aria-hidden />
       </span>
-      <p className="mt-3 text-sm font-medium text-slate-900">
+      <p className="mt-3 text-sm font-medium text-slate-100">
         {canReviewQueue ? 'No versions are waiting' : 'Nothing is in review yet'}
       </p>
-      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-400">
         {canReviewQueue
           ? 'Submitted versions appear here when their latest check is ready for a version-specific decision.'
           : 'Start an audit on a draft, then submit the checked version when it is ready for review.'}
@@ -498,21 +498,21 @@ export function DashboardPage() {
     return (
       <div className="space-y-6" aria-busy="true" aria-label="Loading Overview">
         <div className="space-y-3">
-          <div className="h-3 w-56 animate-pulse rounded bg-slate-200/70" />
-          <div className="h-9 w-80 max-w-full animate-pulse rounded-lg bg-slate-200/70" />
-          <div className="h-4 w-[32rem] max-w-full animate-pulse rounded bg-slate-200/50" />
+          <div className="h-3 w-56 animate-pulse rounded bg-white/[0.09]" />
+          <div className="h-9 w-80 max-w-full animate-pulse rounded-lg bg-white/[0.09]" />
+          <div className="h-4 w-[32rem] max-w-full animate-pulse rounded bg-white/[0.09]" />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className="h-[148px] animate-pulse rounded-xl border border-slate-200/70 bg-white shadow-panel"
+              className="h-[148px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.04] shadow-panel"
             />
           ))}
         </div>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_336px]">
-          <div className="h-[420px] animate-pulse rounded-xl border border-slate-200/70 bg-white shadow-panel" />
-          <div className="h-[300px] animate-pulse rounded-xl border border-slate-200/70 bg-white shadow-panel" />
+          <div className="h-[420px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.04] shadow-panel" />
+          <div className="h-[300px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.04] shadow-panel" />
         </div>
       </div>
     );
@@ -665,15 +665,15 @@ export function DashboardPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0 max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-300">
             {session?.workspace.is_demo
               ? 'Demo workspace · fictional Acme Cloud scenario'
               : `${session?.workspace.name || 'Brand workspace'} · custom workspace`}
           </p>
-          <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-950 sm:text-[32px]">
+          <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-white sm:text-[32px]">
             {greeting()}, {firstName}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-[15px]">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400 sm:text-[15px]">
             {isReviewer
               ? 'Review submitted versions, inspect stored evidence, and record decisions against the exact version you reviewed.'
               : isAdmin
@@ -758,18 +758,18 @@ export function DashboardPage() {
             ) : (
               <>
                 <TableColumns first="Submission" />
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-white/[0.08]">
                   {queueDocs.map((doc) => (
                     <QueueRow key={doc.id} doc={doc} showAuthor={canReviewQueue} />
                   ))}
                 </ul>
                 {showQueueOverflow ? (
-                  <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-2.5 text-xs text-slate-500 sm:px-5">
+                  <div className="border-t border-white/[0.07] bg-white/[0.035] px-4 py-2.5 text-xs text-slate-400 sm:px-5">
                     Showing {queueDocs.length} of {stats.pending_reviews} awaiting review.{' '}
                     <button
                       type="button"
                       onClick={() => navigate(canReviewQueue ? '/reviews' : '/content')}
-                      className="font-medium text-brand-700 underline-offset-2 hover:text-brand-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                      className="font-medium text-brand-300 underline-offset-2 hover:text-brand-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                     >
                       {canReviewQueue ? 'Open the review queue' : 'View all content'}
                     </button>{' '}
@@ -834,7 +834,7 @@ export function DashboardPage() {
             ) : (
               <>
                 <TableColumns first="Content" />
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-white/[0.08]">
                   {data.recent_documents.slice(0, 5).map((doc) => (
                     <RecentRow key={doc.id} doc={doc} />
                   ))}
@@ -857,18 +857,18 @@ export function DashboardPage() {
               />
               <div className="space-y-2 p-4 sm:p-5">
                 {data.campaigns.length === 0 ? (
-                  <p className="text-xs text-slate-500">No campaigns yet.</p>
+                  <p className="text-xs text-slate-400">No campaigns yet.</p>
                 ) : (
                   data.campaigns.map((campaign) => (
                     <button
                       key={campaign.id}
                       type="button"
                       onClick={() => navigate(`/campaigns/${campaign.id}`)}
-                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/80 px-3 py-2.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/10 px-3 py-2.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-xs font-medium text-slate-800">{campaign.name}</span>
-                        <span className="mt-0.5 block text-[11px] text-slate-500">
+                        <span className="block truncate text-xs font-medium text-slate-200">{campaign.name}</span>
+                        <span className="mt-0.5 block text-[11px] text-slate-400">
                           {campaign.assets_count} asset{campaign.assets_count === 1 ? '' : 's'}
                         </span>
                       </span>
@@ -877,7 +877,7 @@ export function DashboardPage() {
                   ))
                 )}
                 {stats.unresolved_conflicts > 0 ? (
-                  <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2.5 text-xs leading-5 text-rose-800">
+                  <div className="flex items-start gap-2 rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2.5 text-xs leading-5 text-rose-200">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                     <span>
                       {stats.unresolved_conflicts} unresolved conflict
@@ -885,7 +885,7 @@ export function DashboardPage() {
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 text-xs text-emerald-800">
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2.5 text-xs text-emerald-200">
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
                     No unresolved campaign conflicts recorded.
                   </div>
@@ -927,18 +927,18 @@ export function DashboardPage() {
                     <span
                       className={cn(
                         'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
-                        item.active ? 'bg-emerald-500' : 'bg-slate-300'
+                        item.active ? 'bg-emerald-500' : 'bg-white/[0.14]'
                       )}
                       aria-hidden
                     />
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-slate-800">{item.label}</p>
-                      <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{item.detail}</p>
+                      <p className="text-xs font-medium text-slate-200">{item.label}</p>
+                      <p className="mt-0.5 text-[11px] leading-4 text-slate-400">{item.detail}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="border-t border-slate-100 px-4 py-3 text-[11px] leading-4 text-slate-500 sm:px-5">
+              <p className="border-t border-white/[0.07] px-4 py-3 text-[11px] leading-4 text-slate-400 sm:px-5">
                 {data.integrations.note}
               </p>
             </Panel>
@@ -958,13 +958,13 @@ export function DashboardPage() {
                     strokeWidth={7}
                   />
                 ) : (
-                  <div className="flex h-[82px] w-[82px] shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 bg-slate-50 text-lg font-semibold text-slate-500">
+                  <div className="flex h-[82px] w-[82px] shrink-0 items-center justify-center rounded-full border border-dashed border-white/15 bg-white/[0.035] text-lg font-semibold text-slate-400">
                     —
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">{qualityLabel}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                  <p className="text-sm font-semibold text-slate-100">{qualityLabel}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
                     {hasCheckedVersions
                       ? `Average across ${stats.scored_documents} latest checked version${stats.scored_documents === 1 ? '' : 's'}.`
                       : 'Run a check on a current version to establish a baseline.'}
@@ -974,7 +974,7 @@ export function DashboardPage() {
 
               {data.recent_scores.length > 0 ? (
                 <div className="mt-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                     Latest checks
                   </p>
                   <div className="mt-2.5 space-y-2.5">
@@ -988,14 +988,14 @@ export function DashboardPage() {
                           className="group block w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                         >
                           <span className="flex items-center justify-between gap-2">
-                            <span className="min-w-0 truncate text-xs text-slate-600 group-hover:text-slate-900">
+                            <span className="min-w-0 truncate text-xs text-slate-300 group-hover:text-slate-100">
                               {item.title}
                             </span>
                             <span className={cn('shrink-0 text-xs font-semibold tabular-nums', tone.text)}>
                               {item.score}
                             </span>
                           </span>
-                          <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+                          <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
                             <span
                               className={cn('block h-full rounded-full', tone.bar)}
                               style={{ width: `${Math.min(100, Math.max(0, item.score))}%` }}
@@ -1008,11 +1008,11 @@ export function DashboardPage() {
                 </div>
               ) : null}
 
-              <details className="mt-4 border-t border-slate-100 pt-3">
-                <summary className="cursor-pointer select-none rounded text-xs font-medium text-slate-500 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+              <details className="mt-4 border-t border-white/[0.07] pt-3">
+                <summary className="cursor-pointer select-none rounded text-xs font-medium text-slate-400 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                   How is this score calculated?
                 </summary>
-                <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                <p className="mt-2 text-[11px] leading-5 text-slate-400">
                   Each open finding deducts points from 100 based on its category and severity. Checks compare your
                   content against active workspace rules and approved facts. Human approvals are tracked separately.
                 </p>
@@ -1023,13 +1023,13 @@ export function DashboardPage() {
           <Panel>
             <PanelHeader title="Activity" description="Latest stored events." />
             {data.recent_activity.length === 0 ? (
-              <p className="p-5 text-xs text-slate-500">No recorded activity yet.</p>
+              <p className="p-5 text-xs text-slate-400">No recorded activity yet.</p>
             ) : (
               <ol className="space-y-4 p-4 sm:p-5">
                 {data.recent_activity.slice(0, 5).map((event) => (
                   <li key={event.id} className="flex gap-3">
                     <span
-                      className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500 ring-4 ring-brand-50"
+                      className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500 ring-4 ring-brand-500/20"
                       aria-hidden
                     />
                     <button
@@ -1037,10 +1037,10 @@ export function DashboardPage() {
                       onClick={() => navigate(`/content/${event.document_id}`)}
                       className="group -mt-0.5 min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                     >
-                      <span className="line-clamp-2 block text-xs leading-5 text-slate-600 group-hover:text-slate-900">
+                      <span className="line-clamp-2 block text-xs leading-5 text-slate-300 group-hover:text-slate-100">
                         {event.description}
                       </span>
-                      <span className="mt-0.5 block text-[11px] text-slate-500">
+                      <span className="mt-0.5 block text-[11px] text-slate-400">
                         {event.actor} · {relativeTime(event.created_at)}
                       </span>
                     </button>
@@ -1053,12 +1053,12 @@ export function DashboardPage() {
           <Panel>
             <div className="p-4 sm:p-5">
               <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-900 text-white">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0b1224] text-white">
                   <Sparkles className="h-4 w-4" aria-hidden />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Ask with evidence</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                  <p className="text-sm font-semibold text-slate-100">Ask with evidence</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
                     The assistant answers from stored findings, facts, and campaign checks — and says when a claim is
                     not verified.
                   </p>
@@ -1088,7 +1088,7 @@ export function DashboardPage() {
                   </Button>
                 }
               />
-              <dl className="divide-y divide-slate-100 px-2 py-2">
+              <dl className="divide-y divide-white/[0.08] px-2 py-2">
                 {[
                   { label: 'Pending reviews', value: stats.pending_reviews, route: '/reviews' },
                   { label: 'Stale approvals', value: stats.stale_approvals, route: '/content' },
@@ -1099,10 +1099,10 @@ export function DashboardPage() {
                     key={row.label}
                     type="button"
                     onClick={() => navigate(row.route)}
-                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                   >
-                    <dt className="text-xs text-slate-600">{row.label}</dt>
-                    <dd className="text-xs font-semibold tabular-nums text-slate-900">{row.value}</dd>
+                    <dt className="text-xs text-slate-300">{row.label}</dt>
+                    <dd className="text-xs font-semibold tabular-nums text-slate-100">{row.value}</dd>
                   </button>
                 ))}
               </dl>

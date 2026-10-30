@@ -34,14 +34,14 @@ type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-600 text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 active:bg-brand-800 disabled:bg-brand-300',
+    'bg-gradient-to-r from-brand-500 via-brand-500 to-violet-500 text-white shadow-glow-brand hover:from-brand-400 hover:via-brand-400 hover:to-violet-400 active:from-brand-600 active:to-violet-600 disabled:from-brand-500/40 disabled:to-violet-500/40 disabled:text-white/60 disabled:shadow-none',
   secondary:
-    'border border-slate-200 bg-white text-slate-700 shadow-subtle hover:border-slate-300 hover:bg-slate-50 disabled:text-slate-400',
-  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:text-slate-300',
+    'border border-[var(--line)] bg-white/[0.045] text-slate-200 shadow-subtle hover:border-[var(--line-strong)] hover:bg-white/[0.08] hover:text-white disabled:text-slate-500',
+  ghost: 'text-slate-300 hover:bg-white/[0.07] hover:text-white disabled:text-slate-300',
   danger:
-    'bg-rose-600 text-white shadow-sm shadow-rose-600/20 hover:bg-rose-700 active:bg-rose-800 disabled:bg-rose-300',
+    'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-[0_12px_32px_-14px_rgba(244,63,94,0.7)] hover:from-rose-400 hover:to-rose-500 active:from-rose-600 active:to-rose-700 disabled:from-rose-500/40 disabled:to-rose-600/40 disabled:text-white/60',
   subtle:
-    'bg-brand-50 text-brand-700 hover:bg-brand-100 disabled:bg-slate-100 disabled:text-slate-400',
+    'bg-brand-500/15 text-brand-200 ring-1 ring-inset ring-brand-400/25 hover:bg-brand-500/25 hover:text-white disabled:bg-white/[0.04] disabled:text-slate-500',
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -72,7 +72,7 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed',
+        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed',
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
         className
@@ -97,7 +97,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+        'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
         className
       )}
       {...props}
@@ -113,10 +113,7 @@ export function Card({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn('rounded-xl border border-slate-200/80 bg-white shadow-subtle', className)}
-      {...props}
-    >
+    <div className={cn('glass rounded-2xl', className)} {...props}>
       {children}
     </div>
   );
@@ -192,7 +189,7 @@ export function PageHeader({
         <button
           type="button"
           onClick={() => navigate(backTo)}
-          className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900"
+          className="inline-flex w-fit items-center gap-1.5 rounded-md text-xs font-medium text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {backLabel || 'Back'}
@@ -200,15 +197,20 @@ export function PageHeader({
       ) : null}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
-          {eyebrow ? <div className="mb-1.5 text-xs font-medium text-brand-700">{eyebrow}</div> : null}
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-[28px]">
+          {eyebrow ? (
+            <div className="mb-1.5 flex items-center gap-2 text-xs font-medium text-brand-300">
+              <span className="h-1 w-1 rounded-full bg-brand-400 shadow-[0_0_8px_rgba(67,136,255,0.9)]" aria-hidden />
+              {eyebrow}
+            </div>
+          ) : null}
+          <h1 className="text-balance text-2xl font-semibold tracking-tight text-white md:text-[28px]">
             {title}
           </h1>
           {description ? (
-            <div className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">{description}</div>
+            <div className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-400">{description}</div>
           ) : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex flex-wrap items-center gap-2 md:justify-end">{actions}</div> : null}
       </div>
     </div>
   );
@@ -228,8 +230,8 @@ export function SectionHeading({
   return (
     <div className={cn('flex flex-wrap items-start justify-between gap-3', className)}>
       <div>
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-        {description ? <p className="mt-0.5 text-xs leading-5 text-slate-500">{description}</p> : null}
+        <h2 className="text-sm font-semibold text-white">{title}</h2>
+        {description ? <p className="mt-0.5 text-xs leading-5 text-slate-400">{description}</p> : null}
       </div>
       {action}
     </div>
@@ -237,7 +239,7 @@ export function SectionHeading({
 }
 
 export function Spinner({ className }: { className?: string }) {
-  return <Loader2 className={cn('h-4 w-4 animate-spin text-brand-600', className)} />;
+  return <Loader2 className={cn('h-4 w-4 animate-spin text-brand-400', className)} />;
 }
 
 export function LoadingBlock({ rows = 3, className }: { rows?: number; className?: string }) {
@@ -246,7 +248,7 @@ export function LoadingBlock({ rows = 3, className }: { rows?: number; className
       {Array.from({ length: rows }).map((_, index) => (
         <div
           key={index}
-          className="h-16 animate-pulse rounded-xl border border-slate-100 bg-white"
+          className="h-16 animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.04]"
           style={{ opacity: 1 - index * 0.16 }}
         />
       ))}
@@ -270,17 +272,17 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center',
+        'glass-soft flex flex-col items-center justify-center rounded-2xl border-dashed px-6 py-12 text-center',
         className
       )}
     >
       {Icon ? (
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-slate-300 shadow-subtle">
           <Icon className="h-5 w-5" />
         </div>
       ) : null}
-      <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
-      {description ? <p className="mt-1 max-w-md text-sm leading-6 text-slate-500">{description}</p> : null}
+      <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
+      {description ? <p className="mt-1 max-w-md text-sm leading-6 text-slate-400">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
@@ -296,12 +298,12 @@ export function ErrorState({
   className?: string;
 }) {
   return (
-    <div className={cn('rounded-xl border border-rose-200 bg-rose-50/70 p-5', className)}>
+    <div className={cn('rounded-2xl border border-rose-400/25 bg-rose-500/[0.08] p-5', className)}>
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-300" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-rose-900">This view could not be loaded</p>
-          <p className="mt-1 text-sm leading-6 text-rose-800/80">{message}</p>
+          <p className="text-sm font-medium text-rose-100">This view could not be loaded</p>
+          <p className="mt-1 text-sm leading-6 text-rose-200/80">{message}</p>
           {retry ? (
             <Button variant="secondary" size="sm" className="mt-3" onClick={retry}>
               Try again
@@ -317,29 +319,29 @@ type CalloutTone = 'info' | 'warning' | 'success' | 'danger' | 'neutral';
 
 const CALLOUT_STYLES: Record<CalloutTone, { wrap: string; icon: string; title: string }> = {
   info: {
-    wrap: 'border-brand-200/70 bg-brand-50/60',
-    icon: 'text-brand-600',
-    title: 'text-brand-950',
+    wrap: 'border-brand-400/25 bg-brand-500/[0.09]',
+    icon: 'text-brand-300',
+    title: 'text-brand-100',
   },
   warning: {
-    wrap: 'border-amber-200 bg-amber-50/70',
-    icon: 'text-amber-600',
-    title: 'text-amber-950',
+    wrap: 'border-amber-400/25 bg-amber-400/[0.09]',
+    icon: 'text-amber-300',
+    title: 'text-amber-100',
   },
   success: {
-    wrap: 'border-emerald-200 bg-emerald-50/60',
-    icon: 'text-emerald-600',
-    title: 'text-emerald-950',
+    wrap: 'border-emerald-400/25 bg-emerald-400/[0.09]',
+    icon: 'text-emerald-300',
+    title: 'text-emerald-100',
   },
   danger: {
-    wrap: 'border-rose-200 bg-rose-50/60',
-    icon: 'text-rose-600',
-    title: 'text-rose-950',
+    wrap: 'border-rose-400/25 bg-rose-500/[0.09]',
+    icon: 'text-rose-300',
+    title: 'text-rose-100',
   },
   neutral: {
-    wrap: 'border-slate-200 bg-slate-50',
-    icon: 'text-slate-500',
-    title: 'text-slate-900',
+    wrap: 'border-white/15 bg-white/[0.04]',
+    icon: 'text-slate-300',
+    title: 'text-slate-100',
   },
 };
 
@@ -361,9 +363,9 @@ export function InfoCallout({
   return (
     <div className={cn('flex items-start gap-3 rounded-xl border p-4', styles.wrap, className)}>
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', styles.icon)} />
-      <div className="min-w-0 text-sm leading-6 text-slate-700">
+      <div className="min-w-0 text-sm leading-6 text-slate-300">
         {title ? <p className={cn('font-medium', styles.title)}>{title}</p> : null}
-        <div className={cn(title ? 'mt-0.5' : '', 'text-sm leading-6 text-slate-600')}>{children}</div>
+        <div className={cn(title ? 'mt-0.5' : '', 'text-sm leading-6 text-slate-300')}>{children}</div>
       </div>
     </div>
   );
@@ -389,9 +391,9 @@ export function Field({
   return (
     <div className={cn('space-y-1.5', className)}>
       {label ? (
-        <label htmlFor={htmlFor} className="block text-xs font-medium text-slate-700">
+        <label htmlFor={htmlFor} className="block text-xs font-medium text-slate-300">
           {label}
-          {required ? <span className="ml-0.5 text-rose-500">*</span> : null}
+          {required ? <span className="ml-0.5 text-rose-400">*</span> : null}
         </label>
       ) : null}
       {children}
@@ -399,19 +401,19 @@ export function Field({
         <p
           id={htmlFor ? `${htmlFor}-error` : undefined}
           role="alert"
-          className="text-xs leading-5 text-rose-600"
+          className="text-xs leading-5 text-rose-300"
         >
           {error}
         </p>
       ) : hint ? (
-        <p className="text-xs leading-5 text-slate-500">{hint}</p>
+        <p className="text-xs leading-5 text-slate-400">{hint}</p>
       ) : null}
     </div>
   );
 }
 
 export const inputClass =
-  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-subtle transition-colors focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-500';
+  'w-full rounded-lg border border-white/15 bg-[#0a1122]/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400 shadow-subtle transition-colors focus:border-brand-400/60 focus:outline-none focus:ring-2 focus:ring-brand-500/25 disabled:bg-white/[0.03] disabled:text-slate-500';
 
 export const selectClass = cn(inputClass, 'h-9 cursor-pointer py-0 pr-8');
 
@@ -530,7 +532,7 @@ export function Modal({
   };
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto bg-slate-950/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
+      className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto bg-[#03060f]/75 p-0 backdrop-blur-md sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -543,17 +545,17 @@ export function Modal({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-elevated focus:outline-none sm:rounded-2xl',
+          'glass-strong animate-rise-in flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl focus:outline-none sm:rounded-3xl',
           widths[size]
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-white/15 px-5 py-4">
           <div className="min-w-0">
-            <h2 id={titleId} className="text-base font-semibold text-slate-950">
+            <h2 id={titleId} className="text-base font-semibold text-white">
               {title}
             </h2>
             {description ? (
-              <div id={descriptionId} className="mt-1 text-sm leading-6 text-slate-500">
+              <div id={descriptionId} className="mt-1 text-sm leading-6 text-slate-400">
                 {description}
               </div>
             ) : null}
@@ -564,7 +566,7 @@ export function Modal({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
         {footer ? (
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/15 bg-white/[0.03] px-5 py-3.5">
             {footer}
           </div>
         ) : null}
@@ -609,7 +611,7 @@ export function ConfirmDialog({
         </>
       }
     >
-      <div className="text-sm leading-6 text-slate-600">{description}</div>
+      <div className="text-sm leading-6 text-slate-300">{description}</div>
     </Modal>
   );
 }
@@ -641,7 +643,7 @@ export function Tabs({
   };
 
   return (
-    <div className={cn('tab-scroll overflow-x-auto overscroll-x-contain border-b border-slate-200', className)}>
+    <div className={cn('tab-scroll overflow-x-auto overscroll-x-contain border-b border-white/15', className)}>
       <div role="tablist" aria-label={label} aria-orientation="horizontal" className="flex min-w-max gap-1">
         {tabs.map((tab, index) => {
           const selected = tab.id === active;
@@ -674,8 +676,8 @@ export function Tabs({
                 }
               }}
               className={cn(
-                'relative flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 sm:min-h-0',
-                selected ? 'text-brand-700' : 'text-slate-500 hover:text-slate-900'
+                'relative flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 sm:min-h-0',
+                selected ? 'text-white' : 'text-slate-400 hover:text-white'
               )}
             >
               {tab.label}
@@ -683,14 +685,14 @@ export function Tabs({
                 <span
                   className={cn(
                     'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-                    selected ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-500'
+                    selected ? 'bg-brand-500/25 text-brand-100' : 'bg-white/[0.07] text-slate-400'
                   )}
                 >
                   {tab.count}
                 </span>
               ) : null}
               {selected ? (
-                <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brand-600" />
+                <span className="accent-gradient-bar absolute inset-x-2 -bottom-px h-0.5 rounded-full shadow-[0_0_12px_rgba(67,136,255,0.8)]" />
               ) : null}
             </button>
           );
@@ -716,7 +718,7 @@ export function ScoreRing({
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(100, Math.max(0, score)) / 100) * circumference;
   const color =
-    score >= 85 ? '#10b981' : score >= 70 ? '#f59e0b' : score >= 50 ? '#f97316' : '#ef4444';
+    score >= 85 ? '#34d399' : score >= 70 ? '#fbbf24' : score >= 50 ? '#fb923c' : '#fb7185';
   return (
     <div
       className="relative inline-flex shrink-0 items-center justify-center"
@@ -724,7 +726,7 @@ export function ScoreRing({
       title={`Audit score ${score} out of 100`}
     >
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e2e8f0" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(151,176,255,0.16)" strokeWidth={strokeWidth} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -735,7 +737,7 @@ export function ScoreRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 500ms ease' }}
+          style={{ transition: 'stroke-dashoffset 500ms ease', filter: `drop-shadow(0 0 6px ${color}66)` }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -755,7 +757,7 @@ export function ScoreMeter({ score, className }: { score: number | null; classNa
   const tone = scoreTone(score);
   return (
     <div className={cn('flex min-w-[92px] items-center gap-2', className)}>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
         <div
           className={cn('h-full rounded-full', tone.bar)}
           style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
@@ -769,10 +771,10 @@ export function ScoreMeter({ score, className }: { score: number | null; classNa
 export function Avatar({ name, role, size = 'md' }: { name: string; role?: string; size?: 'sm' | 'md' | 'lg' }) {
   const roleStyle =
     role === 'admin'
-      ? 'bg-slate-800 text-white'
+      ? 'bg-gradient-to-br from-slate-600 to-slate-800 text-white'
       : role === 'reviewer'
-        ? 'bg-blue-100 text-blue-800'
-        : 'bg-slate-100 text-slate-700';
+        ? 'bg-brand-500/25 text-brand-100'
+        : 'bg-white/[0.08] text-slate-200';
   const sizes = { sm: 'h-7 w-7 text-[10px]', md: 'h-8 w-8 text-[11px]', lg: 'h-10 w-10 text-sm' };
   const label = name
     .split(/\s+/)
@@ -783,7 +785,7 @@ export function Avatar({ name, role, size = 'md' }: { name: string; role?: strin
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-2 ring-white',
+        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-2 ring-[#070b18]',
         roleStyle,
         sizes[size]
       )}
@@ -818,11 +820,11 @@ export function CopyButton({
       type="button"
       onClick={onCopy}
       className={cn(
-        'inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900',
+        'inline-flex items-center gap-1 rounded text-xs font-medium text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
         className
       )}
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
       {copied ? 'Copied' : label}
     </button>
   );
@@ -844,11 +846,11 @@ export function StatCard({
   onClick?: () => void;
 }) {
   const tones = {
-    default: 'bg-slate-50 text-slate-500',
-    warning: 'bg-amber-50 text-amber-600',
-    danger: 'bg-rose-50 text-rose-600',
-    success: 'bg-emerald-50 text-emerald-600',
-    brand: 'bg-brand-50 text-brand-600',
+    default: 'border-white/15 bg-white/[0.06] text-slate-300',
+    warning: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
+    danger: 'border-rose-400/20 bg-rose-500/10 text-rose-300',
+    success: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+    brand: 'border-brand-400/25 bg-brand-500/15 text-brand-300',
   };
   const Component = onClick ? 'button' : 'div';
   return (
@@ -856,18 +858,22 @@ export function StatCard({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'rounded-xl border border-slate-200/80 bg-white p-4 text-left shadow-subtle',
-        onClick && 'transition-colors hover:border-slate-300 hover:bg-slate-50/30'
+        'glass lift group relative overflow-hidden rounded-2xl p-4 text-left',
+        onClick && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2'
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <span
+        className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-brand-500/10 blur-2xl transition-opacity duration-200 group-hover:opacity-100"
+        aria-hidden
+      />
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-medium uppercase leading-4 tracking-wide text-slate-400">{label}</p>
-          <div className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950 tabular-nums">{value}</div>
-          {hint ? <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p> : null}
+          <div className="mt-1.5 text-2xl font-semibold tracking-tight text-white tabular-nums">{value}</div>
+          {hint ? <p className="mt-1 text-xs leading-5 text-slate-400">{hint}</p> : null}
         </div>
         {Icon ? (
-          <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', tones[tone])}>
+          <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', tones[tone])}>
             <Icon className="h-4 w-4" />
           </div>
         ) : null}
@@ -882,14 +888,14 @@ export function useFormId(prefix: string) {
 }
 
 export function Divider({ className }: { className?: string }) {
-  return <div className={cn('h-px w-full bg-slate-100', className)} />;
+  return <div className={cn('h-px w-full bg-white/[0.04]', className)} />;
 }
 
 export function KeyValue({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5 py-1.5">
       <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="text-sm text-slate-700">{children}</dd>
+      <dd className="text-sm text-slate-200">{children}</dd>
     </div>
   );
 }

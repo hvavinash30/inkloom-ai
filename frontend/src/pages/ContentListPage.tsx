@@ -90,7 +90,7 @@ export function ContentListPage() {
       </div>
 
       <Card>
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 border-b border-white/[0.07] p-4 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <Input
@@ -193,7 +193,7 @@ export function ContentListPage() {
         )}
 
         {documents.length > 0 ? (
-          <div className={cn('flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5 text-[11px] text-slate-400')}>
+          <div className={cn('flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] px-4 py-2.5 text-[11px] text-slate-400')}>
             <span>
               Showing {documents.length} item{documents.length === 1 ? '' : 's'}
               {hasFilters ? ' matching filters' : ''}.

@@ -32,9 +32,9 @@ import { formatDate, relativeTime, titleCase } from '../lib/format';
 import type { Campaign } from '../types';
 
 const STATUS_STYLE: Record<string, string> = {
-  active: 'border-blue-200 bg-blue-50 text-blue-800',
-  completed: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  archived: 'border-slate-200 bg-slate-50 text-slate-600',
+  active: 'border-blue-400/25 bg-blue-500/10 text-blue-200',
+  completed: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+  archived: 'border-white/10 bg-white/[0.035] text-slate-300',
 };
 
 function CampaignCard({ campaign }: { campaign: Campaign }) {
@@ -44,12 +44,12 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
     <button
       type="button"
       onClick={() => navigate(`/campaigns/${campaign.id}`)}
-      className="group flex h-full w-full flex-col rounded-xl border border-slate-200/80 bg-white p-5 text-left shadow-subtle transition-colors hover:border-slate-300"
+      className="glass lift group flex h-full w-full flex-col rounded-2xl p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-slate-900 group-hover:text-brand-800">{campaign.name}</h3>
+            <h3 className="truncate text-sm font-semibold text-slate-100 group-hover:text-brand-200">{campaign.name}</h3>
             <span
               className={cn(
                 'rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
@@ -59,16 +59,16 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               {titleCase(campaign.status)}
             </span>
           </div>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
             {campaign.description || 'No campaign brief recorded.'}
           </p>
         </div>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-brand-300">
           <Layers className="h-4 w-4" />
         </span>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-500">
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-400">
         <span className="inline-flex items-center gap-1">
           <Target className="h-3 w-3 text-slate-400" />
           {campaign.target_audience || 'Audience not set'}
@@ -80,20 +80,20 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
         {campaign.launch_target ? <span>Launch {formatDate(campaign.launch_target)}</span> : null}
       </div>
 
-      <div className="mt-4 flex flex-1 flex-wrap items-end justify-between gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-4 flex flex-1 flex-wrap items-end justify-between gap-2 border-t border-white/[0.07] pt-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {unresolved > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
+            <span className="inline-flex items-center gap-1 rounded border border-rose-400/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
               <Swords className="h-3 w-3" />
               {unresolved} open conflict{unresolved === 1 ? '' : 's'}
             </span>
           ) : campaign.assets_count > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+            <span className="inline-flex items-center gap-1 rounded border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
               <CheckCircle2 className="h-3 w-3" />
               No open conflicts
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            <span className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/[0.035] px-2 py-0.5 text-[10px] font-medium text-slate-400">
               No assets attached
             </span>
           )}
@@ -102,17 +102,17 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               className={cn(
                 'rounded px-2 py-0.5 text-[10px] font-medium',
                 readiness === 'ready'
-                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
+                  ? 'bg-emerald-400/10 text-emerald-300 ring-1 ring-inset ring-emerald-400/30'
                   : readiness === 'not_ready'
-                    ? 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200'
-                    : 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200'
+                    ? 'bg-rose-500/10 text-rose-300 ring-1 ring-inset ring-rose-400/30'
+                    : 'bg-amber-400/10 text-amber-200 ring-1 ring-inset ring-amber-400/30'
               )}
             >
               {titleCase(readiness)}
             </span>
           ) : null}
         </div>
-        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 group-hover:text-brand-700">
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 group-hover:text-brand-300">
           Open campaign
           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
         </span>
@@ -311,7 +311,7 @@ export function CampaignsPage() {
             </Field>
           </div>
           {formError ? (
-            <p className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+            <p className="flex items-start gap-2 rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               {formError}
             </p>

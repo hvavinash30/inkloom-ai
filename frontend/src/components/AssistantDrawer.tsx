@@ -29,21 +29,21 @@ function verificationTone(response: AssistantResponse) {
   if (response.verification === 'verified_from_workspace_records') {
     return {
       label: 'Grounded in workspace records',
-      className: 'border-emerald-200 bg-emerald-50/70 text-emerald-900',
-      icon: 'text-emerald-600',
+      className: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+      icon: 'text-emerald-300',
     };
   }
   if (response.verification === 'general_guidance') {
     return {
       label: 'General guidance — not a workspace verification',
-      className: 'border-blue-200 bg-blue-50/70 text-blue-900',
-      icon: 'text-blue-600',
+      className: 'border-blue-400/25 bg-blue-500/10 text-blue-200',
+      icon: 'text-blue-300',
     };
   }
   return {
     label: 'Unable to verify from current records',
-    className: 'border-amber-200 bg-amber-50/70 text-amber-900',
-    icon: 'text-amber-600',
+    className: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
+    icon: 'text-amber-300',
   };
 }
 
@@ -145,17 +145,17 @@ export function AssistantDrawer() {
         type="button"
         aria-label="Close assistant"
         onClick={closeAssistant}
-        className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-[#03060f]/70 backdrop-blur-[1px]"
       />
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-[460px] flex-col border-l border-slate-200 bg-white shadow-elevated">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5">
+      <div className="glass-strong absolute inset-y-0 right-0 flex w-full max-w-[460px] flex-col border-y-0 border-r-0 shadow-elevated">
+        <div className="flex items-start justify-between gap-3 border-b border-white/[0.07] px-4 py-3.5">
           <div className="flex min-w-0 items-start gap-2.5">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white">
               <Sparkles className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-slate-950">Inkloom evidence assistant</h2>
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+              <h2 className="text-sm font-semibold text-white">Inkloom evidence assistant</h2>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-400">
                 Rule-based answers grounded in stored records. Not a legal opinion.
               </p>
             </div>
@@ -163,15 +163,15 @@ export function AssistantDrawer() {
           <button
             type="button"
             onClick={closeAssistant}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/[0.06] hover:text-slate-300"
             aria-label="Close assistant"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-2">
-          <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+        <div className="border-b border-white/[0.07] bg-white/[0.035] px-4 py-2">
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <BookOpenCheck className="h-3.5 w-3.5 text-slate-400" />
             {contextLabel}
           </p>
@@ -179,10 +179,10 @@ export function AssistantDrawer() {
 
         <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <div className="flex gap-2.5">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0b1224] text-white">
               <Sparkles className="h-3.5 w-3.5" />
             </div>
-            <div className="max-w-[88%] rounded-xl rounded-tl-sm border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm leading-6 text-slate-700">
+            <div className="max-w-[88%] rounded-xl rounded-tl-sm border border-white/10 bg-white/[0.035] px-3.5 py-2.5 text-sm leading-6 text-slate-300">
               {INTRO}
             </div>
           </div>
@@ -195,7 +195,7 @@ export function AssistantDrawer() {
                   key={suggestion}
                   type="button"
                   onClick={() => send(suggestion)}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:border-brand-200 hover:bg-brand-50/40 hover:text-brand-800"
+                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs font-medium text-slate-300 transition-colors hover:border-brand-400/25 hover:bg-brand-500/10 hover:text-brand-200"
                 >
                   {suggestion}
                   <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -219,11 +219,11 @@ export function AssistantDrawer() {
             const tone = verificationTone(response);
             return (
               <div key={message.id} className="flex gap-2.5">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0b1224] text-white">
                   <Sparkles className="h-3.5 w-3.5" />
                 </div>
                 <div className="min-w-0 max-w-[90%] space-y-2.5">
-                  <div className="whitespace-pre-wrap break-words rounded-xl rounded-tl-sm border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-700">
+                  <div className="whitespace-pre-wrap break-words rounded-xl rounded-tl-sm border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm leading-6 text-slate-300">
                     {response.reply}
                   </div>
                   <div className={cn('rounded-lg border px-3 py-2', tone.className)}>
@@ -241,9 +241,9 @@ export function AssistantDrawer() {
                     <div className="space-y-1.5">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Evidence used</p>
                       {response.grounding.map((item, index) => (
-                        <div key={index} className="rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-2">
-                          <p className="text-[11px] font-medium text-slate-700">{item.title}</p>
-                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-500">{item.detail}</p>
+                        <div key={index} className="rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2">
+                          <p className="text-[11px] font-medium text-slate-300">{item.title}</p>
+                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{item.detail}</p>
                           {item.source_reference ? (
                             <p className="mt-1 truncate text-[10px] text-slate-400">Source: {item.source_reference}</p>
                           ) : null}
@@ -262,7 +262,7 @@ export function AssistantDrawer() {
                               navigate(action.route as string);
                               closeAssistant();
                             }}
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                            className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-medium text-slate-300 hover:border-white/20 hover:text-slate-100"
                           >
                             {action.label}
                             <ExternalLink className="h-3 w-3" />
@@ -273,7 +273,7 @@ export function AssistantDrawer() {
                   ) : null}
                   {response.limitations.length > 0 ? (
                     <details className="text-[10px] text-slate-400">
-                      <summary className="cursor-pointer select-none hover:text-slate-600">Limitations</summary>
+                      <summary className="cursor-pointer select-none hover:text-slate-300">Limitations</summary>
                       <ul className="mt-1 list-disc space-y-0.5 pl-4">
                         {response.limitations.map((limitation, index) => (
                           <li key={index} className="leading-4">{limitation}</li>
@@ -287,8 +287,8 @@ export function AssistantDrawer() {
           })}
 
           {sending ? (
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0b1224] text-white">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               </div>
               Checking stored workspace records…
@@ -296,14 +296,14 @@ export function AssistantDrawer() {
           ) : null}
 
           {error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs leading-5 text-rose-200">
               {error}
             </div>
           ) : null}
         </div>
 
-        <div className="border-t border-slate-100 p-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-subtle focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
+        <div className="border-t border-white/[0.07] p-3">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2 shadow-subtle focus-within:border-brand-400/40 focus-within:ring-2 focus-within:ring-brand-500/25">
             <textarea
               ref={inputRef}
               value={input}
@@ -317,7 +317,7 @@ export function AssistantDrawer() {
               rows={2}
               maxLength={4000}
               placeholder="Ask about findings, rules, facts, campaigns, or next steps…"
-              className="w-full resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-5 text-slate-800 placeholder:text-slate-400 focus:outline-none"
+              className="w-full resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-5 text-slate-200 placeholder:text-slate-400 focus:outline-none"
             />
             <div className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1">
               <span className="text-[10px] text-slate-400">Enter to send · Shift + Enter for a new line</span>

@@ -41,28 +41,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           return (
             <div
               key={item.id}
-              className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-white px-4 py-3 shadow-elevated ${
+              className={`glass-strong animate-rise-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl px-4 py-3 ${
                 item.tone === 'success'
-                  ? 'border-emerald-200'
+                  ? 'border-emerald-400/30'
                   : item.tone === 'error'
-                    ? 'border-rose-200'
-                    : 'border-blue-200'
+                    ? 'border-rose-400/35'
+                    : 'border-brand-400/30'
               }`}
             >
               <Icon
                 className={`mt-0.5 h-4 w-4 shrink-0 ${
                   item.tone === 'success'
-                    ? 'text-emerald-600'
+                    ? 'text-emerald-300'
                     : item.tone === 'error'
-                      ? 'text-rose-600'
-                      : 'text-blue-600'
+                      ? 'text-rose-300'
+                      : 'text-brand-300'
                 }`}
+                aria-hidden
               />
-              <p className="min-w-0 flex-1 text-sm leading-5 text-slate-700">{item.message}</p>
+              <p className="min-w-0 flex-1 text-sm leading-5 text-slate-100">{item.message}</p>
               <button
                 type="button"
                 onClick={() => remove(item.id)}
-                className="mt-0.5 text-slate-400 hover:text-slate-700"
+                className="mt-0.5 rounded text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
                 aria-label="Dismiss notification"
               >
                 <X className="h-3.5 w-3.5" />
