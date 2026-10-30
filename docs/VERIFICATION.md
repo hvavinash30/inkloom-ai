@@ -116,7 +116,7 @@ The redesign was deployed to production on 2026-10-30.
 | Commit | `e59bb17` — “Redesign frontend with dark 3D glass system” |
 | GitHub push | `54d8784..e59bb17 main -> main` |
 | Vercel deployment | `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`, target production, state **READY** |
-| Production alias | <https://inkloom-ai-rho.vercel.app> |
+| Production alias | <https://inkloom-ai-rho.vercel.app>, currently serving the docs-only follow-up `7aa6774`; docs commits rebuild identical frontend assets |
 | Live assets | `assets/index-C1W67hZu.js` (624,811 bytes) and `assets/index-CjC3LMnu.css` (58,064 bytes) |
 | Backend | Unchanged; still commit `ccf799b` on Render |
 
@@ -129,6 +129,7 @@ Live browser smoke (headless Chrome over CDP, 2026-10-30):
 - At 390 px the workspace menu opened, settled at opacity **1**, occupied `left 12 → right 378` within a 390 px viewport, and showed no page-content bleed-through.
 - Live CSS contains the dark token (`#070b18`) and the opaque `.glass-strong` gradient (`linear-gradient(156deg,#1f2c4b,#0e172b 60%,#080e1c)`).
 - Screenshots: `%TEMP%\inkloom-cdp\shots\live-redesign-1440.png`, `live-redesign-390.png`, `live-menu-390.png`.
+- Re-run after the docs-only deployment (`7aa6774`) took the alias: identical results — `rgb(7, 11, 24)` background, 14 glass surfaces, 0 errors, no overflow at 1440/390 px, menu settled at opacity 1 within the 390 px viewport, same asset hashes.
 
 Historical live smoke (2026-10-29, Round 3 build `ccf799b`, **not** this redesign): `POST /api/v1/auth/demo/session` → **201**; role-only header without a token → **401**; `GET /api/v1/insights/` with an admin token → **200**; production OCR disabled by `OCR_PROVIDER=none`.
 
