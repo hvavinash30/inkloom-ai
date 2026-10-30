@@ -7,14 +7,14 @@ This file lists work that is **not implemented**. Items already shipped are desc
 
 ## 1. Deployment follow-ups
 
-Round 3 is deployed: commit `ccf799b` is live on [Render](https://inkloom-api.onrender.com) as of 2026-10-29. The [Vercel](https://inkloom-ai-rho.vercel.app) frontend now serves commit `1885b2e` (deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`), which includes the automatic video-auditing UI. The backend was not rebuilt and still runs `ccf799b`, so the video pipeline is not active in production. Remaining deployment work:
+The [Vercel](https://inkloom-ai-rho.vercel.app) frontend serves commit `1885b2e` (deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`) with the redesign and video UI. The [Render](https://inkloom-api.onrender.com) API was deployed manually on 2026-10-30 at `9c99044` (backend code `1885b2e`) as `dep-dbi22tjbc2fs739ssca0`; it serves the video pipeline with system FFmpeg `5.1.9`, but `OCR_PROVIDER=none` and no speech key. Enabling OCR on the 512 MB free instance was tested: a real image OCR succeeded (2 lines, 97.3%, 51.6 s), then the next video frame job restarted the instance at 04:46:59 UTC, so OCR was reverted. Remaining deployment work:
 
-1. Redeploy Render at `1885b2e` with `TRANSCRIPTION_PROVIDER=openai_whisper`, a backend-only `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`), and `OCR_PROVIDER=auto`; verify memory headroom for FFmpeg plus OCR, then make one real provider call.
-2. Re-run the full local journey suite against the live deployment, not just the smoke check: create, audit, correct, re-audit, submission, claim, comment, request changes, approval, audit trail, OCR, insights, workspace isolation, and the automatic video flow.
-3. Confirm the Render free instance can handle OCR and video analysis. The service currently sets `OCR_PROVIDER=none`; enabling either requires checking the 512 MB memory limit and cold-start latency with real uploads, and reverting if the instance restarts under load.
+1. Add a backend-only `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`) in Render and make one real provider call; record latency, quota, and response-shape results.
+2. Move the API to an instance with more than 512 MB of RAM (or run OCR in a separate worker), set `OCR_PROVIDER=auto`, and repeat the real image **and video** upload check. Revert if the instance restarts.
+3. Re-run the full local journey suite against the live deployment, not just the smoke check: create, audit, correct, re-audit, submission, claim, comment, request changes, approval, audit trail, OCR, insights, workspace isolation, and the automatic video flow.
 4. Investigate why Render did not auto-deploy the `main` push despite `autoDeploy` being enabled; the same commit was deployed manually.
-5. Render’s free instance has an ephemeral filesystem. Uploaded files and stored changes reset on restart; the fictional seed is recreated. For durable demo evidence, attach a disk or move uploads to object storage.
-6. Re-run the live demo journeys after any provider change: image OCR, mixed PDF, claim/override, insights, dashboard, and video.
+5. Render’s free instance has an ephemeral filesystem. Uploaded files and stored changes reset on restart; the fictional seed is recreated. The OCR crash reset the database and cleared the smoke records. For durable demo evidence, attach a disk or move uploads to object storage.
+6. Re-run the live demo journeys after any provider or plan change: image OCR, mixed PDF, claim/override, insights, dashboard, and video.
 
 ---
 

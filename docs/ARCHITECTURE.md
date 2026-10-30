@@ -295,7 +295,7 @@ Not provided: production login, password reset, audit logging to an external SIE
 - **Backend process**: `backend/Procfile`.
 - **Frontend**: static Vite build. `frontend/vercel.json` rewrites all paths to `index.html`; `VITE_API_BASE_URL` must point at a reachable API when deployed separately.
 
-The 2026-10-30 3D-glass redesign was committed as `e59bb17` and the automatic video-auditing frontend as `1885b2e`; Vercel serves the latter at <https://inkloom-ai-rho.vercel.app> (deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`). The backend was not rebuilt and still runs `ccf799b` on Render, so the video pipeline is not active in production; it requires a backend redeploy plus manual host configuration of the speech provider key and OCR/FFmpeg resources.
+The 2026-10-30 3D-glass redesign was committed as `e59bb17` and the automatic video-auditing frontend as `1885b2e`; Vercel serves the latter at <https://inkloom-ai-rho.vercel.app> (deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`). The Render API was deployed manually at `9c99044` (backend code `1885b2e`) as `dep-dbi22tjbc2fs739ssca0`; health reports the `video` block with system FFmpeg `5.1.9`. OCR is disabled (`OCR_PROVIDER=none`) after a real video job restarted the 512 MB instance, and the speech provider (`openai_whisper`) has no key, so both extraction stages report unavailable in production.
 
 ---
 
@@ -316,12 +316,12 @@ The 2026-10-30 3D-glass redesign was committed as `e59bb17` and the automatic vi
 - Deterministic matching cannot understand tone, sarcasm, or visual context.
 - PDF extraction does not preserve columns/tables or render layout. OCR reads printed Latin-script text well but can misread handwriting, unusual fonts, low-resolution images, or complex layouts; low-quality output is visible but still needs human confirmation.
 - Visual qualities (contrast, logo usage, layout, video composition, motion) are not judged automatically.
-- Automatic video speech requires manual provider configuration (`TRANSCRIPTION_PROVIDER=openai_whisper` plus a server-side key). Without it, on-screen analysis still runs and the audit records the missing spoken coverage. Provider timestamps are preserved; none are invented.
+- Automatic video speech requires manual provider configuration (`TRANSCRIPTION_PROVIDER=openai_whisper` plus a server-side key). Without it, on-screen analysis still runs when OCR is available and the audit records the missing spoken coverage. Provider timestamps are preserved; none are invented.
 - Video frames are sampled at a bounded interval, so short overlays can be missed. OCR may misread stylized, animated, small, or low-contrast text; the frame preview is the evidence to verify.
 - Video jobs use an in-process single worker per API process with persisted progress, cancel/retry, and startup recovery. Multi-instance deployment needs a shared queue; a restart marks in-flight jobs failed (retryable), not resumed mid-stage.
-- Automatic video auditing is deployed as a frontend only: Vercel serves commit `1885b2e`, but the Render API still runs `ccf799b` without the video endpoints or a speech provider. No real paid provider call was made during verification.
+- Automatic video auditing is deployed on both tiers, but neither extraction stage is active in production: the Render API runs the pipeline with `OCR_PROVIDER=none` after a real video job exhausted the 512 MB instance, and no speech-provider key is configured. No real paid provider call was made during verification.
 - No language model in the audit path; an optional LLM only drafts correction wording when configured.
 - Single-node SQLite/local file storage; no background workers or notifications.
 - Demo accounts are fictional; sessions are server-issued and enforced, but there is no external identity provider. RLS is not enforced on the local trusted connection.
 - The five evaluation cases are synthetic fixtures, not a benchmark.
-- The 2026-10-30 dark 3D-glass redesign was verified in Chromium only at 390/768/1024/1440 px. Vercel now serves commit `1885b2e` (redesign plus video UI), but Safari/Firefox, screen readers, axe, and reduced-motion OS settings were not exercised. The deployed backend still runs `ccf799b` with OCR disabled.
+- The 2026-10-30 dark 3D-glass redesign was verified in Chromium only at 390/768/1024/1440 px. Vercel now serves commit `1885b2e` (redesign plus video UI), but Safari/Firefox, screen readers, axe, and reduced-motion OS settings were not exercised. The deployed backend runs `9c99044` with OCR disabled; enabling OCR on the 512 MB free instance restarted it during a real video frame-OCR job.

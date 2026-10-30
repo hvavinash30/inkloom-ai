@@ -167,7 +167,7 @@ Measured against the final working tree on 2026-10-30 (details in [VERIFICATION.
 
 - The redesign is **deployed** to [Vercel](https://inkloom-ai-rho.vercel.app) as commit `e59bb17`, deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`, ready 2026-10-30 03:05:49 UTC. Live assets are `assets/index-C1W67hZu.js` (624,811 bytes) and `assets/index-CjC3LMnu.css` (58,064 bytes).
 - A live smoke check at 1440 and 390 px confirmed the dark canvas `rgb(7, 11, 24)`, 14 glass surfaces, sidebar and header, zero console errors, no horizontal overflow, and an opaque workspace menu inside the 390 px viewport. Full journey re-runs against the live site have not been done.
-- The backend was not redeployed; Render still runs `ccf799b`, and live OCR remains disabled by `OCR_PROVIDER=none`.
+- The backend was not redeployed as part of the redesign. It was deployed later on 2026-10-30 at `9c99044` with the video pipeline; live OCR remains disabled (`OCR_PROVIDER=none`) after a memory failure on the 512 MB instance, and no speech key is configured.
 
 ### Boundaries
 

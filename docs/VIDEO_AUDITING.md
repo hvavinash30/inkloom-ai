@@ -1,6 +1,6 @@
 # Automatic Video Auditing
 
-Status: implemented and verified locally on 2026-10-30. Committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel (`dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`, production alias). The API was **not** redeployed: Render still runs `ccf799b`, so the pipeline is not active in production until the backend is redeployed and configured.
+Status: implemented and verified locally on 2026-10-30. Committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel (`dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`, production alias). The Render API was deployed at `9c99044` (backend code `1885b2e`) as `dep-dbi22tjbc2fs739ssca0`; it serves the pipeline and reports FFmpeg `5.1.9`, but `OCR_PROVIDER=none` and no speech key keep both extraction stages unavailable in production. OCR was enabled briefly, succeeded once on a real image (2 lines, 97.3%, 51.6 s), then restarted the 512 MB instance during a video frame job and was reverted.
 Scope: the existing Inkloom AI application. This is not a separate video application, and the
 manual-transcript and transcript-only paths still work.
 
@@ -363,10 +363,12 @@ correction actions. Re-checked in the browser: the limit card shows the correcte
 - No real paid provider call was made; the provider contract was exercised with a local
   OpenAI-compatible mock. The first production call should be monitored for quota, latency, and
   response-shape differences.
-- The frontend is deployed, but no backend deployment was performed. Render still runs `ccf799b`
-  (no video endpoints, OCR disabled, no speech provider), so the live site cannot run this
-  pipeline yet. The live frontend was smoke-tested for shell, Overview, and the video upload form
-  only; no live video upload was attempted.
+- The live pipeline was exercised against production on 2026-10-30. With `OCR_PROVIDER=auto`, a
+  real PNG audit completed OCR (2 lines, 97.3% mean confidence, 51.6 s cold start). The next 8 s
+  MP4 job reached `processing` with 1 sampled frame, then the 512 MB Render instance restarted at
+  04:46:59 UTC during frame OCR; OCR was reverted to `none`. No audit was run on that video, so
+  the live end-to-end video audit remains unverified on this host. Speech was never available
+  live because no provider key is configured.
 - OCR was verified on clean generated frames, not on noisy, handwritten, animated, or non-Latin
   video text.
 - Chromium only; no Safari/Firefox, mobile-device, screen-reader, or axe pass for the new panel.

@@ -4,7 +4,7 @@
 
 Inkloom AI is a working, evidence-first brand-governance demo for the fictional **Acme Cloud Technologies** workspace. It runs locally with SQLite and no external services. Every finding comes from a deterministic rule match or a source-backed approved fact; images and scanned PDF pages are read by a local OCR engine whose output is stored and inspected, never simulated.
 
-**Last verified:** 2026-10-30. Automatic video auditing (speech-to-text plus on-screen OCR) was implemented and verified locally with **102 backend tests**, a clean production build, and a real video upload/audit flow. It was committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel as `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`. The backend still runs `ccf799b` with OCR disabled and no speech provider, so the video pipeline is not active in production yet. See [Deployment](#deployment).
+**Last verified:** 2026-10-30. Automatic video auditing (speech-to-text plus on-screen OCR) was implemented and verified locally with **102 backend tests**, a clean production build, and a real video upload/audit flow. It was committed as `1885b2e`, pushed to GitHub `main`, and the frontend was deployed to Vercel as `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm`. The Render API was then deployed at `9c99044` (backend code `1885b2e`); it reports the `video` block with FFmpeg `5.1.9`, but OCR was reverted to `none` after a real video job exhausted the 512 MB instance, and no speech-provider key is configured. See [Deployment](#deployment).
 
 ---
 
@@ -113,6 +113,7 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 | Overlay checks (prior redesign build) | Drawer, menus, and dialogs settled opaque and on-screen at 1440/1024/768/390 px with no horizontal overflow |
 | Live deployment smoke (2026-10-29) | Historical: commit `ccf799b` on Vercel and Render; Round 3 dashboard, content, insights, onboarding, and 390 px drawer passed; session **201**, role-only header **401**, insights **200**; production OCR disabled |
 | Live redesign smoke (2026-10-30) | Deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` READY and aliased; dark canvas `rgb(7, 11, 24)`, 14 glass surfaces, sidebar/header rendered, **0 JS errors**, no horizontal overflow at 1440 and 390 px, workspace menu opaque at 390 px |
+| Live backend deploy (2026-10-30) | Deploy `dep-dbi1uadg1s2s73doco9g` served `9c99044`; health shows the `video` block and FFmpeg `5.1.9`; video status/retry/cancel/frame routes return **401** without a session. Real image OCR: 2 lines, **97.3%**, **51.6 s** cold. An 8 s video job restarted the 512 MB instance at 04:46:59 UTC during frame OCR; OCR reverted to `none` in `dep-dbi22tjbc2fs739ssca0`. Speech key still missing; no paid call |
 
 Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIFICATION.md); the video pipeline details and scenario matrix are in [VIDEO_AUDITING.md](docs/VIDEO_AUDITING.md).
 
@@ -121,12 +122,12 @@ Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIF
 | Component | Status | URL |
 | --- | --- | --- |
 | Frontend (Vercel, Vite) | Live — 3D-glass redesign + video-auditing UI, commit `1885b2e` | <https://inkloom-ai-rho.vercel.app> |
-| API (Render, FastAPI) | Live — commit `ccf799b` (no video pipeline) | <https://inkloom-api.onrender.com> |
+| API (Render, FastAPI) | Live — commit `9c99044` (video pipeline; OCR and speech unavailable) | <https://inkloom-api.onrender.com> |
 | GitHub source | Public | <https://github.com/hvavinash30/inkloom-ai> |
 
-The automatic video-auditing work was committed as `1885b2e`, pushed to GitHub `main`, and Vercel built production deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm` to READY on 2026-10-30, aliased to the production URL. The live frontend serves `assets/index-B4UXtfvY.js` (640,060 bytes) and `assets/index-L7Up5fEq.css` (58,737 bytes); the local build emits a different JS hash because `VITE_API_BASE_URL` is baked in at build time. The backend was not rebuilt and still runs `ccf799b`, whose health has no `video` or `transcription` block and whose new video endpoints return 404.
+The automatic video-auditing work was committed as `1885b2e`, pushed to GitHub `main`, and Vercel built production deployment `dpl_9x8Wa2ChSHyS4PDbwYwcrwRQyEFm` to READY on 2026-10-30, aliased to the production URL. The live frontend serves `assets/index-B4UXtfvY.js` (640,060 bytes) and `assets/index-L7Up5fEq.css` (58,737 bytes); the local build emits a different JS hash because `VITE_API_BASE_URL` is baked in at build time. The Render API was deployed manually to `9c99044` (backend code `1885b2e`) as `dep-dbi1uadg1s2s73doco9g` at 04:39 UTC; health now reports the `video` block with system FFmpeg `5.1.9`, and the video status, retry, cancel, and frame routes exist.
 
-**The video pipeline requires manual backend deployment and configuration.** Set `TRANSCRIPTION_PROVIDER=openai_whisper` and a secret `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`) in the Render environment, choose `OCR_PROVIDER=auto`, ensure enough memory for FFmpeg plus OCR, and redeploy the API. No provider credential is included in the repository.
+**Production extraction stages are currently unavailable.** `TRANSCRIPTION_PROVIDER=openai_whisper` is set, but no `TRANSCRIPTION_API_KEY` or `OPENAI_API_KEY` is configured, so speech is not transcribed. `OCR_PROVIDER` was set to `auto` in `dep-dbi20d142hec73c7ip9g`: a real image audit completed OCR (2 lines, 97.3% mean confidence, 51.6 s cold), but the follow-up 8 s video job restarted the 512 MB instance at 04:46:59 UTC during frame OCR. Deploy `dep-dbi22tjbc2fs739ssca0` reverted OCR to `none`. No provider credential is included in the repository.
 
 The live smoke covered the deployed shell, Overview, workspace menu, dark styling, responsive overflow, and console health at 1440 and 390 px. The full 22-journey suite was executed locally, not against the live deployment.
 
@@ -142,10 +143,10 @@ These are explicit product boundaries, not hidden gaps:
 
 - **Demo identity, real sessions.** Tokens are server-issued, hashed, expiring, and workspace-scoped, but accounts are fictional and there is no external identity provider. Replace with Supabase Auth before real use.
 - **Local OCR, bounded.** Clean printed Latin-script text reads well; handwriting, low-resolution scans, stylized video overlays, and complex layouts may fail and are reported honestly. OCR adds latency and is synchronous.
-- **Speech-to-text requires manual provider configuration.** `TRANSCRIPTION_PROVIDER=none` is the default. Without `openai_whisper` plus a server-side key, the speech stage is unavailable; on-screen analysis still runs and the audit records the gap. Provider timestamps are preserved, and missing timestamps are never invented.
+- **Speech-to-text requires manual provider configuration.** `TRANSCRIPTION_PROVIDER=none` is the default. Without `openai_whisper` plus a server-side key, the speech stage is unavailable; on-screen analysis still runs when OCR is available, and the audit records the gap. Provider timestamps are preserved, and missing timestamps are never invented.
 - **Video analysis is sampled.** Frames are taken at a bounded interval, so short overlays can be missed. Only visible text is checked; logo, colour, layout, motion, and audio tone are human-review items.
 - **Video jobs are in-process.** One worker per API process with persisted progress, cancel/retry, and startup recovery. A restart marks in-flight work failed (retryable); it does not resume mid-stage. Multi-instance deployment needs a shared queue.
-- **Automatic video auditing is deployed as UI only.** The Vercel frontend includes the video workflow, but the live Render API still runs the previous backend, so video analysis cannot run in production until the API is redeployed and configured. A real paid provider call was not made during verification (a local OpenAI-compatible mock was used).
+- **Automatic video auditing is deployed, but both extraction stages are unavailable in production.** The live API includes the pipeline; OCR is disabled because a real video job exhausted the 512 MB free instance, and no speech provider key is configured. Users see explicit unavailable/partial states and processing-issue findings. A real paid provider call was not made during verification (a local OpenAI-compatible mock was used).
 - **No LLM in the audit path.** The assistant is deterministic and grounded in stored records; an optional LLM only drafts correction wording when configured.
 - **No external research or benchmarking.** Research records are internal documentation; evaluation is a five-case synthetic regression fixture.
 - **No background jobs, notifications, or scheduled re-reviews.** All actions are user-triggered.
@@ -158,13 +159,14 @@ These are explicit product boundaries, not hidden gaps:
 
 ## Recommended next steps (not implemented)
 
-1. Redeploy the Render API at `1885b2e`, add the speech provider secret and `OCR_PROVIDER=auto`, then make one real (paid) provider call and record latency, quota, and response-shape results.
-2. Re-run the full journey suite against the live deployment, not just the smoke check, and redeploy the backend so frontend and API share a commit.
-3. Replace demo sign-in with Supabase Auth and map verified identities to workspace roles.
-4. Add Alembic migrations and bring the Supabase starter schema to parity.
-5. Add object storage with signed URLs and retention policies.
-6. Draw stored OCR bounding boxes over the source image/PDF, and consider a configurable denser frame sampling mode for short overlays.
-7. Add assignment notifications and fact-review reminders.
-8. Commit an end-to-end test suite and run it in CI, including axe and cross-browser coverage for the redesign and the video flow.
+1. Add a backend-only `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`) on Render, then make one real (paid) provider call and record latency, quota, and response-shape results.
+2. Move OCR to an instance with more than 512 MB (or an external worker), set `OCR_PROVIDER=auto`, and repeat the real image/video upload check; revert if the instance restarts.
+3. Re-run the full journey suite against the live deployment, not just the smoke check.
+4. Replace demo sign-in with Supabase Auth and map verified identities to workspace roles.
+5. Add Alembic migrations and bring the Supabase starter schema to parity.
+6. Add object storage with signed URLs and retention policies.
+7. Draw stored OCR bounding boxes over the source image/PDF, and consider a configurable denser frame sampling mode for short overlays.
+8. Add assignment notifications and fact-review reminders.
+9. Commit an end-to-end test suite and run it in CI, including axe and cross-browser coverage for the redesign and the video flow.
 
 Full details: [ROADMAP.md](docs/ROADMAP.md).
