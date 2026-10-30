@@ -510,4 +510,14 @@ export const api = {
     request<UploadRecord>(`/uploads/${encodeURIComponent(id)}`),
   getFile: (uploadId: string) =>
     fetchFile(`/uploads/${encodeURIComponent(uploadId)}/file`),
+  getFrame: (framePath: string) => fetchFile(framePath),
+  retryVideoAnalysis: (uploadId: string, rerunSpeech = false) =>
+    request<UploadRecord>(
+      `/uploads/${encodeURIComponent(uploadId)}/video/retry${rerunSpeech ? '?rerun_speech=true' : ''}`,
+      { method: 'POST' }
+    ),
+  cancelVideoAnalysis: (uploadId: string) =>
+    request<UploadRecord>(`/uploads/${encodeURIComponent(uploadId)}/video/cancel`, {
+      method: 'POST',
+    }),
 };

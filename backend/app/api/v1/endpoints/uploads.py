@@ -1,3 +1,5 @@
+"""Upload endpoints: ingestion, video job control, and authenticated file access."""
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -8,6 +10,7 @@ from app.core.config import settings
 from app.core.security import Actor, require_caps
 from app.db.session import get_db
 from app.models.assets import BrandAsset, OcrLine, UploadedFile
+from app.services import video_service
 from app.services.content_service import serialize_upload
 from app.services.ingestion import resolve_upload_path, save_upload
 
@@ -22,7 +25,12 @@ def _serialize(db: Session, record: UploadedFile) -> dict:
         .all()
     )
     has_viewable = (settings.upload_path / record.stored_name).exists()
-    return serialize_upload(record, has_viewable_file=has_viewable, ocr_lines=ocr_lines)
+    return serialize_upload(
+        record,
+        has_viewable_file=has_viewable,
+        ocr_lines=ocr_lines,
+        video=video_service.serialize_state(db, record),
+    )
 
 
 def _get_upload(db: Session, actor: Actor, upload_id: str) -> UploadedFile:
@@ -66,6 +74,7 @@ def upload_file(
     db: Session = Depends(get_db),
 ):
     record = save_upload(db, actor, file, expected_kind=kind)
+    video_service.start_processing(db, record)
     return _serialize(db, record)
 
 
@@ -100,3 +109,56 @@ def get_upload_file(
         media_type=media_type,
         headers={"Content-Disposition": f'{disposition}; filename="{safe_name}"'},
     )
+
+
+def _get_owned_video(db: Session, actor: Actor, upload_id: str) -> UploadedFile:
+    record = _get_upload(db, actor, upload_id)
+    if not _can_read_upload(db, actor, record):
+        raise HTTPException(status_code=403, detail="You do not have access to this file.")
+    if record.kind != "video":
+        raise HTTPException(status_code=400, detail="This upload is not a video.")
+    return record
+
+
+@router.post("/{upload_id}/video/retry")
+def retry_video_processing(
+    upload_id: str,
+    rerun_speech: bool = False,
+    actor: Actor = Depends(require_caps("content.create")),
+    db: Session = Depends(get_db),
+):
+    record = _get_owned_video(db, actor, upload_id)
+    video_service.retry_processing(db, record, rerun_speech=rerun_speech)
+    db.refresh(record)
+    return _serialize(db, record)
+
+
+@router.post("/{upload_id}/video/cancel")
+def cancel_video_processing(
+    upload_id: str,
+    actor: Actor = Depends(require_caps("content.create")),
+    db: Session = Depends(get_db),
+):
+    record = _get_owned_video(db, actor, upload_id)
+    video_service.request_cancel(db, record)
+    db.refresh(record)
+    return _serialize(db, record)
+
+
+@router.get("/{upload_id}/frames/{file_name}")
+def get_video_frame(
+    upload_id: str,
+    file_name: str,
+    actor: Actor = Depends(require_caps("brand.read")),
+    db: Session = Depends(get_db),
+):
+    record = _get_upload(db, actor, upload_id)
+    if not _can_read_upload(db, actor, record):
+        raise HTTPException(status_code=403, detail="You do not have access to this file.")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}", file_name) or ".." in file_name:
+        raise HTTPException(status_code=400, detail="Invalid frame name.")
+    frame_dir = (settings.upload_path / "frames" / record.id).resolve()
+    path = (frame_dir / file_name).resolve()
+    if frame_dir not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="This frame is not available on the server.")
+    return FileResponse(path, media_type="image/jpeg")

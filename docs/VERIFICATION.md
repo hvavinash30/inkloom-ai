@@ -7,6 +7,8 @@ Environment: Windows 10, local development (FastAPI `127.0.0.1:8000`, Vite `loca
 
 This report contains only results measured against the final working tree on 2026-10-30. Older Round 3 results are kept only where explicitly labelled **historical**, and they do not describe the redesign. The redesign was committed as `e59bb17`, pushed to GitHub `main`, and deployed to Vercel on 2026-10-30; §4 records the live verification.
 
+**Addendum (2026-10-30, later the same day):** automatic video auditing (speech-to-text + sampled-frame OCR) was implemented and verified locally. It is not committed, pushed, or deployed. §1 and §8 record the current test results and the focused video verification; the redesign sections §2–§4 keep their original measurements and are labelled where the current tree differs.
+
 ---
 
 ## 1. Automated tests
@@ -15,12 +17,13 @@ Commands were run from the repository root against the final code.
 
 | Suite | Command | Result |
 | --- | --- | --- |
-| Backend (all) | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **84 passed, 0 failed, 1 warning in 45.20 s** (warning: third-party `anyio` deprecation from Starlette’s TestClient) |
+| Backend (all, current tree) | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **102 passed, 0 failed, 1 warning in 35.78 s** (warning: third-party `anyio` deprecation from Starlette’s TestClient) |
+| Video pipeline (current tree) | `cd backend && .venv\Scripts\python.exe -m pytest tests/test_video_pipeline.py -q` | **18 passed, 0 failed, 1 warning in 20.47 s** |
 | Frontend helper tests | `cd frontend && npm run test:format` | **27 passed, 0 failed, 0 skipped** (Node test runner, 711.62 ms) |
 | TypeScript | `cd frontend && npx tsc --noEmit` | **0 errors** (exit code 0) |
-| Production build | `cd frontend && npm run build` | **0 TypeScript errors**; build succeeded (see §2) |
+| Production build | `cd frontend && npm run build` | **0 TypeScript errors**; build succeeded (current output in §8.1) |
 
-The full backend suite includes OCR ingestion, session/security, review-workflow, insights, campaign, brand-memory, research, evaluation, assistant, and deterministic-engine tests. OCR fixtures (PNG, scanned PDF, mixed native/scanned PDF, blank scan) are generated with PyMuPDF at test time; no binary fixtures are committed. The suite uses a temporary SQLite database (`backend/tests/conftest.py`) and does not modify `backend/inkloom.db`.
+The full backend suite includes OCR ingestion, session/security, review-workflow, insights, campaign, brand-memory, research, evaluation, assistant, deterministic-engine, and video-pipeline tests. OCR fixtures (PNG, scanned PDF, mixed native/scanned PDF, blank scan) are generated with PyMuPDF at test time; video fixtures are generated with FFmpeg/Pillow, and the speech provider is mocked in tests. No binary fixtures are committed. The suite uses a temporary SQLite database (`backend/tests/conftest.py`) and does not modify `backend/inkloom.db`. The 84-test result recorded for the earlier redesign run is superseded by the current 102-test total.
 
 No tests were removed, skipped, or weakened for this redesign.
 
@@ -29,6 +32,8 @@ No tests were removed, skipped, or weakened for this redesign.
 ## 2. Production build
 
 Command: `cd frontend && npm run build` (runs `tsc` first).
+
+The output below is from the redesign round. The current tree (including the video UI) builds cleanly with 1,625 modules and JS 640.03 kB / CSS 58.74 kB; see §8.1.
 
 ```
 vite v6.4.5 building for production...
@@ -139,10 +144,11 @@ The full 22-journey suite was executed locally, not against the live deployment.
 
 ## 5. Known failures and limitations
 
-- **Automated failures:** none. Backend 84/84, frontend 27/27, `tsc` 0 errors, production build success.
-- **Build advisory:** one chunk over 500 kB (`624.78 kB` JS); the build passes and was not code-split in this round.
+- **Automated failures:** none. Backend 102/102 (including 18 video tests), frontend 27/27, `tsc` 0 errors, production build success.
+- **Build advisory:** one chunk over 500 kB (`640.03 kB` JS); the build passes and was not code-split in this round.
 - **Browser coverage:** Chromium only. Safari, Firefox, real iOS/Android devices, screen readers, and axe were not tested. Widths tested: 390, 768, 1024, 1440 px.
 - **Live coverage is smoke-level.** The redesign is deployed and passed the live smoke above, but the 22 journeys were not re-run against the live deployment, and the live backend still disables OCR.
+- **Automatic video auditing is local-only.** It is not deployed; no real paid speech-provider call was made (a local OpenAI-compatible mock was used). Video OCR was verified on clean generated frames, not noisy/handwritten/animated/non-Latin text. Frame sampling can miss brief overlays.
 - **OCR quality:** verified with generated, clean fixtures; photographs, handwriting, non-Latin scripts, and low-resolution scans were not measured.
 - **Animation timing:** menus and dialogs enter over 200–240 ms. Opacity is 0 at the first animation frame by design; settled-state checks pass.
 - **Reduced motion:** the stylesheet disables animations/transitions and hover lift under `prefers-reduced-motion: reduce`; this was inspected in code, not exercised with an OS-level setting in the browser.
@@ -178,3 +184,81 @@ npm run build
 ```
 
 Browser journeys require a local backend and frontend running plus a Chrome installation. The CDP harness used here is intentionally outside the repository and is not shipped.
+
+---
+
+## 8. Automatic video auditing addendum (2026-10-30)
+
+Scope: automatic speech-to-text and sampled-frame OCR integrated into the existing content form and audit engine. Not committed, pushed, or deployed.
+
+### 8.1 Build and automated checks
+
+```
+# backend
+102 passed, 1 warning in 35.78s
+# video pipeline alone
+18 passed, 1 warning in 20.47s
+
+# frontend
+vite v6.4.5 building for production...
+✓ 1625 modules transformed.
+dist/index.html                   1.32 kB │ gzip:   0.70 kB
+dist/assets/index-L7Up5fEq.css   58.74 kB │ gzip:  11.02 kB
+dist/assets/index-BNmdHiQv.js   640.03 kB │ gzip: 162.91 kB
+(!) Some chunks are larger than 500 kB after minification.
+✓ built in 15.53s
+```
+
+`npm run build` includes `tsc`; no type errors. The video tests use generated media and mocked provider calls; they do not make paid requests.
+
+### 8.2 End-to-end flow (real FFmpeg/RapidOCR + local speech mock)
+
+Fixture: 4-second 960×540 MP4 (`launch-card.mp4`, 59 KB) with a title card reading `100% uptime` and a sine-wave audio track. The speech mock returned two verbose-JSON segments at 00:00 and 00:02.
+
+| Step | Measured result |
+| --- | --- |
+| Upload with no transcript | Server stored the video and started extraction; panel showed attempt 1, `00:04`, audio present, `1/1 frames read` |
+| Speech stage | `Completed`; 2 timestamped segments; provider `openai_whisper`, model `whisper-1` |
+| Visual stage | `Completed`; readable text on 1 of 1 sampled frames |
+| Overall state | `completed`; both sources analyzed |
+| Run video audit | Version 1 created; score **40**; verification `verified`; 2 critical findings; method `video-audit-v2 (spoken: automatic; on-screen frames with text: 1)` |
+| Findings | `On screen` / `On-screen 00:00` and `Spoken` / `Spoken 00:02`, both `100% uptime`; both cite `Demo Enterprise Master Service Agreement §7.1` |
+| Frame evidence | 960×540 JPEG loaded via authenticated request as a Blob URL |
+| Timestamp seek | Clicking `00:02` sought and played the stored video |
+| Transcript provenance | "Automatically transcribed by openai_whisper (whisper-1)"; version metadata `transcript_source=automatic` |
+| Refresh | Reload preserved findings, frame preview, transcript, and metadata |
+| Console | 0 errors |
+
+Two UI defects were found and fixed during this run:
+
+1. The automatic transcript was duplicated in an "untimestamped transcript text" block. The block is now suppressed when automatic segments already cover the text.
+2. The on-screen finding was anchored to the transcript line at the same timestamp, producing a misleading "exact evidence unavailable" note. Segment-anchored findings now exclude `on_screen` findings, which remain with their frame evidence.
+
+Both fixes were re-checked in the browser: the duplicate block and missing-evidence note are gone, and both source badges/frame preview still render.
+
+### 8.3 Unconfigured-provider run (separate stack)
+
+A second backend (port 8012, separate SQLite database and uploads, `TRANSCRIPTION_PROVIDER=none`) and Vite proxy (port 3002) were used to verify the partial state.
+
+| Step | Measured result |
+| --- | --- |
+| Upload with no transcript | Panel: `Partial results`, attempt 1, `00:04`, audio present, `1/1 frames read` |
+| Speech stage | `Unavailable`; reason `TRANSCRIPTION_PROVIDER=none`; guidance to add a manual transcript |
+| Visual stage | `Complete`; readable text on 1 of 1 sampled frames |
+| Run video audit | Document `Checked`; badges `Critical risk` and `Partially checked`; score **62**; stored `verification_status = partially_verified` |
+| Findings | On-screen `100% uptime` contradiction at `On-screen 00:00` with frame preview, plus one `Inspection limit` — "Spoken content was not analyzed" |
+| Fabrication check | No spoken findings, transcripts, or timestamps were produced; the only spoken entry states that speech was not analyzed |
+| Controls | `Retry analysis`, `Refresh status`, and `Run video audit` remained available |
+
+A third UI truthfulness defect was found and fixed: the inspection-limit card carried the `Spoken` provenance badge, said its text was "extracted from automatically transcribed speech", and offered correction-drafting actions. Inspection-limit cards now omit the source badge, state that the stage could not be inspected and is not a content violation, and hide Apply/Suggest/Edit correction actions. Re-checked in the browser: the limit card shows the corrected note with only "Ask about this" and "Mark accepted"; the on-screen evidence card is unchanged.
+
+### 8.4 Scenario coverage
+
+The 20-scenario matrix, exact commands, and per-test mapping are in [VIDEO_AUDITING.md](VIDEO_AUDITING.md) §7. Summary: upload without a transcript, manual-transcript precedence, transcript-only preservation, text/PDF/image regression via the full suite, unconfigured provider, provider failure, OCR unavailable, no audio, no content, invalid/corrupt/oversized upload, duplicate submit, cancel, retry without re-upload, restart recovery, workspace isolation, health, real OCR, timestamp seek, frame preview, and refresh recovery all passed. FFmpeg-missing behavior is covered by explicit configuration reporting but was not exercised by removing the binary in this run.
+
+### 8.5 Not covered
+
+- No deployment and no real paid provider call.
+- No full 22-journey regression re-run or responsive sweep for the new panel; the focused flow was desktop Chromium only.
+- No noisy/animated/non-Latin video OCR, speaker diarization, translation, or visual-quality judgement.
+- Frame sampling can miss short overlays.

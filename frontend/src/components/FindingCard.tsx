@@ -16,6 +16,7 @@ import {
 import { api, ApiError } from '../services/api';
 import { useToast } from './Toast';
 import { Badge, Button, Card, SeverityBadge, StatusBadge, Textarea, cn } from './ui';
+import { FramePreview } from './FramePreview';
 import {
   CATEGORY_LABEL,
   SEVERITY_DOT,
@@ -148,6 +149,8 @@ export function FindingCard({
     setError(null);
   };
 
+  const isInspectionLimit = finding.category === 'processing_issue';
+
   return (
     <Card className={cn('overflow-hidden', !isOpen && 'bg-white/[0.035]')}>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/[0.07] px-4 py-3">
@@ -156,6 +159,21 @@ export function FindingCard({
           <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
             {CATEGORY_LABEL[finding.category] || finding.category.replace(/_/g, ' ')}
           </span>
+          {isInspectionLimit ? null : finding.source_type === 'spoken' ? (
+            <span
+              title="Found in speech transcribed automatically from the stored video's audio. Extraction, not verified truth."
+              className="rounded border border-sky-400/25 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-200"
+            >
+              Spoken
+            </span>
+          ) : finding.source_type === 'on_screen' ? (
+            <span
+              title="Found in text read by OCR from a sampled video frame. Check the frame preview."
+              className="rounded border border-violet-400/25 bg-violet-400/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-200"
+            >
+              On screen
+            </span>
+          ) : null}
           {!isOpen ? <StatusBadge status={finding.status} /> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
@@ -180,7 +198,32 @@ export function FindingCard({
           <p className="whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-slate-200">
             {finding.affected_text || '—'}
           </p>
+          {isInspectionLimit ? (
+            <p className="mt-1.5 text-[10px] leading-4 text-slate-400">
+              This records a stage the pipeline could not inspect. It is not a content violation.
+            </p>
+          ) : finding.source_type === 'spoken' ? (
+            <p className="mt-1.5 text-[10px] leading-4 text-slate-400">
+              Extracted from automatically transcribed speech. Wording and timestamps come from the transcription
+              provider and are evidence to verify, not confirmed truth.
+            </p>
+          ) : finding.source_type === 'on_screen' ? (
+            <p className="mt-1.5 text-[10px] leading-4 text-slate-400">
+              Read by OCR from a sampled frame. OCR can miss or misread text; verify against the frame preview.
+            </p>
+          ) : null}
         </div>
+
+        {finding.frame_url ? (
+          <FramePreview
+            path={finding.frame_url}
+            caption={
+              finding.timestamp_seconds !== null && finding.timestamp_seconds !== undefined
+                ? `Sampled frame near ${formatSeconds(finding.timestamp_seconds)}`
+                : 'Sampled video frame'
+            }
+          />
+        ) : null}
 
         {finding.supporting_evidence || finding.source_reference ? (
           <div className="rounded-lg border border-brand-400/15 bg-brand-500/10 px-3 py-2.5">
@@ -217,7 +260,7 @@ export function FindingCard({
             <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-emerald-100">
               {finding.suggested_correction}
             </p>
-            {canEdit && isOpen ? (
+            {canEdit && isOpen && !isInspectionLimit ? (
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <Button
                   variant="secondary"
@@ -262,16 +305,32 @@ export function FindingCard({
             </Button>
             {isOpen && canEdit ? (
               <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="min-h-11 sm:min-h-8"
-                  onClick={openSuggest}
-                  aria-expanded={mode === 'suggest'}
-                >
-                  <Wand2 className="h-3.5 w-3.5" />
-                  Suggest correction
-                </Button>
+                {isInspectionLimit ? null : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11 sm:min-h-8"
+                      onClick={openSuggest}
+                      aria-expanded={mode === 'suggest'}
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                      Suggest correction
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11 sm:min-h-8"
+                      onClick={() => {
+                        setMode(mode === 'edit' ? 'idle' : 'edit');
+                        setCorrection(finding.suggested_correction || '');
+                      }}
+                    >
+                      <PencilLine className="h-3.5 w-3.5" />
+                      Edit suggested wording
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -281,18 +340,6 @@ export function FindingCard({
                 >
                   <Check className="h-3.5 w-3.5" />
                   Mark accepted
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="min-h-11 sm:min-h-8"
-                  onClick={() => {
-                    setMode(mode === 'edit' ? 'idle' : 'edit');
-                    setCorrection(finding.suggested_correction || '');
-                  }}
-                >
-                  <PencilLine className="h-3.5 w-3.5" />
-                  Edit suggested wording
                 </Button>
               </>
             ) : null}

@@ -85,6 +85,22 @@ def _validate_campaign(db: Session, actor: Actor, campaign_id: Optional[str]) ->
         raise HTTPException(status_code=404, detail="Campaign not found in this workspace.")
 
 
+def _ensure_video_ready(upload: Optional[UploadedFile]) -> None:
+    """Refuse to audit a video while automatic extraction is still running."""
+    if upload is None or upload.kind != "video":
+        return
+    extraction = upload.video_extraction
+    if extraction is not None and extraction.status in {"queued", "processing"}:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Automatic video analysis is still running. Wait for speech and on-screen "
+                "text processing to finish, or cancel it, then run the audit again. "
+                "A manual transcript can be added in the meantime."
+            ),
+        )
+
+
 @router.post("/submit-and-audit", response_model=ContentDocumentOut, status_code=201)
 def submit_and_audit(
     submission: ContentSubmissionRequest,
@@ -96,6 +112,8 @@ def submit_and_audit(
     _validate_campaign(db, actor, submission.campaign_id)
 
     upload = _get_upload(db, actor, submission.upload_id) if submission.upload_id else None
+    if not submission.save_as_draft:
+        _ensure_video_ready(upload)
     pages = submission.page_texts or []
     if pages and len(pages) > settings.MAX_PDF_PAGES:
         raise HTTPException(
@@ -262,6 +280,7 @@ def create_version(
     db: Session = Depends(get_db),
 ):
     document = _get_document(db, actor, document_id, require_edit=True)
+    _ensure_video_ready(document.file)
     segments = [segment.model_dump() for segment in (payload.transcript_segments or [])]
     content_service.create_new_version(
         db,
@@ -285,6 +304,7 @@ def rerun_audit(
     db: Session = Depends(get_db),
 ):
     document = _get_document(db, actor, document_id, require_edit=True)
+    _ensure_video_ready(document.file)
     version = content_service.latest_version(db, document.id)
     if not version:
         raise HTTPException(status_code=400, detail="There is no saved version to check.")

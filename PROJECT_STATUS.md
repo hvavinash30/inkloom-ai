@@ -4,7 +4,7 @@
 
 Inkloom AI is a working, evidence-first brand-governance demo for the fictional **Acme Cloud Technologies** workspace. It runs locally with SQLite and no external services. Every finding comes from a deterministic rule match or a source-backed approved fact; images and scanned PDF pages are read by a local OCR engine whose output is stored and inspected, never simulated.
 
-**Last verified:** 2026-10-30 (dark 3D-glass frontend redesign verified locally and deployed to Vercel as `e59bb17`; a live smoke check passed at 1440/390 px). The backend remains live from commit `ccf799b`, deployed 2026-10-29; live OCR is disabled by the Render configuration. See [Deployment](#deployment).
+**Last verified:** 2026-10-30. Automatic video auditing (speech-to-text plus on-screen OCR) was implemented and verified locally on 2026-10-30 with **102 backend tests**, a clean production build, and a real video upload/audit flow; it is **not committed, pushed, or deployed**. The dark 3D-glass frontend redesign remains deployed on Vercel as `e59bb17`, and the backend still runs `ccf799b` with OCR disabled. See [Deployment](#deployment).
 
 ---
 
@@ -32,11 +32,15 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 - Explicit errors for encrypted, empty, over-limit, missing-text, and invalid PDFs.
 - Manual page-text fallback that preserves page boundaries and attaches no fake source file.
 
-### Video truth scanner — completed
-- MP4/WebM/MOV storage and playback through a real `<video>` element.
-- Timestamped transcript parsing (`[MM:SS] text`) and timestamp-linked findings.
-- Transcript-only records show “No source file attached”; no placeholder player is rendered.
-- No transcription. When a transcript is missing, the check states that boundary and requests one.
+### Automatic video auditing — completed locally
+- MP4/WebM/MOV storage and playback through a real `<video>` element; upload validation covers extension, MIME, container signature, and the 120 MiB limit.
+- On upload, FFmpeg extracts audio and the configured `openai_whisper`-compatible provider transcribes it with provider timestamps; FFmpeg also samples bounded frames and local RapidOCR reads visible text.
+- Speech and visual stages are independent. Unconfigured, failed, audio-less, or OCR-unavailable stages preserve the other stage's results, report the exact reason, and add a `processing_issue` finding; verification is downgraded instead of claiming complete coverage.
+- On-screen findings carry `On-screen mm:ss`, an authenticated frame reference/JPEG, and OCR limitations; spoken findings carry `Spoken mm:ss` (automatic) or `Timestamp mm:ss` (manual).
+- Persisted extraction state, stage-level UI, polling, retry without re-upload, explicit re-transcription, cancel, duplicate-submission guard, and startup recovery for interrupted jobs.
+- Manual transcripts remain optional and take precedence; transcript-only assets still show “No source file attached” and no fake player.
+- Workspace isolation applies to uploads, frame files, retry, cancel, and audit submission.
+- Provider keys stay server-side; health and upload state report configuration names/states, never secret values.
 
 ### Secure collaborative approvals — completed
 - Server-issued demo sessions; only a SHA-256 token hash is stored. Role and workspace are resolved server-side; client-declared role/workspace headers are ignored.
@@ -97,17 +101,20 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 
 | Check | Result |
 | --- | --- |
-| Backend pytest suite | **84 passed**, 0 failed, 1 third-party deprecation warning, 45.20 s |
+| Backend pytest suite | **102 passed**, 0 failed, 1 third-party deprecation warning, 35.78 s |
+| Video pipeline tests | **18 passed**, 0 failed, 20.47 s |
 | Frontend helper tests | **27 passed**, 0 failed (711.62 ms) |
 | TypeScript check | **0 errors** (`npx tsc --noEmit`) |
-| Vite production build | 1,624 modules; JS 624.78 kB (gzip 158.98 kB), CSS 58.06 kB (gzip 10.90 kB); one chunk-size advisory |
-| End-to-end browser journeys (2026-10-30) | **22 of 22 passed**: direct open, workspace switch, create/audit/correct/re-audit, submission, claim, comment, request changes, revision 3, approval, 14-event audit trail, image OCR, mixed PDF, insights, empty workspace, unauthorized actions, workspace isolation, refresh persistence. Console errors: 0 |
-| Responsive sweep | **56 checks** (14 routes × 390/768/1024/1440 px), **0 horizontal overflow**; clipped-text flags were only `sr-only` spans |
-| Overlay checks | Drawer, menus, and dialogs settled opaque and on-screen at 1440/1024/768/390 px with no horizontal overflow |
+| Vite production build | 1,625 modules; JS 640.03 kB (gzip 162.91 kB), CSS 58.74 kB (gzip 11.02 kB); one chunk-size advisory |
+| Automatic video flow (2026-10-30, local) | Uploaded a 4 s MP4 with no transcript; both stages completed; audit produced **2 critical findings** (`On-screen 00:00`, `Spoken 00:02`), score **40**, verification `verified`; authenticated frame preview, timestamp seek, and refresh recovery passed; 0 console errors. Speech used a local OpenAI-compatible mock; FFmpeg, RapidOCR, storage, and audit engine were real |
+| Unconfigured speech-to-text (2026-10-30, local) | Second stack with `TRANSCRIPTION_PROVIDER=none`: panel showed `Partial results` (speech `Unavailable`, OCR `Complete`); the audit stored `partially_verified`, kept the on-screen contradiction, added one `Inspection limit` for unanalyzed speech, score **62**, and created no spoken findings or timestamps |
+| End-to-end browser journeys (2026-10-30, prior redesign build) | **22 of 22 passed**: direct open, workspace switch, create/audit/correct/re-audit, submission, claim, comment, request changes, revision 3, approval, 14-event audit trail, image OCR, mixed PDF, insights, empty workspace, unauthorized actions, workspace isolation, refresh persistence. Console errors: 0 |
+| Responsive sweep (prior redesign build) | **56 checks** (14 routes × 390/768/1024/1440 px), **0 horizontal overflow**; clipped-text flags were only `sr-only` spans |
+| Overlay checks (prior redesign build) | Drawer, menus, and dialogs settled opaque and on-screen at 1440/1024/768/390 px with no horizontal overflow |
 | Live deployment smoke (2026-10-29) | Historical: commit `ccf799b` on Vercel and Render; Round 3 dashboard, content, insights, onboarding, and 390 px drawer passed; session **201**, role-only header **401**, insights **200**; production OCR disabled |
 | Live redesign smoke (2026-10-30) | Deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` READY and aliased; dark canvas `rgb(7, 11, 24)`, 14 glass surfaces, sidebar/header rendered, **0 JS errors**, no horizontal overflow at 1440 and 390 px, workspace menu opaque at 390 px |
 
-Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIFICATION.md).
+Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIFICATION.md); the video pipeline details and scenario matrix are in [VIDEO_AUDITING.md](docs/VIDEO_AUDITING.md).
 
 ### Deployment
 
@@ -118,6 +125,8 @@ Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIF
 | GitHub source | Public | <https://github.com/hvavinash30/inkloom-ai> |
 
 The 2026-10-30 dark 3D-glass redesign was committed as `e59bb17` and pushed to GitHub `main`, and Vercel built deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` to READY, aliased to the production URL. The live frontend serves `assets/index-C1W67hZu.js` (624,811 bytes) and `assets/index-CjC3LMnu.css` (58,064 bytes); the local build emits a different JS hash because `VITE_API_BASE_URL` is baked in at build time. The backend was not rebuilt and still runs `ccf799b`.
+
+**Automatic video auditing is local-only.** It has not been committed, pushed, or deployed. Deploying it requires setting `TRANSCRIPTION_PROVIDER=openai_whisper` and a secret `TRANSCRIPTION_API_KEY` (or `OPENAI_API_KEY`) in the host environment, choosing `OCR_PROVIDER=auto`, and ensuring enough memory for FFmpeg plus OCR. No provider credential is included in the repository.
 
 The live smoke covered the deployed shell, Overview, workspace menu, dark styling, responsive overflow, and console health at 1440 and 390 px. The full 22-journey suite was executed locally, not against the live deployment.
 
@@ -132,9 +141,12 @@ The Render service runs on the free plan. It sleeps after inactivity (cold start
 These are explicit product boundaries, not hidden gaps:
 
 - **Demo identity, real sessions.** Tokens are server-issued, hashed, expiring, and workspace-scoped, but accounts are fictional and there is no external identity provider. Replace with Supabase Auth before real use.
-- **Local OCR, bounded.** Clean printed Latin-script text reads well; handwriting, low-resolution scans, and complex layouts may fail and are reported honestly. OCR adds latency and is synchronous.
-- **No LLM in any product path.** The assistant is deterministic and grounded in stored records.
-- **No speech-to-text or frame/overlay analysis.** Video checks use supplied transcripts only. OCR boxes are stored but not drawn over images yet.
+- **Local OCR, bounded.** Clean printed Latin-script text reads well; handwriting, low-resolution scans, stylized video overlays, and complex layouts may fail and are reported honestly. OCR adds latency and is synchronous.
+- **Speech-to-text requires manual provider configuration.** `TRANSCRIPTION_PROVIDER=none` is the default. Without `openai_whisper` plus a server-side key, the speech stage is unavailable; on-screen analysis still runs and the audit records the gap. Provider timestamps are preserved, and missing timestamps are never invented.
+- **Video analysis is sampled.** Frames are taken at a bounded interval, so short overlays can be missed. Only visible text is checked; logo, colour, layout, motion, and audio tone are human-review items.
+- **Video jobs are in-process.** One worker per API process with persisted progress, cancel/retry, and startup recovery. A restart marks in-flight work failed (retryable); it does not resume mid-stage. Multi-instance deployment needs a shared queue.
+- **Automatic video auditing is not deployed.** It was verified locally; the live API still runs the previous backend. A real paid provider call was not made during verification (a local OpenAI-compatible mock was used).
+- **No LLM in the audit path.** The assistant is deterministic and grounded in stored records; an optional LLM only drafts correction wording when configured.
 - **No external research or benchmarking.** Research records are internal documentation; evaluation is a five-case synthetic regression fixture.
 - **No background jobs, notifications, or scheduled re-reviews.** All actions are user-triggered.
 - **Single-node storage.** SQLite and local uploads are suitable for the demo; production needs Postgres, object storage, and real migrations (Alembic).
@@ -146,12 +158,13 @@ These are explicit product boundaries, not hidden gaps:
 
 ## Recommended next steps (not implemented)
 
-1. Re-run the full journey suite against the live deployment, not just the smoke check, and redeploy the backend so frontend and API share a commit.
-2. Replace demo sign-in with Supabase Auth and map verified identities to workspace roles.
-3. Add Alembic migrations and bring the Supabase starter schema to parity.
-4. Add object storage with signed URLs and retention policies.
-5. Draw stored OCR bounding boxes over the source image/PDF.
-6. Add assignment notifications and fact-review reminders.
-7. Commit an end-to-end test suite and run it in CI, including axe and cross-browser coverage for the redesign.
+1. Review, commit, and deploy the automatic video pipeline; add the speech provider secret and `OCR_PROVIDER=auto` to the host, then make one real (paid) provider call and record latency, quota, and response-shape results.
+2. Re-run the full journey suite against the live deployment, not just the smoke check, and redeploy the backend so frontend and API share a commit.
+3. Replace demo sign-in with Supabase Auth and map verified identities to workspace roles.
+4. Add Alembic migrations and bring the Supabase starter schema to parity.
+5. Add object storage with signed URLs and retention policies.
+6. Draw stored OCR bounding boxes over the source image/PDF, and consider a configurable denser frame sampling mode for short overlays.
+7. Add assignment notifications and fact-review reminders.
+8. Commit an end-to-end test suite and run it in CI, including axe and cross-browser coverage for the redesign and the video flow.
 
 Full details: [ROADMAP.md](docs/ROADMAP.md).

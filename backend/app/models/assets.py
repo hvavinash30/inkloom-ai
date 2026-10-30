@@ -40,6 +40,52 @@ class UploadedFile(Base):
     documents = relationship("ContentDocument", back_populates="file")
     brand_assets = relationship("BrandAsset", back_populates="file")
     ocr_lines = relationship("OcrLine", back_populates="upload", cascade="all, delete-orphan")
+    video_extraction = relationship(
+        "VideoExtraction",
+        back_populates="upload",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+
+class VideoExtraction(Base):
+    """Stored result of the automatic video pipeline for one upload.
+
+    Every field records what actually ran. Stage state, transcript text, and
+    frame OCR lines are written only from real processing; a missing stage is
+    reported instead of being treated as a pass.
+    """
+
+    __tablename__ = "video_extractions"
+
+    upload_id = Column(String(36), ForeignKey("uploaded_files.id", ondelete="CASCADE"), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(30), default="queued", nullable=False)
+    # queued | processing | completed | partial | no_content | failed | canceled
+    stages = Column(JSON, default=dict)
+    message = Column(Text, nullable=True)
+    duration_seconds = Column(Float, nullable=True)
+    audio_present = Column(Boolean, nullable=True)
+    transcript_status = Column(String(30), default="pending", nullable=False)
+    # pending | running | completed | no_speech | no_audio | unavailable | failed | canceled
+    transcript_message = Column(Text, nullable=True)
+    transcript_text = Column(Text, nullable=True)
+    transcript_segments = Column(JSON, default=list)
+    transcription_provider = Column(String(60), nullable=True)
+    transcription_model = Column(String(120), nullable=True)
+    language = Column(String(30), nullable=True)
+    frame_count = Column(Integer, default=0, nullable=False)
+    frames_read = Column(Integer, default=0, nullable=False)
+    frames = Column(JSON, default=list)
+    onscreen_text = Column(Text, nullable=True)
+    attempt = Column(Integer, default=1, nullable=False)
+    cancel_requested = Column(Boolean, default=False, nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    upload = relationship("UploadedFile", back_populates="video_extraction")
 
 
 class OcrLine(Base):

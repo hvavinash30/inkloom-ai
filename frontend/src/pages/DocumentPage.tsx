@@ -30,6 +30,7 @@ import { useToast } from '../components/Toast';
 import { EvidenceViewer } from '../components/EvidenceViewer';
 import { HighlightedText, MissingEvidenceNote } from '../components/EvidenceText';
 import { FindingCard } from '../components/FindingCard';
+import { FramePreview } from '../components/FramePreview';
 import {
   Badge,
   Button,
@@ -639,7 +640,29 @@ export function DocumentPage({ id }: { id: string }) {
     editorPages.length > 0 &&
     (editorPages[currentPage - 1] ?? '') !== selectedPageText;
   const transcript = version?.transcript_segments || [];
-  const untimestampedTranscript = transcriptSplit.untimestamped;
+  const transcriptMetadata = (version?.asset_metadata || {}) as Record<string, unknown>;
+  const transcriptSource =
+    typeof transcriptMetadata.transcript_source === 'string' ? transcriptMetadata.transcript_source : null;
+  const transcriptProvider =
+    typeof transcriptMetadata.transcript_provider === 'string' ? transcriptMetadata.transcript_provider : null;
+  const transcriptModel =
+    typeof transcriptMetadata.transcript_model === 'string' ? transcriptMetadata.transcript_model : null;
+  const transcriptSourceNote =
+    transcriptSource === 'automatic'
+      ? `Automatically transcribed by ${transcriptProvider || 'the configured provider'}${transcriptModel ? ` (${transcriptModel})` : ''}. Timestamps are provider timestamps; wording is extracted evidence, not verified truth.`
+      : transcriptSource === 'manual'
+        ? 'This version uses a manually supplied transcript. It takes precedence over automatic speech-to-text.'
+        : null;
+  const untimestampedTranscript = (() => {
+    const leftover = transcriptSplit.untimestamped.trim();
+    if (!leftover) return '';
+    // An automatic transcript stores the provider segments plus a plain-text
+    // rendering of the same words. That rendering is not separate untimed text.
+    if (!transcript.length || transcriptSource === 'automatic') return '';
+    const collapse = (value: string) => value.replace(/\s+/g, ' ').trim();
+    const segmentText = collapse(transcript.map((segment) => String(segment.text || '')).join(' '));
+    return segmentText && collapse(leftover) === segmentText ? '' : leftover;
+  })();
   const untimedFindings = findings.filter(
     (finding) =>
       (finding.timestamp_seconds === null || finding.timestamp_seconds === undefined) &&
@@ -1098,6 +1121,18 @@ export function DocumentPage({ id }: { id: string }) {
                 Verbatim affected text is highlighted below when it exists in the stored source. Findings without an
                 exact match are listed explicitly instead of being approximated.
               </p>
+              {activeFinding.frame_url ? (
+                <div className="mt-2">
+                  <FramePreview
+                    path={activeFinding.frame_url}
+                    caption={
+                      activeFinding.timestamp_seconds !== null && activeFinding.timestamp_seconds !== undefined
+                        ? `Sampled frame near ${formatSeconds(activeFinding.timestamp_seconds)}`
+                        : 'Sampled video frame'
+                    }
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
           <SectionHeading
@@ -1117,9 +1152,11 @@ export function DocumentPage({ id }: { id: string }) {
             description={
               document.asset_type === 'video'
                 ? transcript.length > 0
-                  ? hasStoredVideo
-                    ? 'Stored transcript segments used for the check. Select a timestamp to play that point in the stored video.'
-                    : 'Stored transcript segments used for the check. No video file is attached; timestamps are transcript references only.'
+                  ? `${transcriptSourceNote ? `${transcriptSourceNote} ` : ''}${
+                      hasStoredVideo
+                        ? 'Select a timestamp to play that point in the stored video.'
+                        : 'No video file is attached; timestamps are transcript references only.'
+                    }`
                   : 'This transcript was checked as plain text. Findings have no timestamp or playback links.'
                 : document.asset_type === 'pdf'
                   ? 'Extracted text preserved per page. Page order reflects text extraction, not visual layout. Highlights mark exact recorded wording only.'
@@ -1175,6 +1212,7 @@ export function DocumentPage({ id }: { id: string }) {
                 const segmentText = String(segment.text || '');
                 const segmentFindings = findings.filter(
                   (finding) =>
+                    finding.source_type !== 'on_screen' &&
                     finding.timestamp_seconds !== null &&
                     finding.timestamp_seconds !== undefined &&
                     Math.abs(Number(finding.timestamp_seconds) - seconds) < 0.5

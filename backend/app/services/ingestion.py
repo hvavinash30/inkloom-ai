@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import Actor
 from app.models.assets import OcrLine, UploadedFile
-from app.services import ocr_service
+from app.services import ocr_service, video_service
 from app.services.workspace_service import workspace_is_demo
 
 
@@ -297,6 +297,15 @@ def save_upload(
         if header != b"%PDF-":
             destination.unlink(missing_ok=True)
             raise HTTPException(status_code=415, detail="The file does not look like a valid PDF.")
+    if kind == "video" and video_service.sniff_video_container(destination) is None:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                "The file does not look like a valid MP4, WebM, or MOV video. "
+                "Supported containers: MP4, WebM, MOV."
+            ),
+        )
 
     extraction = {
         "extraction_status": "unsupported",
@@ -353,11 +362,10 @@ def save_upload(
             }
     elif kind == "video":
         extraction = {
-            "extraction_status": "needs_transcription",
+            "extraction_status": "processing",
             "extraction_message": (
-                "Automatic video transcription is not configured in this deployment. "
-                "The video can be stored and played, but checks require a timestamped transcript. "
-                "Paste or upload a transcript alongside the video."
+                "Video stored. Automatic analysis of speech and on-screen text has been queued; "
+                "the upload reports the real status of each stage."
             ),
             "page_texts": [],
             "extracted_text": "",

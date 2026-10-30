@@ -190,6 +190,7 @@ export interface Finding {
   timestamp_seconds?: number | null;
   location_label?: string | null;
   frame_url?: string | null;
+  source_type?: 'spoken' | 'on_screen' | null;
   evidence_status: string;
   status: FindingStatus;
   dismissal_reason?: string | null;
@@ -978,6 +979,85 @@ export interface UploadOcrSummary {
   lines: UploadOcrLine[];
 }
 
+export interface VideoStageState {
+  status: string;
+  message?: string | null;
+  updated_at?: string | null;
+  segment_count?: number;
+  provider?: string | null;
+  model?: string | null;
+  frame_count?: number;
+  frames_read?: number;
+}
+
+export interface VideoTranscriptState {
+  status: string;
+  message?: string | null;
+  segment_count: number;
+  text?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  language?: string | null;
+}
+
+export interface VideoFrame {
+  timestamp_seconds: number;
+  timestamp_label: string;
+  text?: string;
+  file_name?: string;
+  line_count?: number;
+  available?: boolean;
+  url?: string | null;
+}
+
+export interface VideoConfig {
+  transcription_configured: boolean;
+  transcription_provider: string;
+  transcription_model: string;
+  transcription_reason: string;
+  ocr_available: boolean;
+  ocr_reason: string;
+  ffmpeg: {
+    available: boolean;
+    source?: string;
+    version?: string | null;
+    message?: string;
+  };
+  frame_interval_seconds: number;
+  max_frames: number;
+  max_duration_seconds: number;
+}
+
+export type VideoExtractionStatus =
+  | 'not_started'
+  | 'queued'
+  | 'processing'
+  | 'completed'
+  | 'partial'
+  | 'no_content'
+  | 'failed'
+  | 'canceled';
+
+export interface VideoState {
+  status: VideoExtractionStatus | string;
+  message?: string | null;
+  attempt: number;
+  duration_seconds?: number | null;
+  audio_present?: boolean | null;
+  stages: Record<string, VideoStageState>;
+  transcript: VideoTranscriptState;
+  frames: VideoFrame[];
+  frame_count: number;
+  frames_read: number;
+  onscreen_text?: string | null;
+  can_retry: boolean;
+  can_cancel: boolean;
+  started_at?: string | null;
+  finished_at?: string | null;
+  updated_at?: string | null;
+  config: VideoConfig;
+}
+
 export interface UploadRecord {
   id: string;
   original_name: string;
@@ -990,6 +1070,7 @@ export interface UploadRecord {
   has_viewable_file: boolean;
   page_texts: string[];
   ocr?: UploadOcrSummary | null;
+  video?: VideoState | null;
   created_at: string;
 }
 
@@ -1025,6 +1106,27 @@ export interface HealthData {
     ocr_provider?: string;
     ocr_reason?: string;
     transcription_configured: boolean;
+  };
+  transcription?: {
+    configured: boolean;
+    provider: string;
+    model: string | null;
+    language_hint: string | null;
+    reason: string;
+  };
+  video?: {
+    ffmpeg: {
+      available: boolean;
+      source: string;
+      version: string | null;
+      message: string;
+    };
+    frame_interval_seconds: number;
+    max_frames: number;
+    max_duration_seconds: number;
+    processing_timeout_seconds: number;
+    max_upload_mb: number;
+    ocr_available: boolean;
   };
   storage?: {
     database: StorageDatabaseReport;

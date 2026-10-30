@@ -919,8 +919,8 @@ export function DashboardPage() {
                     label: 'Video transcription',
                     active: data.integrations.transcription_configured,
                     detail: data.integrations.transcription_configured
-                      ? 'Configured on the server'
-                      : 'Not configured — supply a transcript',
+                      ? 'Configured on the server — automatic speech-to-text'
+                      : 'Not configured — manual transcript or on-screen text only',
                   },
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-2.5">

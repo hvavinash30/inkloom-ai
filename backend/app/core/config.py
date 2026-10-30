@@ -82,7 +82,26 @@ class Settings(BaseSettings):
     OCR_MIN_NATIVE_CHARS: int = 12
     OCR_MAX_PAGE_CHARS: int = 40_000
     TRANSCRIPTION_PROVIDER: str = "none"  # none | openai_whisper
+    # Speech-to-text runs server-side only. An OpenAI-compatible endpoint is used;
+    # keep the key out of the browser and out of logs.
+    TRANSCRIPTION_MODEL: str = "whisper-1"
+    TRANSCRIPTION_API_BASE: str = "https://api.openai.com/v1"
+    TRANSCRIPTION_API_KEY: str = ""  # falls back to OPENAI_API_KEY when empty
+    TRANSCRIPTION_TIMEOUT_SECONDS: float = 180.0
+    TRANSCRIPTION_MAX_AUDIO_BYTES: int = 24 * 1024 * 1024
+    TRANSCRIPTION_LANGUAGE: str = ""  # optional ISO-639-1 hint
+    # FFMPEG_PATH overrides the binary. When empty the server uses a system
+    # ffmpeg, then the binary bundled by the imageio-ffmpeg package.
     FFMPEG_PATH: str = ""
+
+    # Video frame sampling for on-screen text. Frames are capped and downscaled
+    # so a long video cannot turn into hundreds of OCR calls.
+    VIDEO_FRAME_INTERVAL_SECONDS: float = 10.0
+    VIDEO_MAX_FRAMES: int = 24
+    VIDEO_MAX_DURATION_SECONDS: int = 900
+    VIDEO_FRAME_MAX_WIDTH: int = 960
+    VIDEO_PROCESSING_TIMEOUT_SECONDS: float = 600.0
+    VIDEO_MIN_FRAME_TEXT_CHARS: int = 3
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
@@ -222,8 +241,33 @@ class Settings(BaseSettings):
         )
 
     @property
+    def transcription_api_key(self) -> str:
+        return self.TRANSCRIPTION_API_KEY or self.OPENAI_API_KEY
+
+    @property
     def transcription_configured(self) -> bool:
-        return bool(self.TRANSCRIPTION_PROVIDER == "openai_whisper" and self.OPENAI_API_KEY)
+        return bool(
+            self.TRANSCRIPTION_PROVIDER == "openai_whisper"
+            and self.transcription_api_key
+        )
+
+    @property
+    def transcription_status_reason(self) -> str:
+        if self.transcription_configured:
+            return (
+                "Automatic speech-to-text is enabled. Audio is extracted on the server and sent to the "
+                "configured provider; extracted transcripts are stored with the upload."
+            )
+        if self.TRANSCRIPTION_PROVIDER == "openai_whisper":
+            return (
+                "TRANSCRIPTION_PROVIDER=openai_whisper is set, but no server-side API key is available "
+                "(TRANSCRIPTION_API_KEY or OPENAI_API_KEY). Videos are still processed for on-screen "
+                "text; speech is not transcribed."
+            )
+        return (
+            "Automatic speech-to-text is not configured (TRANSCRIPTION_PROVIDER=none). Uploads are "
+            "still checked for on-screen text, and a manual transcript can always be supplied."
+        )
 
 
 settings = Settings()

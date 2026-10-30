@@ -22,6 +22,10 @@ def health_check(db: Session = Depends(get_db)):
 
     driver_ok, driver_label = driver_available()
 
+    from app.services.video_service import ffmpeg_status
+
+    ffmpeg = ffmpeg_status()
+
     return {
         "status": "online" if database == "connected" else "degraded",
         "service": "Inkloom AI Brand Governance Engine",
@@ -38,6 +42,22 @@ def health_check(db: Session = Depends(get_db)):
             "ocr_provider": "rapidocr-onnxruntime" if settings.ocr_configured else "none",
             "ocr_reason": settings.ocr_status_reason,
             "transcription_configured": settings.transcription_configured,
+        },
+        "transcription": {
+            "configured": settings.transcription_configured,
+            "provider": settings.TRANSCRIPTION_PROVIDER,
+            "model": settings.TRANSCRIPTION_MODEL if settings.transcription_configured else None,
+            "language_hint": settings.TRANSCRIPTION_LANGUAGE or None,
+            "reason": settings.transcription_status_reason,
+        },
+        "video": {
+            "ffmpeg": ffmpeg,
+            "frame_interval_seconds": settings.VIDEO_FRAME_INTERVAL_SECONDS,
+            "max_frames": settings.VIDEO_MAX_FRAMES,
+            "max_duration_seconds": settings.VIDEO_MAX_DURATION_SECONDS,
+            "processing_timeout_seconds": settings.VIDEO_PROCESSING_TIMEOUT_SECONDS,
+            "max_upload_mb": settings.MAX_VIDEO_UPLOAD_BYTES // (1024 * 1024),
+            "ocr_available": settings.ocr_configured,
         },
         # What actually persists. Reported without credentials so operators and
         # reviewers can see durability guarantees instead of assuming them.

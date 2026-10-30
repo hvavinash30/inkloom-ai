@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.db.session import engine, Base, SessionLocal, verify_connection
+from app.db.schema_guard import ensure_columns
 from app.api.v1.api import api_router
 from app.services.seed_service import seed_demo_workspace
 
@@ -42,6 +43,13 @@ def _log_storage_state() -> None:
     if not settings.uploads_durable:
         logger.warning(settings.upload_durability_note)
     logger.info("AI provider: %s. %s", settings.ai_provider_name, settings.ai_status_reason)
+    logger.info("Speech-to-text: %s", settings.transcription_status_reason)
+    try:
+        from app.services.video_service import ffmpeg_status
+
+        logger.info("Video pipeline: %s", ffmpeg_status()["message"])
+    except Exception as exc:  # noqa: BLE001 - startup logging only
+        logger.warning("Video pipeline status unavailable: %s", type(exc).__name__)
 
 
 @asynccontextmanager
@@ -50,6 +58,7 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing Inkloom AI database schema...")
     try:
         Base.metadata.create_all(bind=engine)
+        ensure_columns(engine)
         db = SessionLocal()
         try:
             seed_demo_workspace(db)
@@ -58,6 +67,13 @@ async def lifespan(app: FastAPI):
         logger.info("Database schema and demo workspace ready.")
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
+
+    try:
+        from app.services.video_service import recover_interrupted_jobs
+
+        recover_interrupted_jobs()
+    except Exception as e:
+        logger.error(f"Video job recovery failed: {e}")
 
     _log_storage_state()
 

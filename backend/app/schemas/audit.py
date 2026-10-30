@@ -63,6 +63,7 @@ class FindingOut(BaseModel):
     timestamp_seconds: Optional[float] = None
     location_label: Optional[str] = None
     frame_url: Optional[str] = None
+    source_type: Optional[str] = None
     evidence_status: str = "potential_violation"
     status: FindingStatus
     dismissal_reason: Optional[str] = None

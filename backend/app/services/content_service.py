@@ -14,14 +14,14 @@ from app.models.audit import AuditFinding, AuditRun
 from app.models.brand_rule import BrandRule
 from app.models.content import ContentDocument, ContentVersion
 from app.models.review import ApprovalDecision, AuditHistoryEvent, ReviewComment
-from app.services import review_workflow_service
+from app.services import review_workflow_service, video_service
 from app.services.audit_engine import (
     AuditResult,
     parse_timestamped_transcript,
     processing_issue_result,
     run_page_audit,
     run_text_audit,
-    run_transcript_audit,
+    run_video_audit,
     split_transcript_text,
 )
 from app.services.workspace_service import workspace_is_demo
@@ -109,6 +109,7 @@ def attach_audit_findings(db: Session, run: AuditRun, *, include_findings: bool)
                 "timestamp_seconds": f.timestamp_seconds,
                 "location_label": f.location_label,
                 "frame_url": f.frame_url,
+                "source_type": f.source_type,
                 "evidence_status": f.evidence_status,
                 "status": f.status,
                 "dismissal_reason": f.dismissal_reason,
@@ -338,51 +339,125 @@ def _resolve_audit_payload(
         ), message
 
     if document.asset_type == "video":
-        segments = version.transcript_segments or []
-        if not segments:
-            segments = parse_timestamped_transcript(version.content_text)
-        if segments:
-            source_upload = upload or document.file
-            has_video_file = bool(source_upload and source_upload.kind == "video")
-            if has_video_file:
-                notes = (
-                    "Checks used the supplied transcript. Timestamped findings link to the "
-                    "stored video player."
-                )
-            else:
-                notes = (
-                    "Checks used the supplied timestamped transcript. No video file is stored, "
-                    "so playback and timestamp seeking are unavailable."
-                )
-            parsed_cues, untimestamped_text = split_transcript_text(version.content_text)
-            if parsed_cues and untimestamped_text:
-                notes += " Untimestamped transcript text was checked without timestamps."
-            return run_transcript_audit(
-                segments,
-                version.content_text,
-                rules,
-                facts,
-                extraction_notes=notes,
-            ), notes
-        if version.content_text.strip() and version.content_text.strip() != "No transcript supplied.":
-            notes = (
-                "Checks used the supplied transcript without timestamps. Timestamp seeking is "
-                "unavailable until a timestamped transcript is added."
+        source_upload = upload or document.file
+        extraction = None
+        if source_upload is not None and getattr(source_upload, "kind", None) == "video":
+            extraction = source_upload.video_extraction
+        metadata = version.asset_metadata or {}
+        manual_segments = list(version.transcript_segments or [])
+        manual_text = (version.content_text or "").strip()
+        transcript_source = str(metadata.get("transcript_source") or "")
+        if transcript_source not in {"automatic", "manual", "none"}:
+            transcript_source = "manual" if (manual_segments or manual_text) else "none"
+        if (
+            transcript_source == "none"
+            and extraction is not None
+            and extraction.transcript_status == "completed"
+        ):
+            transcript_source = "automatic"
+
+        if (
+            extraction is not None
+            and extraction.status in {"queued", "processing"}
+            and transcript_source != "manual"
+        ):
+            message = (
+                "Automatic video analysis is still running. Wait for speech and on-screen "
+                "text processing to finish, then run the audit again. No partial audit was stored."
             )
-            return run_transcript_audit(
-                [], version.content_text, rules, facts, extraction_notes=notes
-            ), notes
-        message = (
-            upload.extraction_message
-            if upload and upload.extraction_status == "needs_transcription"
-            else "No transcript was supplied for this video."
+            return processing_issue_result(message, severity="medium"), message
+
+        if transcript_source == "automatic" and extraction is not None:
+            spoken_segments = list(extraction.transcript_segments or manual_segments)
+            spoken_text = (extraction.transcript_text or "").strip() or manual_text
+            provider_label = " ".join(
+                part for part in [extraction.transcription_provider, extraction.transcription_model] if part
+            )
+            speech_analyzed = extraction.transcript_status in {"completed", "no_speech", "no_audio"}
+            speech_message = extraction.transcript_message or (
+                "Automatic transcription did not produce spoken text."
+            )
+            if extraction.transcript_status == "completed":
+                speech_message = (
+                    f"Spoken checks used the automatic transcript"
+                    f"{f' from {provider_label}' if provider_label else ''}. "
+                    "Timestamps are the provider's own segment times."
+                )
+        elif transcript_source == "manual":
+            spoken_segments = manual_segments or parse_timestamped_transcript(manual_text)
+            spoken_text = manual_text
+            speech_analyzed = bool(spoken_segments or spoken_text)
+            speech_message = "Spoken checks used the manual transcript supplied with this version."
+        else:
+            spoken_segments, spoken_text = [], ""
+            speech_analyzed = False
+            speech_message = (
+                (extraction.transcript_message if extraction else None)
+                or "No transcript is stored for this video and speech-to-text did not produce one."
+            )
+
+        visual_stage = ((extraction.stages or {}).get("visual") if extraction else None) or {}
+        visual_analyzed = visual_stage.get("status") == "completed"
+        visual_message = (
+            visual_stage.get("message")
+            or (extraction.message if extraction else None)
+            or "No automatic frame analysis is stored for this video."
         )
-        return processing_issue_result(
-            message
-            + " Automatic speech recognition and frame OCR are not configured, so no spoken "
-            "or visual findings can be produced for this upload.",
-            severity="medium",
-        ), message
+        frames = (
+            video_service.frames_for_audit(db, source_upload)
+            if visual_analyzed and source_upload is not None
+            else []
+        )
+
+        if not speech_analyzed and not visual_analyzed:
+            message = (
+                "No spoken or on-screen text could be analyzed for this video. "
+                f"{speech_message} {visual_message}"
+            ).strip()
+            return processing_issue_result(message, severity="medium"), message
+
+        notes_parts: list[str] = []
+        if transcript_source == "automatic":
+            notes_parts.append(speech_message)
+        elif transcript_source == "manual":
+            notes_parts.append(
+                "Spoken checks used the manual transcript supplied with this version."
+            )
+            parsed_cues, untimestamped_text = split_transcript_text(manual_text)
+            if parsed_cues and untimestamped_text:
+                notes_parts.append("Untimestamped transcript text was checked without timestamps.")
+        else:
+            notes_parts.append(f"Spoken content was not analyzed. {speech_message}")
+        has_video_file = bool(source_upload and source_upload.kind == "video")
+        if not has_video_file:
+            notes_parts.append(
+                "No video file is stored, so playback and timestamp seeking are unavailable."
+            )
+        if visual_analyzed:
+            notes_parts.append(
+                f"On-screen checks used local OCR on {len(frames)} sampled frame(s) with visible text; "
+                "frame time references come from the sampling step."
+            )
+        else:
+            notes_parts.append(f"On-screen text was not analyzed. {visual_message}")
+        notes_parts.append(
+            "Logo, colour, layout, and other visual qualities are not judged automatically."
+        )
+        notes = " ".join(part for part in notes_parts if part).strip()
+        result = run_video_audit(
+            spoken_segments=spoken_segments,
+            spoken_text=spoken_text,
+            frames=frames,
+            rules=rules,
+            facts=facts,
+            transcript_source=transcript_source,
+            speech_analyzed=speech_analyzed,
+            speech_message=speech_message,
+            visual_analyzed=visual_analyzed,
+            visual_message=visual_message,
+            extraction_notes=notes,
+        )
+        return result, notes
 
     if document.asset_type == "audio":
         message = "Audio analysis is not configured in this deployment."
@@ -442,6 +517,8 @@ def run_and_store_audit(
                 page_number=item.get("page_number"),
                 timestamp_seconds=item.get("timestamp_seconds"),
                 location_label=item.get("location_label"),
+                frame_url=item.get("frame_url"),
+                source_type=item.get("source_type"),
                 evidence_status=item.get("evidence_status", "potential_violation"),
                 status="open",
             )
@@ -515,6 +592,26 @@ def create_document(
             f"[{int(s['timestamp_seconds']) // 60:02d}:{int(s['timestamp_seconds']) % 60:02d}] {s['text']}"
             for s in segments
         )
+    transcript_source: Optional[str] = None
+    extraction = None
+    if effective_asset_type == "video":
+        if content_text.strip() or segments:
+            transcript_source = "manual"
+        else:
+            extraction = (
+                upload.video_extraction if upload and upload.kind == "video" else None
+            )
+            if extraction is not None and extraction.transcript_status == "completed":
+                transcript_source = "automatic"
+                segments = list(extraction.transcript_segments or [])
+                content_text = (extraction.transcript_text or "").strip()
+                if not content_text and segments:
+                    content_text = "\n".join(
+                        f"[{int(s['timestamp_seconds']) // 60:02d}:{int(s['timestamp_seconds']) % 60:02d}] {s['text']}"
+                        for s in segments
+                    )
+            else:
+                transcript_source = "none"
     if effective_asset_type == "text" and len(content_text.strip()) < 5:
         from fastapi import HTTPException
 
@@ -558,6 +655,16 @@ def create_document(
             "upload_name": upload.original_name if upload else None,
             "extraction_status": upload.extraction_status if upload else "text",
             "page_count": upload.page_count if upload else len(pages) or None,
+            **({"transcript_source": transcript_source} if effective_asset_type == "video" else {}),
+            **(
+                {
+                    "transcript_provider": extraction.transcription_provider,
+                    "transcript_model": extraction.transcription_model,
+                    "transcript_language": extraction.language,
+                }
+                if effective_asset_type == "video" and transcript_source == "automatic"
+                else {}
+            ),
         },
         content_hash=content_hash(content_text, pages) if content_text else upload.sha256 if upload else None,
         created_by=actor.id,
@@ -613,6 +720,21 @@ def create_new_version(
 
         raise HTTPException(status_code=400, detail="Enter the revised content before saving a new version.")
 
+    metadata = dict(previous.asset_metadata or {}) if previous else {}
+    if document.asset_type == "video":
+        extraction = document.file.video_extraction if document.file else None
+        automatic_text = (extraction.transcript_text or "").strip() if extraction else ""
+        metadata["transcript_source"] = (
+            "automatic" if automatic_text and content_text.strip() == automatic_text else "manual"
+        )
+        if metadata["transcript_source"] == "automatic" and extraction is not None:
+            metadata["transcript_provider"] = extraction.transcription_provider
+            metadata["transcript_model"] = extraction.transcription_model
+            metadata["transcript_language"] = extraction.language
+        else:
+            for key in ("transcript_provider", "transcript_model", "transcript_language"):
+                metadata.pop(key, None)
+
     version = ContentVersion(
         document_id=document.id,
         version_number=version_number,
@@ -620,7 +742,7 @@ def create_new_version(
         change_summary=change_summary or f"Version {version_number}",
         page_texts=pages or [],
         transcript_segments=segments or [],
-        asset_metadata=previous.asset_metadata if previous else {},
+        asset_metadata=metadata,
         content_hash=content_hash(content_text, pages),
         created_by=actor.id,
         created_by_name=actor.name,
@@ -655,6 +777,7 @@ def serialize_upload(
     *,
     has_viewable_file: bool = True,
     ocr_lines: Optional[list] = None,
+    video: Optional[dict] = None,
 ) -> dict:
     lines = ocr_lines or []
     ocr = None
@@ -704,6 +827,7 @@ def serialize_upload(
         "has_viewable_file": has_viewable_file,
         "page_texts": record.page_texts or [],
         "ocr": ocr,
+        "video": video,
         "created_at": record.created_at,
     }
 

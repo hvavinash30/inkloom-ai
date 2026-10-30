@@ -134,6 +134,8 @@ def _make_finding(
     timestamp_seconds: Optional[float] = None,
     location_label: Optional[str] = None,
     evidence_status: str = "potential_violation",
+    source_type: Optional[str] = None,
+    frame_url: Optional[str] = None,
 ) -> dict:
     return {
         "title": title,
@@ -153,6 +155,8 @@ def _make_finding(
         "page_number": page_number,
         "timestamp_seconds": timestamp_seconds,
         "location_label": location_label,
+        "source_type": source_type,
+        "frame_url": frame_url,
         "evidence_status": evidence_status,
         "status": "open",
     }
@@ -771,6 +775,7 @@ def _dedupe(findings: Sequence[dict]) -> List[dict]:
             finding.get("timestamp_seconds"),
             finding.get("start_index"),
             finding.get("end_index"),
+            finding.get("source_type"),
             finding.get("category") == "needs_human_review",
         )
         current = best.get(key)
@@ -1126,6 +1131,170 @@ def run_transcript_audit(
         risk_level=risk,
         verification_status=_verification(findings),
         model_used="video-transcript-audit-v2",
+        execution_time_ms=int((time.time() - start) * 1000),
+        risk_factors=factors,
+        score_method=method,
+        extraction_notes=extraction_notes,
+    )
+
+
+def run_video_audit(
+    *,
+    spoken_segments: Sequence[dict],
+    spoken_text: str,
+    frames: Sequence[dict],
+    rules: Sequence[BrandRule],
+    facts: Sequence[ApprovedFact],
+    transcript_source: str,
+    speech_analyzed: bool,
+    speech_message: str,
+    visual_analyzed: bool,
+    visual_message: str,
+    extraction_notes: Optional[str] = None,
+) -> AuditResult:
+    """Audit spoken and on-screen text as two separately attributable sources.
+
+    Spoken findings carry the provider transcript's own timestamps. On-screen
+    findings carry the sampled frame's timestamp and frame URL. When a source
+    could not be analyzed, a processing-issue finding records that gap and the
+    run is never reported as fully verified.
+    """
+    start = time.time()
+    findings: List[dict] = []
+
+    if spoken_segments or (spoken_text or "").strip():
+        spoken_result = run_transcript_audit(
+            spoken_segments, spoken_text, rules, facts, extraction_notes=None
+        )
+        for finding in spoken_result.findings:
+            location = finding.get("location_label") or ""
+            if location.startswith("Timestamp ") and transcript_source == "automatic":
+                finding["location_label"] = f"Spoken {location[len('Timestamp '):]}"
+            elif location.startswith("Transcript") and transcript_source == "automatic":
+                finding["location_label"] = f"Spoken {location[len('Transcript'):]}".strip()
+            finding["source_type"] = "spoken"
+            finding.pop("frame_url", None)
+            findings.append(finding)
+
+    for frame in frames:
+        text = (frame.get("text") or "").strip()
+        if not text:
+            continue
+        try:
+            seconds = round(float(frame.get("timestamp_seconds") or 0), 2)
+        except (TypeError, ValueError):
+            seconds = 0.0
+        label = f"On-screen {_format_timestamp(seconds)}"
+        url = frame.get("url") or None
+        frame_findings = scan_rules(
+            text, rules, timestamp_seconds=seconds, location_label=label
+        )
+        frame_findings.extend(
+            detect_fact_contradictions(text, facts, timestamp_seconds=seconds, location_label=label)
+        )
+        frame_findings.extend(
+            detect_ambiguous_claims(
+                text, facts, frame_findings, timestamp_seconds=seconds, location_label=label
+            )
+        )
+        frame_findings.extend(
+            detect_unverified_quantitative_claims(
+                text, facts, frame_findings, timestamp_seconds=seconds, location_label=label
+            )
+        )
+        frame_findings.extend(
+            detect_all_caps_runs(
+                text, frame_findings, timestamp_seconds=seconds, location_label=label
+            )
+        )
+        frame_findings.extend(
+            detect_inconsistent_product_naming(
+                text, facts, frame_findings, timestamp_seconds=seconds, location_label=label
+            )
+        )
+        for finding in _dedupe(frame_findings):
+            finding["source_type"] = "on_screen"
+            finding["frame_url"] = url
+            findings.append(finding)
+
+    if not speech_analyzed:
+        findings.append(
+            _make_finding(
+                title="Spoken content was not analyzed",
+                category="processing_issue",
+                severity="medium",
+                affected_text="Speech not analyzed",
+                explanation=speech_message or "The spoken track could not be analyzed.",
+                evidence="No transcript was available for spoken rule checks.",
+                source_reference="Video processing status",
+                suggestion="Supply a transcript or configure server-side speech-to-text, then run the audit again.",
+                confidence=1.0,
+                evidence_status="processing_limitation",
+                source_type="spoken",
+            )
+        )
+    if not visual_analyzed:
+        findings.append(
+            _make_finding(
+                title="On-screen text was not analyzed",
+                category="processing_issue",
+                severity="medium",
+                affected_text="Visual text not analyzed",
+                explanation=visual_message or "On-screen text could not be read from the video.",
+                evidence="No OCR results were available for sampled frames.",
+                source_reference="Video processing status",
+                suggestion=(
+                    "Enable the local OCR engine and reprocess the video, or have a human reviewer "
+                    "inspect the visible text. Logo and colour correctness were never checked automatically."
+                ),
+                confidence=1.0,
+                evidence_status="processing_limitation",
+                source_type="on_screen",
+            )
+        )
+
+    checked_text = bool((spoken_text or "").strip() or spoken_segments) or any(
+        (frame.get("text") or "").strip() for frame in frames
+    )
+    if not checked_text and speech_analyzed and visual_analyzed:
+        findings.append(
+            _make_finding(
+                title="No spoken or on-screen text was available to check",
+                category="processing_issue",
+                severity="low",
+                affected_text="No text content found",
+                explanation=(
+                    "Processing completed but produced no spoken or visible text, so no rule "
+                    "checks could run. This is not a clean result; a human reviewer must inspect "
+                    "the video."
+                ),
+                evidence="Both the speech and frame-text stages returned empty text.",
+                source_reference="Video processing status",
+                suggestion=(
+                    "Inspect the video manually or provide a transcript, then run the audit again."
+                ),
+                confidence=1.0,
+                evidence_status="processing_limitation",
+            )
+        )
+
+    findings = _dedupe(findings)
+    score, risk, factors, method = _score(findings)
+    verification = _verification(findings)
+    if not (speech_analyzed and visual_analyzed):
+        verification = "partially_verified" if any(
+            finding["category"] != "processing_issue" for finding in findings
+        ) else "unable_to_verify"
+    frame_count = len([frame for frame in frames if (frame.get("text") or "").strip()])
+    return AuditResult(
+        findings=findings,
+        score=score,
+        risk_level=risk,
+        verification_status=verification,
+        model_used=(
+            f"video-audit-v2 (spoken: {transcript_source or 'none'}; "
+            f"on-screen frames with text: {frame_count})"
+        ),
         execution_time_ms=int((time.time() - start) * 1000),
         risk_factors=factors,
         score_method=method,

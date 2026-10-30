@@ -4,9 +4,9 @@
 
 Inkloom AI demonstrates an evidence-first governance workflow: submit content, compare it with stored brand rules and approved facts, inspect findings, revise into a new version, and route that exact version through human review.
 
-The architectural rule is simple: **a finding must come from a stored rule or approved fact, and an operation that did not run must say so.** The audit path contains no language model and no speech-to-text. Text from images and scanned PDF pages comes from a local OCR engine; its per-line output, confidence, and page numbers are stored and fed to the same deterministic rules, so OCR never invents a finding on its own.
+The architectural rule is simple: **a finding must come from a stored rule or approved fact, and an operation that did not run must say so.** The audit path contains no language model. Text from images, scanned PDF pages, and sampled video frames comes from a local OCR engine; video speech comes from the speech-to-text provider configured on the server. Extracted text, confidence/location metadata, provider timestamps, and configuration states are stored and fed to the same deterministic rules, so OCR and transcription never invent a finding on their own.
 
-Non-goals in this build: production authentication (demo accounts only), external AI, speech-to-text, and multi-node storage. See the limitations section at the end.
+Non-goals in this build: production authentication (demo accounts only), language-model audit decisions, a distributed job queue, and multi-node storage. See the limitations section at the end.
 
 ---
 
@@ -18,13 +18,14 @@ flowchart TD
     API --> AUTH["Session resolution<br/>+ capability checks<br/>+ workspace filters"]
     AUTH --> SVC["Deterministic services"]
     SVC --> OCR["Local OCR<br/>RapidOCR + PyMuPDF"]
+    SVC --> VIDEO["Video pipeline<br/>FFmpeg + speech provider"]
     SVC --> DB[(SQLite default<br/>Postgres option)]
     SVC --> FS["Server-owned uploads<br/>backend/data/uploads"]
-    UI -->|"fetch + Blob URL"| FILE["Authenticated file stream"]
+    UI -->|"fetch + Blob URL"| FILE["Authenticated file/frame stream"]
     FILE --> FS
 ```
 
-There is no browser-side database client and no secret in the frontend. The browser only knows the API base URL and holds an opaque session token in memory.
+There is no browser-side database client and no secret in the frontend. The browser only knows the API base URL and holds an opaque session token in memory. The speech provider key is read only by the API.
 
 ---
 
@@ -37,7 +38,7 @@ There is no browser-side database client and no secret in the frontend. The brow
 - **API client**: `src/services/api.ts` is a typed wrapper. Errors are normalized into `ApiError` so pages can show server messages.
 - **Evidence rendering**: findings show affected text, location, rule/fact reference, verification status, score deductions, and actions. Tabs use `role="tab"`/`tabpanel` with `aria-selected`.
 - **PDF viewer**: downloads the file through the authenticated endpoint, creates a Blob URL, and renders it in an iframe. The URL is revoked when no longer needed.
-- **Video player**: renders `<video>` only when a stored file exists. Transcript-only assets show an explicit empty-file state.
+- **Video player and analysis panel**: renders `<video>` only when a stored file exists. Transcript-only assets show an explicit empty-file state. The New content page shows server-reported video stages (speech and on-screen OCR), lets the user retry, re-transcribe, or cancel, and polls persisted state while a job is active. Findings can seek the player and render an authenticated frame preview.
 
 State is local to each page; there is no client cache layer. Mutations reload the affected record so the UI reflects server state rather than optimistic guesses.
 
@@ -93,6 +94,7 @@ Sessions expire after `SESSION_TTL_HOURS` (default 12). Logout revokes only the 
 | `BrandAsset` | Visual asset metadata and contrast information |
 | `UploadedFile` | Stored file metadata, checksum, extraction status and messages |
 | `OcrLine` | Per-line OCR text, confidence, normalized bounding box, page number |
+| `VideoExtraction` | Persisted video job: status, per-stage state/messages, transcript segments, provider/model, sampled frames, attempt, cancel flag |
 | `ContentDocument` | Asset type, owner, campaign, status, current version, approval pointer |
 | `ContentVersion` | Immutable text, page texts, transcript, change summary |
 | `AuditRun` | Score, risk level, method, verification status, risk factors |
@@ -125,7 +127,9 @@ Supported types:
 | Video | MP4/WebM/MOV | 120 MiB |
 | Transcript | TXT/VTT/SRT | 25 MiB |
 
-PDF extraction uses `pypdf`, preserving each page’s text. Pages with fewer than `OCR_MIN_NATIVE_CHARS` embedded characters are rendered with PyMuPDF at `OCR_RENDER_DPI` and read with RapidOCR, so a single PDF can mix native and OCR pages. Encrypted, empty, over-limit, or unreadable PDFs return a structured extraction message; an OCR page that yields no text is recorded as unreadable. Images are decoded and validated with Pillow (PNG/JPEG/WebP, pixel limit), then OCR-processed into lines with confidence, normalized bounding boxes, and page number. Extraction failure or unavailable OCR records a processing-limitation finding; no text is invented. Video files are stored but checks use a supplied transcript.
+PDF extraction uses `pypdf`, preserving each page’s text. Pages with fewer than `OCR_MIN_NATIVE_CHARS` embedded characters are rendered with PyMuPDF at `OCR_RENDER_DPI` and read with RapidOCR, so a single PDF can mix native and OCR pages. Encrypted, empty, over-limit, or unreadable PDFs return a structured extraction message; an OCR page that yields no text is recorded as unreadable. Images are decoded and validated with Pillow (PNG/JPEG/WebP, pixel limit), then OCR-processed into lines with confidence, normalized bounding boxes, and page number. Extraction failure or unavailable OCR records a processing-limitation finding; no text is invented.
+
+Video files are validated (extension, MIME, container signature, 120 MiB limit), stored, and queued for automatic extraction. FFmpeg resolves from `FFMPEG_PATH`, a system install, or the bundled `imageio-ffmpeg` binary. The speech stage calls the configured OpenAI-compatible transcription provider and preserves its segment timestamps. The visual stage samples a bounded number of frames and reads them with the same local OCR engine. Both stages persist independently; see §6.6 and §7.
 
 OCR is bounded by page count, image pixels, and a wall-clock timeout. The engine loads lazily and reports its availability through `/health` (`integrations.ocr_configured`, `ocr_provider`, `ocr_reason`). `OCR_PROVIDER=none` disables it and the API states that boundary.
 
@@ -154,6 +158,19 @@ Each run declares how it was produced (deterministic rules, PDF page scan, trans
 
 Submitting a check creates an audit run and findings tied to the immutable version. Re-running after edits creates a new version; history is never rewritten.
 
+### 6.6 Video auditing
+
+`video_service` runs an in-process single-worker job and persists progress in `video_extractions`.
+
+1. **Validate and store.** The upload route validates the file and creates the extraction row (`queued`), then queues the job.
+2. **Probe.** FFmpeg reports duration and whether an audio track exists.
+3. **Speech (independent).** Audio is extracted to a temporary file and sent to the configured provider. Provider segments/timestamps, text, language, and provider/model names are stored; the temporary file is deleted. Outcomes are `completed`, `no_speech`, `no_audio`, `unavailable`, or `failed`.
+4. **Visual (independent).** Frame times are planned within `VIDEO_MAX_FRAMES` and `VIDEO_MAX_DURATION_SECONDS`; frames are extracted at `VIDEO_FRAME_MAX_WIDTH` and read with RapidOCR. Each frame stores its timestamp, text, OCR error (if any), and stored JPEG name. Unavailable OCR or per-frame failures are recorded without erasing other results.
+5. **Finalize.** The run is `completed` when every configured stage produced usable results, `partial` when one source was analyzed and the other failed/was unavailable, `no_content` when both ran but found no text, `failed` when neither produced usable text, or `canceled`. The message states the actual coverage.
+6. **Recovery and control.** Retry reuses a completed transcript unless `rerun_speech=true`; cancel is honored between stages; a second audit while processing returns `409`; startup recovery marks interrupted jobs failed and retryable.
+
+`run_video_audit` then audits the stored spoken segments (with `source_type=spoken`) and each frame's text (with `source_type=on_screen`, `frame_url`, and `On-screen mm:ss`). Missing stages produce `processing_issue` findings, and verification is downgraded to `partially_verified`/`unable_to_verify` rather than reporting complete coverage. Full configuration and status details are in [VIDEO_AUDITING.md](VIDEO_AUDITING.md).
+
 ---
 
 ## 7. PDF, image, and video evidence
@@ -174,11 +191,13 @@ Submitting a check creates an audit run and findings tied to the immutable versi
 5. Store the OCR message and line list on the upload; UI shows status, confidence, and the lines. Visual qualities remain human-review items.
 
 ### Video
-1. Validate extension/MIME and size.
+1. Validate extension/MIME/container signature and size; reject unsupported or corrupt files with explicit errors.
 2. Store the file and expose playback through the authenticated endpoint.
-3. Parse supplied transcript segments using `[MM:SS]` markers (falling back to sentence timestamps only when no markers exist).
-4. Audit each segment and attach `timestamp_seconds` and a formatted location label.
-5. Do not generate timestamps, transcripts, or a player when the corresponding source is absent.
+3. On upload, extract audio with FFmpeg and transcribe it with the configured provider; preserve provider timestamps, or store the transcript without timestamps if the provider supplies none.
+4. Sample bounded frames, run local OCR, and store each frame's text, timestamp, and JPEG. Only visible text is used; no visual-quality judgement is made.
+5. Audit spoken text and on-screen text as separate sources, attaching `source_type`, `timestamp_seconds`, `location_label` (`Spoken mm:ss` / `On-screen mm:ss`), and `frame_url` for on-screen findings.
+6. Record failed or unavailable stages as `processing_issue` findings and downgrade verification; never report complete coverage when a required stage failed.
+7. Keep the manual transcript path: when supplied it takes precedence, and a transcript-only asset has no file/player. Do not generate timestamps, transcripts, OCR text, or a player when the corresponding source is absent.
 
 ---
 
@@ -253,7 +272,8 @@ It cannot answer general world knowledge as an LLM would, and the UI does not pr
 
 - Protected routes require a server-issued bearer session; the token hash, user, workspace, and expiry are stored server-side.
 - Role capabilities are re-checked server-side on every protected route; role and workspace are read from the session record, not from client headers.
-- Queries filter by `workspace_id`; creator draft access is additionally restricted. `test_security.py` covers cross-workspace record and file-download attempts.
+- Queries filter by `workspace_id`; creator draft access is additionally restricted. `test_security.py` covers cross-workspace record and file-download attempts, and `test_video_pipeline.py` covers cross-workspace video uploads, frames, retry, and cancel.
+- Video jobs are owned by the uploader and scoped to the workspace; frame filenames are validated, resolved inside the upload's frame directory, and served only through an authenticated endpoint. Speech provider keys are read from server settings and never appear in responses or logs.
 - Review decisions enforce version binding, duplicate-decision rejection, assignment ownership, and written override reasons for high-risk approvals.
 - Uploads are size/type validated; image bytes are decoded before OCR; filenames are sanitized and server-generated.
 - File downloads require authorization and stream through the API; no static upload directory is served.
@@ -275,17 +295,18 @@ Not provided: production login, password reset, audit logging to an external SIE
 - **Backend process**: `backend/Procfile`.
 - **Frontend**: static Vite build. `frontend/vercel.json` rewrites all paths to `index.html`; `VITE_API_BASE_URL` must point at a reachable API when deployed separately.
 
-The 2026-10-30 3D-glass redesign is a frontend-only change, committed as `e59bb17` and deployed to Vercel at <https://inkloom-ai-rho.vercel.app> (deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`). The backend was not rebuilt and still runs `ccf799b` on Render.
+The 2026-10-30 3D-glass redesign is a frontend-only change, committed as `e59bb17` and deployed to Vercel at <https://inkloom-ai-rho.vercel.app> (deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`). The backend was not rebuilt and still runs `ccf799b` on Render. Automatic video auditing is implemented and verified locally but has **not** been committed, pushed, or deployed; it requires manual host configuration of the speech provider key and OCR/FFmpeg resources.
 
 ---
 
 ## 15. Verification approach
 
-- **Backend tests** (`backend/tests`, 84 tests): API permissions, session issuance/expiry/logout, client-header rejection, cross-workspace record and file isolation, seed integrity, PDF page linkage, generated native/scanned/mixed PDFs, image OCR with line confidence and bounding boxes, OCR failure/unavailable honesty, image validation, transcript timestamps, revision/review/stale approval, assignment and override rules, campaign conflicts, brand memory, research source requirement, evaluation execution, secret-safe integrations, assistant declarations, upload limits, deterministic engine units, and insights aggregation.
+- **Backend tests** (`backend/tests`, 102 tests): API permissions, session issuance/expiry/logout, client-header rejection, cross-workspace record and file isolation, seed integrity, PDF page linkage, generated native/scanned/mixed PDFs, image OCR with line confidence and bounding boxes, OCR failure/unavailable honesty, image validation, transcript timestamps, revision/review/stale approval, assignment and override rules, campaign conflicts, brand memory, research source requirement, evaluation execution, secret-safe integrations, assistant declarations, upload limits, deterministic engine units, insights aggregation, and the video pipeline (18 tests: speech/visual independence, provider/OCR failure states, no audio/no content, validation, cancel/retry/recovery, workspace isolation, health, real OCR).
 - **Frontend tests**: 27 Node tests for pure helpers (`npm run test:format`), plus `tsc --noEmit`.
 - **Build**: `tsc` then Vite production build.
 - **Browser checks (2026-10-30 redesign)**: a temporary headless-Chrome CDP harness (outside the repo) executed 22 end-to-end journeys against the real local API — including create/audit/correct/re-audit/submit/review/request-changes/approve with version 3, image OCR, mixed PDF, insights, an empty workspace, unauthorized actions, workspace isolation, and refresh persistence — plus 56 route-overflow checks (14 routes × 390/768/1024/1440 px), overlay checks at four widths, and console-error capture (0 errors). The local development database received test documents during those runs; no deployed data was touched.
-- **Not covered**: Safari/Firefox, real devices, screen readers, and automated axe/WCAG checks. The production bundle remains a single ~625 kB JS chunk.
+- **Browser checks (automatic video, 2026-10-30)**: a focused real-upload flow (video fixture, FFmpeg, RapidOCR, local speech mock) verified the analysis panel, no-transcript audit, spoken/on-screen findings, authenticated frame preview, timestamp seek, and refresh recovery with 0 console errors. The full 22-journey suite was not repeated for this change; see [VIDEO_AUDITING.md](VIDEO_AUDITING.md).
+- **Not covered**: Safari/Firefox, real devices, screen readers, automated axe/WCAG checks, real paid provider calls, and deployment of the video pipeline. The production bundle remains a single ~640 kB JS chunk.
 - There is no lint script or ESLint configuration in the repository; TypeScript is the static check.
 
 ---
@@ -294,9 +315,12 @@ The 2026-10-30 3D-glass redesign is a frontend-only change, committed as `e59bb1
 
 - Deterministic matching cannot understand tone, sarcasm, or visual context.
 - PDF extraction does not preserve columns/tables or render layout. OCR reads printed Latin-script text well but can misread handwriting, unusual fonts, low-resolution images, or complex layouts; low-quality output is visible but still needs human confirmation.
-- Visual qualities (contrast, logo usage, layout) are not judged automatically.
-- No speech-to-text or frame analysis for video.
-- No external LLM; assistant answers are limited to stored workspace records and declared guidance.
+- Visual qualities (contrast, logo usage, layout, video composition, motion) are not judged automatically.
+- Automatic video speech requires manual provider configuration (`TRANSCRIPTION_PROVIDER=openai_whisper` plus a server-side key). Without it, on-screen analysis still runs and the audit records the missing spoken coverage. Provider timestamps are preserved; none are invented.
+- Video frames are sampled at a bounded interval, so short overlays can be missed. OCR may misread stylized, animated, small, or low-contrast text; the frame preview is the evidence to verify.
+- Video jobs use an in-process single worker per API process with persisted progress, cancel/retry, and startup recovery. Multi-instance deployment needs a shared queue; a restart marks in-flight jobs failed (retryable), not resumed mid-stage.
+- Automatic video auditing is local-only and not deployed. No real paid provider call was made during verification.
+- No language model in the audit path; an optional LLM only drafts correction wording when configured.
 - Single-node SQLite/local file storage; no background workers or notifications.
 - Demo accounts are fictional; sessions are server-issued and enforced, but there is no external identity provider. RLS is not enforced on the local trusted connection.
 - The five evaluation cases are synthetic fixtures, not a benchmark.

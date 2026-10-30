@@ -30,6 +30,17 @@ services:
         value: none
       - key: TRANSCRIPTION_PROVIDER
         value: none
+      # Automatic video speech requires manual configuration before it works:
+      #   1. set TRANSCRIPTION_PROVIDER=openai_whisper (replace the value above);
+      #   2. add TRANSCRIPTION_API_KEY (or OPENAI_API_KEY) as a secret in the
+      #      Render dashboard — never in this file or the repository;
+      #   3. optionally set TRANSCRIPTION_API_BASE, TRANSCRIPTION_MODEL,
+      #      TRANSCRIPTION_LANGUAGE;
+      #   4. set OCR_PROVIDER=auto for on-screen frame OCR and confirm the
+      #      instance has memory headroom for FFmpeg + RapidOCR (the free plan
+      #      was not validated for this workload).
+      # FFmpeg is provided by the imageio-ffmpeg package in requirements.txt;
+      # set FFMPEG_PATH only to force a different binary. See docs/VIDEO_AUDITING.md.
       # Replace this with the final Vercel production origin if it differs.
       # Must be a JSON array because the setting is parsed as a list.
       - key: CORS_ORIGINS

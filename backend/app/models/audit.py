@@ -69,6 +69,9 @@ class AuditFinding(Base):
     timestamp_seconds = Column(Float, nullable=True)
     location_label = Column(String(120), nullable=True)
     frame_url = Column(Text, nullable=True)
+    # spoken | on_screen | None. Video findings record which source produced
+    # the text so the UI never mixes speech with visible copy.
+    source_type = Column(String(20), nullable=True)
     evidence_status = Column(String(50), default="potential_violation", nullable=False)
     status = Column(String(30), default="open", nullable=False)
     dismissal_reason = Column(Text, nullable=True)
