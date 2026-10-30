@@ -40,8 +40,8 @@ export function FramePreview({
 
   if (error) {
     return (
-      <div className={cn('flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-[11px] text-slate-400', className)}>
-        <ImageOff className="h-3.5 w-3.5 text-slate-400" />
+      <div className={cn('flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-ink-500', className)}>
+        <ImageOff className="h-3.5 w-3.5 text-ink-500" />
         {error} The finding text is still recorded.
       </div>
     );
@@ -49,8 +49,8 @@ export function FramePreview({
 
   if (!url) {
     return (
-      <div className={cn('flex min-h-[96px] items-center justify-center rounded-lg border border-white/10 bg-white/[0.035]', className)}>
-        <span className="flex items-center gap-2 text-[11px] text-slate-400">
+      <div className={cn('flex min-h-[96px] items-center justify-center rounded-lg border border-slate-200 bg-slate-50', className)}>
+        <span className="flex items-center gap-2 text-[11px] text-ink-500">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-400" />
           Loading sampled frame…
         </span>
@@ -59,11 +59,11 @@ export function FramePreview({
   }
 
   return (
-    <figure className={cn('overflow-hidden rounded-lg border border-white/10 bg-black/40', className)}>
+    <figure className={cn('overflow-hidden rounded-lg border border-slate-200 bg-black/40', className)}>
       <a href={url} target="_blank" rel="noreferrer" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">
         <img src={url} alt={`Sampled video frame for ${caption}`} className="max-h-56 w-full object-contain" />
       </a>
-      <figcaption className="border-t border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[10px] text-slate-400">
+      <figcaption className="border-t border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] text-ink-500">
         {caption} · served through an authenticated request
       </figcaption>
     </figure>

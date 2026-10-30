@@ -112,14 +112,14 @@ function splitPastedPages(raw: string): string[] {
 }
 
 const VIDEO_STATUS: Record<string, { label: string; tone: string }> = {
-  not_started: { label: 'Not started', tone: 'border-white/10 bg-white/[0.06] text-slate-300' },
-  queued: { label: 'Queued', tone: 'border-sky-400/25 bg-sky-400/10 text-sky-200' },
-  processing: { label: 'Processing', tone: 'border-sky-400/25 bg-sky-400/10 text-sky-200' },
-  completed: { label: 'Complete', tone: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' },
-  partial: { label: 'Partial results', tone: 'border-amber-400/25 bg-amber-400/10 text-amber-200' },
-  no_content: { label: 'No text found', tone: 'border-white/10 bg-white/[0.06] text-slate-300' },
-  failed: { label: 'Failed', tone: 'border-rose-400/25 bg-rose-500/10 text-rose-200' },
-  canceled: { label: 'Canceled', tone: 'border-white/10 bg-white/[0.06] text-slate-300' },
+  not_started: { label: 'Not started', tone: 'border-slate-200 bg-slate-100 text-ink-700' },
+  queued: { label: 'Queued', tone: 'border-sky-200 bg-sky-50 text-sky-700' },
+  processing: { label: 'Processing', tone: 'border-sky-200 bg-sky-50 text-sky-700' },
+  completed: { label: 'Complete', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+  partial: { label: 'Partial results', tone: 'border-amber-200 bg-amber-50 text-amber-800' },
+  no_content: { label: 'No text found', tone: 'border-slate-200 bg-slate-100 text-ink-700' },
+  failed: { label: 'Failed', tone: 'border-rose-200 bg-rose-50 text-rose-800' },
+  canceled: { label: 'Canceled', tone: 'border-slate-200 bg-slate-100 text-ink-700' },
 };
 
 const STAGE_LABEL: Record<string, string> = {
@@ -159,7 +159,7 @@ function VideoAnalysisPanel({
 }) {
   const meta = VIDEO_STATUS[video.status] || {
     label: video.status.replace(/_/g, ' '),
-    tone: 'border-white/10 bg-white/[0.06] text-slate-300',
+    tone: 'border-slate-200 bg-slate-100 text-ink-700',
   };
   const active = isVideoActive(video);
   const transcriptComplete = video.transcript.status === 'completed';
@@ -171,10 +171,10 @@ function VideoAnalysisPanel({
   }));
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-200">
-          <Film className="h-3.5 w-3.5 text-slate-400" />
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-ink-800">
+          <Film className="h-3.5 w-3.5 text-ink-500" />
           Automatic video analysis
         </p>
         <span className={cn('inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium', meta.tone)}>
@@ -185,14 +185,14 @@ function VideoAnalysisPanel({
       </div>
 
       {video.duration_seconds ? (
-        <p className="mt-1 text-[10px] text-slate-400">
+        <p className="mt-1 text-[10px] text-ink-500">
           {formatSeconds(video.duration_seconds)} ·{' '}
           {video.audio_present === false ? 'no audio track' : video.audio_present ? 'audio track present' : 'audio not checked'}
           {video.frame_count ? ` · ${video.frames_read}/${video.frame_count} frames read` : ''}
         </p>
       ) : null}
 
-      <p className="mt-1.5 text-[11px] leading-5 text-slate-300">{video.message}</p>
+      <p className="mt-1.5 text-[11px] leading-5 text-ink-700">{video.message}</p>
 
       <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
         {stages.map(({ name, stage }) => {
@@ -205,29 +205,29 @@ function VideoAnalysisPanel({
               className={cn(
                 'rounded-lg border px-2.5 py-2',
                 done
-                  ? 'border-emerald-400/20 bg-emerald-400/[0.06]'
+                  ? 'border-emerald-200 bg-emerald-400/[0.06]'
                   : failed
-                    ? 'border-rose-400/20 bg-rose-500/[0.06]'
-                    : 'border-white/10 bg-white/[0.03]'
+                    ? 'border-rose-200 bg-rose-500/[0.06]'
+                    : 'border-slate-200 bg-slate-50'
               )}
             >
-              <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-200">
+              <p className="flex items-center gap-1.5 text-[11px] font-medium text-ink-800">
                 {done ? (
-                  <CheckCircle2 className="h-3 w-3 text-emerald-300" />
+                  <CheckCircle2 className="h-3 w-3 text-emerald-700" />
                 ) : failed ? (
-                  <XCircle className="h-3 w-3 text-rose-300" />
+                  <XCircle className="h-3 w-3 text-rose-600" />
                 ) : status === 'running' || status === 'pending' ? (
-                  <Loader2 className={cn('h-3 w-3 text-sky-300', status === 'running' && 'animate-spin')} />
+                  <Loader2 className={cn('h-3 w-3 text-sky-600', status === 'running' && 'animate-spin')} />
                 ) : (
-                  <AlertTriangle className="h-3 w-3 text-amber-300" />
+                  <AlertTriangle className="h-3 w-3 text-amber-700" />
                 )}
                 {STAGE_LABEL[name]} · {STAGE_STATUS_LABEL[status] || status.replace(/_/g, ' ')}
               </p>
               {stage?.message ? (
-                <p className="mt-1 text-[10px] leading-4 text-slate-400">{stage.message}</p>
+                <p className="mt-1 text-[10px] leading-4 text-ink-500">{stage.message}</p>
               ) : null}
               {done && name === 'speech' && video.transcript.segment_count > 0 ? (
-                <p className="mt-1 text-[10px] text-slate-400">
+                <p className="mt-1 text-[10px] text-ink-500">
                   {video.transcript.segment_count} timestamped segment
                   {video.transcript.segment_count === 1 ? '' : 's'} from{' '}
                   {video.transcript.provider || 'the provider'}
@@ -235,7 +235,7 @@ function VideoAnalysisPanel({
                 </p>
               ) : null}
               {done && name === 'visual' && video.frames.length > 0 ? (
-                <p className="mt-1 text-[10px] text-slate-400">
+                <p className="mt-1 text-[10px] text-ink-500">
                   {video.frames.filter((frame) => frame.text).length} frame
                   {video.frames.filter((frame) => frame.text).length === 1 ? '' : 's'} with readable text
                 </p>
@@ -246,24 +246,24 @@ function VideoAnalysisPanel({
       </div>
 
       {!video.config.ffmpeg.available ? (
-        <p className="mt-2 rounded-md border border-rose-400/20 bg-rose-500/10 px-2 py-1.5 text-[10px] leading-4 text-rose-200">
+        <p className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] leading-4 text-rose-800">
           {video.config.ffmpeg.message}
         </p>
       ) : null}
       {!video.config.transcription_configured ? (
-        <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[10px] leading-4 text-amber-100">
+        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
           Speech-to-text is not configured on this server. {video.config.transcription_reason} Add a manual
           transcript below to check spoken content.
         </p>
       ) : null}
       {!video.config.ocr_available ? (
-        <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[10px] leading-4 text-amber-100">
+        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
           On-screen text cannot be read on this server. {video.config.ocr_reason}
         </p>
       ) : null}
 
       {pollError ? (
-        <p role="alert" className="mt-2 text-[10px] leading-4 text-amber-200">
+        <p role="alert" className="mt-2 text-[10px] leading-4 text-amber-800">
           {pollError}
         </p>
       ) : null}
@@ -286,7 +286,7 @@ function VideoAnalysisPanel({
             type="button"
             disabled={busy}
             onClick={() => onRetry(true)}
-            className="text-[11px] font-medium text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline disabled:opacity-50"
+            className="text-[11px] font-medium text-ink-500 underline-offset-2 hover:text-ink-800 hover:underline disabled:opacity-50"
           >
             Re-transcribe speech (calls the provider again)
           </button>
@@ -294,7 +294,7 @@ function VideoAnalysisPanel({
         <button
           type="button"
           onClick={onRefresh}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-300 hover:underline"
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:underline"
         >
           <RefreshCw className="h-3 w-3" />
           Refresh status
@@ -603,7 +603,7 @@ export function NewContentPage() {
             <button
               type="button"
               onClick={health.reload}
-              className="font-medium text-amber-200 underline underline-offset-2"
+              className="font-medium text-amber-800 underline underline-offset-2"
             >
               Retry
             </button>
@@ -614,7 +614,7 @@ export function NewContentPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
           <Card className="p-4">
-            <p className="text-xs font-semibold text-slate-100">1. Choose a content format</p>
+            <p className="text-xs font-semibold text-ink-900">1. Choose a content format</p>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
               {MODES.map((item) => {
                 const Icon = item.icon;
@@ -628,20 +628,20 @@ export function NewContentPage() {
                     className={cn(
                       'rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
                       active
-                        ? 'border-brand-400/40 bg-brand-500/10'
-                        : 'border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.06]'
+                        ? 'border-brand-200 bg-brand-50'
+                        : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100'
                     )}
                   >
                     <span
                       className={cn(
                         'flex h-7 w-7 items-center justify-center rounded-lg',
-                        active ? 'bg-brand-600 text-white' : 'bg-white/[0.06] text-slate-400'
+                        active ? 'bg-brand-600 text-white' : 'bg-slate-100 text-ink-500'
                       )}
                     >
                       <Icon className="h-3.5 w-3.5" />
                     </span>
-                    <span className="mt-2 block text-xs font-semibold text-slate-200">{item.label}</span>
-                    <span className="mt-0.5 block text-[10px] leading-4 text-slate-400">{item.description}</span>
+                    <span className="mt-2 block text-xs font-semibold text-ink-800">{item.label}</span>
+                    <span className="mt-0.5 block text-[10px] leading-4 text-ink-500">{item.description}</span>
                   </button>
                 );
               })}
@@ -649,7 +649,7 @@ export function NewContentPage() {
           </Card>
 
           <Card className="p-4 sm:p-5">
-            <p className="text-xs font-semibold text-slate-100">2. Describe the content</p>
+            <p className="text-xs font-semibold text-ink-900">2. Describe the content</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <Field
                 label="Title"
@@ -690,7 +690,7 @@ export function NewContentPage() {
                 htmlFor="content-campaign"
                 hint={
                   campaigns.error ? (
-                    <span role="alert" className="text-amber-300">
+                    <span role="alert" className="text-amber-700">
                       Campaigns could not be loaded. You can still create content without one.{' '}
                       <button
                         type="button"
@@ -722,7 +722,7 @@ export function NewContentPage() {
           </Card>
 
           <Card className="p-4 sm:p-5">
-            <p className="text-xs font-semibold text-slate-100">3. Add the content</p>
+            <p className="text-xs font-semibold text-ink-900">3. Add the content</p>
 
             {mode === 'text' ? (
               <div className="mt-3">
@@ -804,17 +804,17 @@ export function NewContentPage() {
                               : undefined
                         }
                         className={cn(
-                          'flex w-full flex-col items-center justify-center rounded-xl border border-dashed bg-white/[0.035] px-5 py-9 text-center transition-colors hover:bg-brand-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+                          'flex w-full flex-col items-center justify-center rounded-xl border border-dashed bg-slate-50 px-5 py-9 text-center transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
                           fieldErrors.file
-                            ? 'border-rose-400/35 hover:border-rose-400'
-                            : 'border-white/15 hover:border-brand-400/40'
+                            ? 'border-rose-200 hover:border-rose-400'
+                            : 'border-slate-200 hover:border-brand-200'
                         )}
                       >
-                        <UploadCloud className="h-6 w-6 text-slate-400" />
-                        <span className="mt-2 text-sm font-medium text-slate-300">
+                        <UploadCloud className="h-6 w-6 text-ink-500" />
+                        <span className="mt-2 text-sm font-medium text-ink-700">
                           Choose a {mode === 'pdf' ? 'PDF' : mode === 'image' ? 'PNG, JPEG, or WebP image' : 'MP4, WebM, or MOV video'}
                         </span>
-                        <span className="mt-1 text-[11px] text-slate-400">
+                        <span className="mt-1 text-[11px] text-ink-500">
                           {limits
                             ? mode === 'pdf'
                               ? `${limits.max_pdf_pages} page limit · ${limits.max_upload_mb} MB maximum`
@@ -823,14 +823,14 @@ export function NewContentPage() {
                         </span>
                       </button>
                     ) : (
-                      <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                         <div className="flex flex-wrap items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] text-slate-400 shadow-subtle">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-ink-500 shadow-subtle">
                             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-200">{file.name}</p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="truncate text-sm font-medium text-ink-800">{file.name}</p>
+                            <p className="text-[11px] text-ink-500">
                               {formatFileSize(file.size)}
                               {upload ? ` · stored as ${upload.kind}` : ''}
                             </p>
@@ -839,7 +839,7 @@ export function NewContentPage() {
                             type="button"
                             onClick={clearFile}
                             disabled={uploading}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/[0.06] hover:text-slate-300"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-slate-100 hover:text-ink-700"
                             aria-label="Remove selected file"
                           >
                             <X className="h-4 w-4" />
@@ -859,17 +859,17 @@ export function NewContentPage() {
                               />
                             </div>
                           ) : (
-                            <div className="mt-2.5 rounded-lg border border-white/10 bg-white/[0.04] p-2.5 text-[11px] leading-5 text-slate-300">
-                              <p className="flex items-center gap-1.5 font-medium text-slate-300">
+                            <div className="mt-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-[11px] leading-5 text-ink-700">
+                              <p className="flex items-center gap-1.5 font-medium text-ink-700">
                                 {upload.extraction_status === 'processed' ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
                                 ) : (
-                                  <AlertTriangle className="h-3.5 w-3.5 text-amber-300" />
+                                  <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />
                                 )}
                                 Extraction status: {upload.extraction_status.replace(/_/g, ' ')}
                                 {upload.page_count ? ` · ${upload.page_count} pages` : ''}
                               </p>
-                              <p className="mt-1 text-slate-400">{upload.extraction_message}</p>
+                              <p className="mt-1 text-ink-500">{upload.extraction_message}</p>
                             </div>
                           )
                         ) : null}
@@ -881,7 +881,7 @@ export function NewContentPage() {
                     <p
                       id="content-upload-error"
                       role="alert"
-                      className="mt-2 rounded-md bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300"
+                      className="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-[11px] text-rose-600"
                     >
                       {uploadError}
                     </p>
@@ -890,7 +890,7 @@ export function NewContentPage() {
                     <p
                       id="content-file-error"
                       role="alert"
-                      className="mt-2 text-xs leading-5 text-rose-300"
+                      className="mt-2 text-xs leading-5 text-rose-600"
                     >
                       {fieldErrors.file}
                     </p>
@@ -902,7 +902,7 @@ export function NewContentPage() {
                     <button
                       type="button"
                       onClick={() => setShowFallback((value) => !value)}
-                      className="text-[11px] font-medium text-brand-300 hover:underline"
+                      className="text-[11px] font-medium text-brand-600 hover:underline"
                     >
                       {showFallback ? 'Hide manual page text' : 'No extractable text? Add page text manually'}
                     </button>
@@ -951,14 +951,14 @@ export function NewContentPage() {
                 {mode === 'video' ? (
                   <div className="space-y-3">
                     {upload ? (
-                      <p className="text-[11px] leading-5 text-slate-400">
+                      <p className="text-[11px] leading-5 text-ink-500">
                         No transcript is required. The stored video&apos;s audio is transcribed and sampled frames are
                         read for on-screen text on the server, then the existing rules and approved facts are applied.
                         Once analysis finishes, run the audit; findings keep their spoken or on-screen source and real
                         timestamps.
                       </p>
                     ) : (
-                      <p className="text-[11px] leading-5 text-slate-400">
+                      <p className="text-[11px] leading-5 text-ink-500">
                         Upload a video above for automatic speech and on-screen text analysis, or use a transcript for
                         a transcript-only check without storing a video.
                       </p>
@@ -968,7 +968,7 @@ export function NewContentPage() {
                       <p
                         id="video-transcript-error"
                         role="alert"
-                        className="rounded-md bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-300"
+                        className="rounded-md bg-rose-50 px-2 py-1.5 text-[11px] text-rose-600"
                       >
                         {fieldErrors.transcript}
                       </p>
@@ -980,7 +980,7 @@ export function NewContentPage() {
                         onClick={() => setTranscriptOpen((value) => !value)}
                         aria-expanded={transcriptOpen}
                         aria-controls="video-transcript-panel"
-                        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-300 hover:underline"
+                        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-600 hover:underline"
                       >
                         {transcriptOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                         {upload ? 'Add a manual transcript (optional)' : 'Use a transcript instead of a video'}
@@ -1006,14 +1006,14 @@ export function NewContentPage() {
                             />
                           </Field>
                           {segments.length > 0 ? (
-                            <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
-                              <p className="text-[11px] font-medium text-slate-300">
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <p className="text-[11px] font-medium text-ink-700">
                                 {segments.length} timestamped segment{segments.length === 1 ? '' : 's'} parsed
                               </p>
                               <div className="mt-1.5 max-h-28 space-y-1 overflow-y-auto pr-1">
                                 {segments.slice(0, 6).map((segment, index) => (
-                                  <p key={`${segment.timestamp_seconds}-${index}`} className="flex gap-2 text-[11px] text-slate-400">
-                                    <span className="shrink-0 font-mono text-slate-400">{formatSeconds(segment.timestamp_seconds)}</span>
+                                  <p key={`${segment.timestamp_seconds}-${index}`} className="flex gap-2 text-[11px] text-ink-500">
+                                    <span className="shrink-0 font-mono text-ink-500">{formatSeconds(segment.timestamp_seconds)}</span>
                                     <span className="min-w-0 truncate">{segment.text}</span>
                                   </p>
                                 ))}
@@ -1030,7 +1030,7 @@ export function NewContentPage() {
                     </div>
 
                     {upload?.video && videoBusy ? (
-                      <p className="text-[11px] text-slate-400">Updating the video job…</p>
+                      <p className="text-[11px] text-ink-500">Updating the video job…</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -1045,11 +1045,11 @@ export function NewContentPage() {
                   type="checkbox"
                   checked={saveDraft}
                   onChange={(event) => setSaveDraft(event.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-white/15 text-brand-300 focus:ring-brand-500"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-200 text-brand-600 focus:ring-brand-500"
                 />
                 <span>
-                  <span className="block text-xs font-medium text-slate-200">Save as draft without a check</span>
-                  <span className="block text-[11px] leading-5 text-slate-400">
+                  <span className="block text-xs font-medium text-ink-800">Save as draft without a check</span>
+                  <span className="block text-[11px] leading-5 text-ink-500">
                     The content is stored, but no audit runs until you check it from the content page.
                   </span>
                 </span>
@@ -1077,7 +1077,7 @@ export function NewContentPage() {
               </div>
             </div>
             {videoProcessing ? (
-              <p className="mt-3 rounded-lg border border-sky-400/20 bg-sky-400/[0.07] px-3 py-2 text-[11px] leading-5 text-sky-100">
+              <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] leading-5 text-sky-800">
                 Automatic video analysis is still running. This button enables when the server reports both stages
                 finished, so the audit never reports a complete result for unfinished stages.
               </p>
@@ -1087,13 +1087,13 @@ export function NewContentPage() {
                 ref={errorRef}
                 role="alert"
                 tabIndex={-1}
-                className="mt-3 rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs leading-5 text-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-300"
               >
                 {error}
               </p>
             ) : null}
             {!can('content.submit.all') && !can('content.submit.own') ? (
-              <p className="mt-3 text-[11px] text-slate-400">
+              <p className="mt-3 text-[11px] text-ink-500">
                 Your role can create and check content. A creator submits it for review after checking.
               </p>
             ) : null}
@@ -1102,8 +1102,8 @@ export function NewContentPage() {
 
         <aside className="min-w-0 space-y-5">
           <Card className="p-4">
-            <p className="text-xs font-semibold text-slate-100">What runs on save</p>
-            <ul className="mt-3 space-y-2.5 text-[11px] leading-5 text-slate-400">
+            <p className="text-xs font-semibold text-ink-900">What runs on save</p>
+            <ul className="mt-3 space-y-2.5 text-[11px] leading-5 text-ink-500">
               {[
                 'Deterministic rules from the active policy library',
                 'Contradictions against active approved facts',
@@ -1116,7 +1116,7 @@ export function NewContentPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-3 border-t border-white/[0.07] pt-3 text-[11px] leading-5 text-slate-400">
+            <div className="mt-3 border-t border-slate-200 pt-3 text-[11px] leading-5 text-ink-500">
               {mode === 'video' ? (
                 transcriptionConfigured ? (
                   <>
@@ -1142,8 +1142,8 @@ export function NewContentPage() {
           </Card>
 
           <Card className="p-4">
-            <p className="text-xs font-semibold text-slate-100">File handling</p>
-            <ul className="mt-2.5 space-y-2 text-[11px] leading-5 text-slate-400">
+            <p className="text-xs font-semibold text-ink-900">File handling</p>
+            <ul className="mt-2.5 space-y-2 text-[11px] leading-5 text-ink-500">
               <li>Files are stored under a server-owned directory with generated names.</li>
               <li>Downloads use your signed-in session and are isolated to this workspace; there are no public file URLs.</li>
               <li>PDFs must pass a signature check and the server page limit.</li>

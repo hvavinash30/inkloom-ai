@@ -113,10 +113,10 @@ export function HistoryPage() {
       </div>
 
       <Card className="mt-5 overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-white/[0.07] p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-1 flex-col gap-2 sm:flex-row">
             <div className="relative min-w-0 flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -152,15 +152,15 @@ export function HistoryPage() {
               ))}
             </Select>
           </div>
-          <div className="flex items-center justify-between gap-3 text-xs text-slate-400 lg:justify-end">
+          <div className="flex items-center justify-between gap-3 text-xs text-ink-500 lg:justify-end">
             <span className="inline-flex items-center gap-1 tabular-nums">
-              <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+              <SlidersHorizontal className="h-3.5 w-3.5 text-ink-500" />
               {filtered.length} of {documents.length}
             </span>
             {hasFilters ? (
               <button
                 type="button"
-                className="font-medium text-brand-300 hover:underline"
+                className="font-medium text-brand-600 hover:underline"
                 onClick={() => {
                   setSearch('');
                   setStatus('');
@@ -221,7 +221,7 @@ export function HistoryPage() {
         )}
 
         {filtered.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] px-4 py-3 text-[11px] text-slate-400">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3 text-[11px] text-ink-500">
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="h-3.5 w-3.5" />
               Showing current documents only — open one for full history.
@@ -229,7 +229,7 @@ export function HistoryPage() {
             <button
               type="button"
               onClick={() => navigate('/insights')}
-              className="inline-flex items-center gap-1 font-medium text-brand-300 hover:underline"
+              className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"
               hidden={!can('insights.read')}
             >
               View governance insights

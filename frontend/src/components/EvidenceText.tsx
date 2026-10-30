@@ -74,10 +74,10 @@ export function MissingEvidenceNote({
   return (
     <div
       role="note"
-      className="flex items-start gap-2.5 rounded-lg border border-amber-400/25 bg-amber-400/[0.08] px-3 py-2.5"
+      className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5"
     >
-      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
-      <div className="min-w-0 text-[11px] leading-5 text-amber-100">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+      <div className="min-w-0 text-[11px] leading-5 text-amber-800">
         <p className="font-medium">
           Exact evidence unavailable for {missing.length} finding{missing.length === 1 ? '' : 's'}
         </p>
@@ -90,7 +90,7 @@ export function MissingEvidenceNote({
             </li>
           ))}
         </ul>
-        <p className="mt-1 text-amber-200/80">
+        <p className="mt-1 text-amber-700">
           No highlight was added to the {contextLabel}. This view never approximates, normalizes, or rewrites stored
           text.
         </p>

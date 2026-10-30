@@ -144,10 +144,10 @@ export function ReviewsPage() {
       </div>
 
       <Card className="mt-5 overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-white/[0.07] p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-1 flex-col gap-2 sm:flex-row">
             <div className="relative min-w-0 flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -181,14 +181,14 @@ export function ReviewsPage() {
               <option value="changes">Changes requested</option>
             </Select>
           </div>
-          <div className="flex items-center justify-between gap-3 text-xs text-slate-400 lg:justify-end">
+          <div className="flex items-center justify-between gap-3 text-xs text-ink-500 lg:justify-end">
             <span className="tabular-nums">
               {filtered.length} of {queue.length}
             </span>
             {filtersActive ? (
               <button
                 type="button"
-                className="font-medium text-brand-300 hover:underline"
+                className="font-medium text-brand-600 hover:underline"
                 onClick={() => {
                   setQuery('');
                   setAssetFilter('');
@@ -241,7 +241,7 @@ export function ReviewsPage() {
             />
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.08]">
+          <div className="divide-y divide-slate-200">
             {filtered.map((doc) => {
               const high = openHighFindings(doc);
               const findings = doc.latest_audit?.total_findings ?? null;
@@ -249,40 +249,40 @@ export function ReviewsPage() {
               return (
                 <div
                   key={doc.id}
-                  className="grid gap-3 px-4 py-4 transition-colors hover:bg-white/[0.06] md:grid-cols-[minmax(0,1fr)_150px_130px_130px] md:items-center"
+                  className="grid gap-3 px-4 py-4 transition-colors hover:bg-slate-100 md:grid-cols-[minmax(0,1fr)_150px_130px_130px] md:items-center"
                 >
                   <button
                     type="button"
                     onClick={() => navigate(`/content/${doc.id}`)}
                     className="group flex min-w-0 items-start gap-3 text-left"
                   >
-                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-slate-400">
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-ink-500">
                       <AssetGlyph type={doc.asset_type} />
                     </span>
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="truncate text-sm font-semibold text-slate-100 group-hover:text-brand-200">
+                        <span className="truncate text-sm font-semibold text-ink-900 group-hover:text-brand-700">
                           {doc.title}
                         </span>
                         {doc.approval_stale ? (
-                          <span className="inline-flex items-center gap-1 rounded border border-amber-400/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
+                          <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800">
                             <AlertTriangle className="h-2.5 w-2.5" />
                             Stale approval
                           </span>
                         ) : null}
                         {high > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded border border-rose-400/25 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-rose-300">
+                          <span className="inline-flex items-center gap-1 rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-rose-600">
                             <ShieldAlert className="h-2.5 w-2.5" />
                             {high} high risk
                           </span>
                         ) : null}
                       </span>
-                      <span className="mt-1 block truncate text-[11px] text-slate-400">
+                      <span className="mt-1 block truncate text-[11px] text-ink-500">
                         {ASSET_TYPE_LABEL[doc.asset_type]} · v{doc.current_version_number}
                         {doc.created_by_name ? ` · ${doc.created_by_name}` : ''}
                         {doc.submitted_at ? ` · submitted ${relativeTime(doc.submitted_at)}` : ''}
                       </span>
-                      <span className="mt-1 block text-[11px] text-slate-400">
+                      <span className="mt-1 block text-[11px] text-ink-500">
                         {CONTENT_TYPE_LABEL[doc.content_type as keyof typeof CONTENT_TYPE_LABEL] || titleCase(doc.content_type)}
                         {findings !== null ? ` · ${open} open of ${findings} finding${findings === 1 ? '' : 's'}` : ' · no stored check'}
                         {doc.assignment
@@ -293,17 +293,17 @@ export function ReviewsPage() {
                   </button>
 
                   <div className="flex items-center justify-between gap-2 md:block">
-                    <span className="text-[10px] uppercase tracking-wide text-slate-400 md:hidden">Status</span>
+                    <span className="text-[10px] uppercase tracking-wide text-ink-500 md:hidden">Status</span>
                     <StatusBadge status={doc.status} />
                   </div>
 
                   <div className="flex items-center justify-between gap-2 md:block">
-                    <span className="text-[10px] uppercase tracking-wide text-slate-400 md:hidden">Score</span>
+                    <span className="text-[10px] uppercase tracking-wide text-ink-500 md:hidden">Score</span>
                     <ScoreMeter score={doc.latest_audit?.overall_score ?? null} />
                   </div>
 
                   <div className="flex items-center justify-between gap-2 md:justify-end">
-                    <span className="text-[10px] uppercase tracking-wide text-slate-400 md:hidden">Action</span>
+                    <span className="text-[10px] uppercase tracking-wide text-ink-500 md:hidden">Action</span>
                     <Button size="sm" variant="secondary" onClick={() => navigate(`/content/${doc.id}`)}>
                       Review
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -317,11 +317,11 @@ export function ReviewsPage() {
       </Card>
 
       {!can('review.decide') ? (
-        <p className="mt-4 text-xs text-slate-400">
+        <p className="mt-4 text-xs text-ink-500">
           Your current role can inspect this queue but cannot record decisions.
         </p>
       ) : (
-        <p className="mt-4 text-xs text-slate-400">
+        <p className="mt-4 text-xs text-ink-500">
           Reviews can be claimed from the content page. Only the assigned reviewer or an administrator can decide, and
           decisions require feedback when you reject a version or request changes. Approving with open high-risk
           findings requires a written override reason, kept in the audit history with every dismissal.

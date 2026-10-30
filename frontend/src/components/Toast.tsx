@@ -41,29 +41,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           return (
             <div
               key={item.id}
-              className={`glass-strong animate-rise-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl px-4 py-3 ${
+              className={`animate-rise-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-white px-4 py-3 shadow-elevated ${
                 item.tone === 'success'
-                  ? 'border-emerald-400/30'
+                  ? 'border-emerald-200'
                   : item.tone === 'error'
-                    ? 'border-rose-400/35'
-                    : 'border-brand-400/30'
+                    ? 'border-rose-200'
+                    : 'border-brand-200'
               }`}
             >
               <Icon
                 className={`mt-0.5 h-4 w-4 shrink-0 ${
                   item.tone === 'success'
-                    ? 'text-emerald-300'
+                    ? 'text-emerald-600'
                     : item.tone === 'error'
-                      ? 'text-rose-300'
-                      : 'text-brand-300'
+                      ? 'text-rose-600'
+                      : 'text-brand-600'
                 }`}
                 aria-hidden
               />
-              <p className="min-w-0 flex-1 text-sm leading-5 text-slate-100">{item.message}</p>
+              <p className="min-w-0 flex-1 text-sm leading-5 text-ink-800">{item.message}</p>
               <button
                 type="button"
                 onClick={() => remove(item.id)}
-                className="mt-0.5 rounded text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                className="mt-0.5 rounded text-ink-400 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
                 aria-label="Dismiss notification"
               >
                 <X className="h-3.5 w-3.5" />

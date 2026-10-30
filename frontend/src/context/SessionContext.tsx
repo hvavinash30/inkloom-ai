@@ -19,6 +19,7 @@ export interface AssistantSeed {
   findingId?: string;
   pageContext?: string;
   prompt?: string;
+  voice?: boolean;
 }
 
 interface SessionContextValue {

@@ -83,9 +83,9 @@ const VERIFICATION_LABEL: Record<VerificationStatus, string> = {
 };
 
 const VERIFICATION_STYLE: Record<VerificationStatus, string> = {
-  verified: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
-  partially_verified: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
-  unable_to_verify: 'border-white/10 bg-white/[0.06] text-slate-300',
+  verified: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  partially_verified: 'border-amber-200 bg-amber-50 text-amber-800',
+  unable_to_verify: 'border-slate-200 bg-slate-100 text-ink-700',
 };
 
 const DECISION_LABEL: Record<DecisionType, string> = {
@@ -95,9 +95,9 @@ const DECISION_LABEL: Record<DecisionType, string> = {
 };
 
 const DECISION_STYLE: Record<DecisionType, string> = {
-  approved: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
-  rejected: 'border-rose-400/25 bg-rose-500/10 text-rose-200',
-  changes_requested: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
+  approved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  rejected: 'border-rose-200 bg-rose-50 text-rose-800',
+  changes_requested: 'border-amber-200 bg-amber-50 text-amber-800',
 };
 
 function verificationBadge(status: VerificationStatus) {
@@ -115,9 +115,9 @@ function verificationBadge(status: VerificationStatus) {
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/[0.07] py-2 last:border-0">
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="max-w-[70%] text-right text-xs leading-5 text-slate-300">{children}</dd>
+    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200 py-2 last:border-0">
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-500">{label}</dt>
+      <dd className="max-w-[70%] text-right text-xs leading-5 text-ink-700">{children}</dd>
     </div>
   );
 }
@@ -139,7 +139,7 @@ function PageSelect({
 }) {
   return (
     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-      <label htmlFor={id} className="text-[11px] font-medium text-slate-300">
+      <label htmlFor={id} className="text-[11px] font-medium text-ink-700">
         {label}
       </label>
       <div className="flex min-w-0 items-center gap-1.5">
@@ -593,7 +593,7 @@ export function DocumentPage({ id }: { id: string }) {
   if (docState.loading && !document) {
     return (
       <div>
-        <div className="mb-6 h-24 animate-pulse rounded-xl border border-white/[0.07] bg-white/[0.04]" />
+        <div className="mb-6 h-24 animate-pulse rounded-xl border border-slate-200 bg-slate-50" />
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
           <LoadingBlock rows={4} />
           <LoadingBlock rows={2} />
@@ -780,9 +780,9 @@ export function DocumentPage({ id }: { id: string }) {
 
     return (
       <div className="space-y-4">
-        <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
             <Input
               value={findingsQuery}
               onChange={(event) => setFindingsQuery(event.target.value)}
@@ -818,7 +818,7 @@ export function DocumentPage({ id }: { id: string }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-500">
           <span>{filteredFindings.length} of {findings.length} finding(s)</span>
           <span aria-hidden>·</span>
           <span>{openFindings.length} open</span>
@@ -828,11 +828,11 @@ export function DocumentPage({ id }: { id: string }) {
 
         {filteredFindings.length === 0 ? (
           findings.length === 0 ? (
-            <div className="flex items-start gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3.5">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
               <div>
-                <p className="text-sm font-medium text-emerald-100">No findings in this check</p>
-                <p className="mt-0.5 text-xs leading-5 text-emerald-200/80">
+                <p className="text-sm font-medium text-emerald-800">No findings in this check</p>
+                <p className="mt-0.5 text-xs leading-5 text-emerald-700/90">
                   The stored version matched the active rules and approved facts that were checked. This is not a legal
                   clearance or a guarantee.
                 </p>
@@ -870,15 +870,15 @@ export function DocumentPage({ id }: { id: string }) {
                   <div className="flex flex-wrap items-center gap-2">
                     <h2
                       id={`finding-group-${group.id}`}
-                      className="text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+                      className="text-[11px] font-semibold uppercase tracking-wide text-ink-500"
                     >
                       {group.title}
                     </h2>
-                    <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-400">
+                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-ink-500">
                       {group.findings.length}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] leading-5 text-slate-400">{group.description}</p>
+                  <p className="mt-0.5 text-[11px] leading-5 text-ink-500">{group.description}</p>
                 </div>
                 <div className="space-y-3">
                   {group.findings.map((finding) => {
@@ -906,7 +906,7 @@ export function DocumentPage({ id }: { id: string }) {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="min-h-11 px-2 text-[11px] text-slate-400 sm:min-h-8"
+                                  className="min-h-11 px-2 text-[11px] text-ink-500 sm:min-h-8"
                                   onClick={() => focusEvidence(finding)}
                                 >
                                   <Clock3 className="h-3 w-3" />
@@ -992,7 +992,7 @@ export function DocumentPage({ id }: { id: string }) {
             }
             action={
               uploadState.data ? (
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[10px] text-ink-500">
                   {uploadState.data.original_name} · {uploadState.data.mime_type}
                 </span>
               ) : undefined
@@ -1005,7 +1005,7 @@ export function DocumentPage({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={uploadState.reload}
-                className="font-medium text-amber-200 underline underline-offset-2"
+                className="font-medium text-amber-800 underline underline-offset-2"
               >
                 Retry
               </button>
@@ -1034,9 +1034,9 @@ export function DocumentPage({ id }: { id: string }) {
             }
           />
           {uploadState.data ? (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-500">
               <span className="inline-flex items-center gap-1">
-                <Fingerprint className="h-3 w-3 text-slate-400" />
+                <Fingerprint className="h-3 w-3 text-ink-500" />
                 SHA-256 recorded at upload
               </span>
               <span>Extraction: {uploadState.data.extraction_status.replace(/_/g, ' ')}</span>
@@ -1044,8 +1044,8 @@ export function DocumentPage({ id }: { id: string }) {
             </div>
           ) : null}
           {uploadState.data ? (
-            <details className="mt-2.5 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
-              <summary className="cursor-pointer text-[11px] font-medium text-slate-300">
+            <details className="mt-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <summary className="cursor-pointer text-[11px] font-medium text-ink-700">
                 Extraction details
                 {uploadState.data.ocr && uploadState.data.ocr.line_count > 0
                   ? ` · OCR read ${uploadState.data.ocr.line_count} line${
@@ -1057,11 +1057,11 @@ export function DocumentPage({ id }: { id: string }) {
                     }`
                   : ''}
               </summary>
-              <p className="mt-2 text-[11px] leading-5 text-slate-300">
+              <p className="mt-2 text-[11px] leading-5 text-ink-700">
                 {uploadState.data.extraction_message}
               </p>
               {uploadState.data.ocr && uploadState.data.ocr.pages.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-[11px] leading-4 text-slate-300">
+                <ul className="mt-2 space-y-1 text-[11px] leading-4 text-ink-700">
                   {uploadState.data.ocr.pages.map((ocrPage) => (
                     <li key={ocrPage.page_number}>
                       Page {ocrPage.page_number}: {ocrPage.line_count} OCR line
@@ -1073,10 +1073,10 @@ export function DocumentPage({ id }: { id: string }) {
               ) : null}
               {uploadState.data.ocr && uploadState.data.ocr.line_count > 0 ? (
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-[11px] text-slate-400">
+                  <summary className="cursor-pointer text-[11px] text-ink-500">
                     View OCR lines with confidence
                   </summary>
-                  <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto font-mono text-[10px] leading-4 text-slate-400">
+                  <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto font-mono text-[10px] leading-4 text-ink-500">
                     {uploadState.data.ocr.lines.map((line, index) => (
                       <li key={`${line.page_number}-${index}`}>
                         p{line.page_number} · {Math.round(line.confidence * 100)}% · {line.text}
@@ -1095,29 +1095,29 @@ export function DocumentPage({ id }: { id: string }) {
               id="selected-evidence"
               tabIndex={-1}
               role="status"
-              className="rounded-xl border border-orange-400/25 bg-orange-500/10 p-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              className="rounded-xl border border-orange-200 bg-orange-50 p-3 focus:outline-none focus:ring-2 focus:ring-orange-400"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-300">
                     Selected evidence
                   </p>
-                  <p className="mt-0.5 text-sm font-medium leading-5 text-orange-100">{activeFinding.title}</p>
-                  <p className="mt-0.5 text-[11px] text-orange-200/80">
+                  <p className="mt-0.5 text-sm font-medium leading-5 text-orange-800">{activeFinding.title}</p>
+                  <p className="mt-0.5 text-[11px] text-orange-700/80">
                     {SEVERITY_LABEL[activeFinding.severity]} · {activeFindingLocation}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="min-h-11 shrink-0 px-2 text-orange-200 hover:bg-orange-500/15 sm:min-h-8"
+                  className="min-h-11 shrink-0 px-2 text-orange-700 hover:bg-orange-500/15 sm:min-h-8"
                   onClick={() => setActiveFindingId(null)}
                 >
                   <XCircle className="h-3.5 w-3.5" />
                   Clear
                 </Button>
               </div>
-              <p className="mt-1.5 text-[10px] leading-4 text-orange-200/80">
+              <p className="mt-1.5 text-[10px] leading-4 text-orange-700/80">
                 Verbatim affected text is highlighted below when it exists in the stored source. Findings without an
                 exact match are listed explicitly instead of being approximated.
               </p>
@@ -1168,23 +1168,23 @@ export function DocumentPage({ id }: { id: string }) {
             }
           />
           {document.asset_type === 'image' ? (
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm font-medium text-slate-200">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-medium text-ink-800">
                 {(version?.content_text || '').trim()
                   ? 'Text checks use OCR; visual checks still need a human.'
                   : 'No readable text was extracted from this image.'}
               </p>
-              <p className="mt-1 text-xs leading-5 text-slate-400">
+              <p className="mt-1 text-xs leading-5 text-ink-500">
                 {(version?.content_text || '').trim()
                   ? 'Contrast, logo usage, text rendered in context, and layout were not judged automatically. OCR line counts and confidence are listed under Extraction details, and findings link to the exact extracted wording.'
                   : 'A human reviewer should inspect the stored image for text, contrast, logo usage, and layout. The findings tab records this limitation instead of inventing an OCR result.'}
               </p>
               {(version?.content_text || '').trim() ? (
-                <div className="mt-3 border-t border-white/[0.07] pt-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
                     Extracted text with evidence
                   </p>
-                  <pre className="mt-1.5 max-h-[360px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-300">
+                  <pre className="mt-1.5 max-h-[360px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-ink-700">
                     <HighlightedText
                       source={version?.content_text || ''}
                       findings={imageFindings}
@@ -1206,7 +1206,7 @@ export function DocumentPage({ id }: { id: string }) {
               </Button>
             </div>
           ) : document.asset_type === 'video' && transcript.length > 0 ? (
-            <div className="max-h-[540px] overflow-y-auto rounded-xl border border-white/10 bg-white/[0.04]">
+            <div className="max-h-[540px] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50">
               {transcript.map((segment, index) => {
                 const seconds = Number(segment.timestamp_seconds || 0);
                 const segmentText = String(segment.text || '');
@@ -1218,13 +1218,13 @@ export function DocumentPage({ id }: { id: string }) {
                     Math.abs(Number(finding.timestamp_seconds) - seconds) < 0.5
                 );
                 return (
-                  <div key={`${seconds}-${index}`} className="border-b border-white/[0.07] p-3 last:border-0">
+                  <div key={`${seconds}-${index}`} className="border-b border-slate-200 p-3 last:border-0">
                     <div className="flex items-start gap-2.5">
                       {hasStoredVideo ? (
                         <button
                           type="button"
                           onClick={() => seekTo(seconds)}
-                          className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 font-mono text-[10px] font-medium text-slate-300 hover:bg-brand-500/10 hover:text-brand-300 sm:min-h-0 sm:px-1.5 sm:py-0.5"
+                          className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-medium text-ink-700 hover:bg-brand-50 hover:text-brand-600 sm:min-h-0 sm:px-1.5 sm:py-0.5"
                           title="Play the stored video from this timestamp"
                         >
                           <Play className="h-2.5 w-2.5" />
@@ -1232,14 +1232,14 @@ export function DocumentPage({ id }: { id: string }) {
                         </button>
                       ) : (
                         <span
-                          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-400"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink-500"
                           title="Transcript timestamp; no video file is stored"
                         >
                           <Clock3 className="h-2.5 w-2.5" />
                           {formatSeconds(seconds)}
                         </span>
                       )}
-                      <p className="min-w-0 flex-1 text-sm leading-6 text-slate-300">
+                      <p className="min-w-0 flex-1 text-sm leading-6 text-ink-700">
                         <HighlightedText
                           source={segmentText}
                           findings={segmentFindings}
@@ -1258,8 +1258,8 @@ export function DocumentPage({ id }: { id: string }) {
                             className={cn(
                               'inline-flex min-h-11 items-center gap-1 rounded border px-1.5 py-0.5 text-left text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:min-h-0',
                               activeFindingId === finding.id
-                                ? 'border-orange-400 bg-orange-400/30 text-orange-100'
-                                : 'border-orange-400/25 bg-orange-500/10 text-orange-200 hover:bg-orange-500/15'
+                                ? 'border-orange-400 bg-orange-400/30 text-orange-800'
+                                : 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-500/15'
                             )}
                           >
                             {SEVERITY_LABEL[finding.severity]} · {finding.title}
@@ -1280,15 +1280,15 @@ export function DocumentPage({ id }: { id: string }) {
                 );
               })}
               {untimestampedTranscript ? (
-                <div className="border-t border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <div className="border-t border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
                     Untimestamped transcript text
                   </p>
-                  <p className="mt-0.5 text-[11px] leading-5 text-slate-400">
+                  <p className="mt-0.5 text-[11px] leading-5 text-ink-500">
                     These stored lines have no explicit timestamps. They were checked as plain text without inventing
                     times.
                   </p>
-                  <pre className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-300">
+                  <pre className="mt-2 max-h-60 overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-ink-700">
                     <HighlightedText
                       source={untimestampedTranscript}
                       findings={untimedFindings}
@@ -1306,10 +1306,10 @@ export function DocumentPage({ id }: { id: string }) {
               ) : null}
             </div>
           ) : document.asset_type === 'video' ? (
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               {version?.content_text ? (
                 <>
-                  <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-300">
+                  <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-ink-700">
                     <HighlightedText
                       source={version.content_text}
                       findings={untimedFindings}
@@ -1325,19 +1325,19 @@ export function DocumentPage({ id }: { id: string }) {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-slate-400">No transcript is stored for this version.</p>
+                <p className="text-sm text-ink-500">No transcript is stored for this version.</p>
               )}
-              <p className="mt-3 border-t border-white/[0.07] pt-3 text-[11px] leading-5 text-slate-400">
+              <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] leading-5 text-ink-500">
                 This transcript has no explicit timestamps. It was checked as plain text, so findings do not have
                 timestamp or playback links.
                 {isTranscriptOnly ? ' No video file is stored for this item.' : ''}
               </p>
             </div>
           ) : document.asset_type === 'pdf' ? (
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               {selectedPageText ? (
                 <>
-                  <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-300">
+                  <pre className="max-h-[440px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-ink-700">
                     <HighlightedText
                       source={selectedPageText}
                       findings={pageFindings}
@@ -1354,22 +1354,22 @@ export function DocumentPage({ id }: { id: string }) {
                 </>
               ) : (
                 <div className="py-6 text-center">
-                  <p className="text-sm font-medium text-slate-300">No extractable text on page {currentPage}</p>
-                  <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-400">
+                  <p className="text-sm font-medium text-ink-700">No extractable text on page {currentPage}</p>
+                  <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-ink-500">
                     The stored PDF can still be reviewed visually. Automated checks require extracted text or a manual
                     transcription of the page.
                   </p>
                 </div>
               )}
               {evidencePageEdited ? (
-                <p className="mt-2 rounded-md bg-amber-400/10 px-2.5 py-1.5 text-[10px] leading-4 text-amber-200">
+                <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-[10px] leading-4 text-amber-800">
                   This evidence panel shows the checked version. Your unsaved edits on this page remain in the revision
                   editor below and are not used for highlighting.
                 </p>
               ) : null}
               {pageFindings.length > 0 ? (
-                <div className="mt-3 border-t border-white/[0.07] pt-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Findings on this page</p>
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">Findings on this page</p>
                   <div className="mt-1.5 space-y-1">
                     {pageFindings.map((finding) => {
                       const exactMatch = highlightedPageFindingIds.has(finding.id);
@@ -1382,8 +1382,8 @@ export function DocumentPage({ id }: { id: string }) {
                           className={cn(
                             'flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-[11px] leading-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:min-h-0',
                             activeFindingId === finding.id
-                              ? 'border-orange-400/35 bg-orange-500/10 text-orange-100'
-                              : 'border-transparent text-slate-300 hover:border-white/10 hover:bg-white/[0.06]'
+                              ? 'border-orange-200 bg-orange-50 text-orange-800'
+                              : 'border-transparent text-ink-700 hover:border-slate-200 hover:bg-slate-100'
                           )}
                         >
                           <SeverityBadge severity={finding.severity} />
@@ -1392,8 +1392,8 @@ export function DocumentPage({ id }: { id: string }) {
                             className={cn(
                               'rounded px-1.5 py-0.5 text-[9px] font-medium',
                               exactMatch
-                                ? 'bg-amber-400/15 text-amber-200'
-                                : 'bg-white/[0.06] text-slate-400'
+                                ? 'bg-amber-400/15 text-amber-800'
+                                : 'bg-slate-100 text-ink-500'
                             )}
                           >
                             {exactMatch ? 'Highlighted' : 'Exact text unavailable'}
@@ -1406,10 +1406,10 @@ export function DocumentPage({ id }: { id: string }) {
               ) : null}
             </div>
           ) : (
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               {version?.content_text ? (
                 <>
-                  <pre className="max-h-[540px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-300">
+                  <pre className="max-h-[540px] overflow-y-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-ink-700">
                     <HighlightedText
                       source={version.content_text}
                       findings={untimedFindings}
@@ -1425,13 +1425,13 @@ export function DocumentPage({ id }: { id: string }) {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-slate-400">No text stored for this version.</p>
+                <p className="text-sm text-ink-500">No text stored for this version.</p>
               )}
             </div>
           )}
 
           {version?.change_summary ? (
-            <p className="text-[11px] text-slate-400">Version {version.version_number}: {version.change_summary}</p>
+            <p className="text-[11px] text-ink-500">Version {version.version_number}: {version.change_summary}</p>
           ) : null}
         </div>
       </div>
@@ -1443,7 +1443,7 @@ export function DocumentPage({ id }: { id: string }) {
             description="Saving a new version runs a fresh check and clears any submission. A previous approval remains a record of the older version and is marked stale."
             action={
               editorDirty ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-200">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                   Unsaved changes
                 </span>
@@ -1526,7 +1526,7 @@ export function DocumentPage({ id }: { id: string }) {
               </Button>
             </div>
             {!editorDirty && version ? (
-              <p className="text-[10px] text-slate-400">
+              <p className="text-[10px] text-ink-500">
                 Edit the text or apply a correction to enable saving. Version {version.version_number} is current.
               </p>
             ) : null}
@@ -1554,7 +1554,7 @@ export function DocumentPage({ id }: { id: string }) {
   const renderVersions = () => (
     <div className="space-y-5">
       <Card className="overflow-hidden">
-        <div className="border-b border-white/[0.07] px-4 py-3">
+        <div className="border-b border-slate-200 px-4 py-3">
           <SectionHeading
             title="Version history"
             description="Each decision is bound to the exact version reviewed. A newer version makes an older approval stale."
@@ -1569,7 +1569,7 @@ export function DocumentPage({ id }: { id: string }) {
             <ErrorState message={versionsState.error} retry={versionsState.reload} />
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.08]">
+          <div className="divide-y divide-slate-200">
             {[...versions].reverse().map((item) => {
               const isCurrent = item.id === version?.id;
               const isApprovedVersion = item.id === document.approved_version_id;
@@ -1580,25 +1580,25 @@ export function DocumentPage({ id }: { id: string }) {
                       <span
                         className={cn(
                           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold',
-                          isCurrent ? 'bg-brand-600 text-white' : 'bg-white/[0.06] text-slate-400'
+                          isCurrent ? 'bg-brand-600 text-white' : 'bg-slate-100 text-ink-500'
                         )}
                       >
                         v{item.version_number}
                       </span>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="text-sm font-medium text-slate-200">Version {item.version_number}</p>
+                          <p className="text-sm font-medium text-ink-800">Version {item.version_number}</p>
                           {isCurrent ? (
-                            <Badge className="border-brand-400/25 bg-brand-500/10 text-brand-300">Current</Badge>
+                            <Badge className="border-brand-200 bg-brand-50 text-brand-600">Current</Badge>
                           ) : null}
                           {isApprovedVersion ? (
-                            <Badge className="border-emerald-400/25 bg-emerald-400/10 text-emerald-300">Approved version</Badge>
+                            <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">Approved version</Badge>
                           ) : null}
                         </div>
-                        <p className="mt-0.5 text-[11px] text-slate-400">
+                        <p className="mt-0.5 text-[11px] text-ink-500">
                           {item.created_by_name || 'Unknown author'} · {formatDateTime(item.created_at)}
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-300">
+                        <p className="mt-1 text-xs leading-5 text-ink-700">
                           {item.change_summary || 'No change summary recorded.'}
                         </p>
                       </div>
@@ -1606,27 +1606,27 @@ export function DocumentPage({ id }: { id: string }) {
                     <div className="flex flex-wrap items-center gap-2">
                       {item.audit_summary ? (
                         <>
-                          <Badge className="border-white/10 bg-white/[0.035] text-slate-300">
+                          <Badge className="border-slate-200 bg-slate-50 text-ink-700">
                             Score {item.audit_summary.overall_score}
                           </Badge>
-                          <Badge className="border-white/10 bg-white/[0.035] text-slate-300">
+                          <Badge className="border-slate-200 bg-slate-50 text-ink-700">
                             {item.audit_summary.total_findings} finding{item.audit_summary.total_findings === 1 ? '' : 's'}
                           </Badge>
                           {item.audit_summary.verification_status === 'unable_to_verify' ? (
-                            <Badge className="border-amber-400/25 bg-amber-400/10 text-amber-200">Inspection limited</Badge>
+                            <Badge className="border-amber-200 bg-amber-50 text-amber-800">Inspection limited</Badge>
                           ) : null}
                         </>
                       ) : (
-                        <Badge className="border-white/10 bg-white/[0.035] text-slate-400">No check recorded</Badge>
+                        <Badge className="border-slate-200 bg-slate-50 text-ink-500">No check recorded</Badge>
                       )}
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-ink-500">
                         {item.page_texts.length ? `${item.page_texts.length} pages` : ''}
                         {item.transcript_segments.length ? ` · ${item.transcript_segments.length} transcript segments` : ''}
                       </span>
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-3 pl-11">
-                    <span className="truncate font-mono text-[10px] text-slate-400">
+                    <span className="truncate font-mono text-[10px] text-ink-500">
                       hash {item.content_hash ? `${item.content_hash.slice(0, 16)}…` : 'not recorded'}
                     </span>
                     {isCurrent ? null : (
@@ -1637,7 +1637,7 @@ export function DocumentPage({ id }: { id: string }) {
                           setToVersion(String(version?.version_number || item.version_number));
                           setComparison(null);
                         }}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-300 hover:underline"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-600 hover:underline"
                       >
                         <GitCompare className="h-3 w-3" />
                         Compare with current
@@ -1658,7 +1658,7 @@ export function DocumentPage({ id }: { id: string }) {
             description="A line-based text diff of the stored versions. PDF line order reflects extracted text, not visual layout."
           />
           <div className="mt-3 flex flex-wrap items-end gap-2">
-            <Field label="From" className="w-[120px]">
+            <Field label="From" className="w-[140px]">
               <Select value={fromVersion} onChange={(event) => setFromVersion(event.target.value)}>
                 {versions.map((item) => (
                   <option key={item.id} value={item.version_number}>
@@ -1667,7 +1667,7 @@ export function DocumentPage({ id }: { id: string }) {
                 ))}
               </Select>
             </Field>
-            <Field label="To" className="w-[120px]">
+            <Field label="To" className="w-[140px]">
               <Select value={toVersion} onChange={(event) => setToVersion(event.target.value)}>
                 {versions.map((item) => (
                   <option key={item.id} value={item.version_number}>
@@ -1688,46 +1688,46 @@ export function DocumentPage({ id }: { id: string }) {
             </Button>
           </div>
 
-          {compareError ? <p className="mt-3 text-xs text-rose-300">{compareError}</p> : null}
+          {compareError ? <p className="mt-3 text-xs text-rose-600">{compareError}</p> : null}
 
           {comparison ? (
             <div className="mt-4 space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
                     Version {comparison.from_version.version_number}
                   </p>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-lg font-semibold tabular-nums text-slate-200">
+                    <span className="text-lg font-semibold tabular-nums text-ink-800">
                       {comparison.from_audit?.overall_score ?? '—'}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-ink-500">
                       {comparison.from_audit ? `${comparison.from_audit.total_findings} findings` : 'No check'}
                     </span>
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
                     Version {comparison.to_version.version_number}
                   </p>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-lg font-semibold tabular-nums text-slate-200">
+                    <span className="text-lg font-semibold tabular-nums text-ink-800">
                       {comparison.to_audit?.overall_score ?? '—'}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-ink-500">
                       {comparison.to_audit ? `${comparison.to_audit.total_findings} findings` : 'No check'}
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-500">
                 <span>{comparison.changed ? 'The stored text changed.' : 'The stored text is identical.'}</span>
-                <span className="text-emerald-300">+{comparison.added_lines} added</span>
-                <span className="text-rose-300">−{comparison.removed_lines} removed</span>
+                <span className="text-emerald-700">+{comparison.added_lines} added</span>
+                <span className="text-rose-600">−{comparison.removed_lines} removed</span>
               </div>
-              <pre className="max-h-[420px] overflow-auto rounded-lg border border-white/10 bg-[#050814] p-3 font-mono text-[11px] leading-5 text-slate-200">
+              <pre className="max-h-[420px] overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] leading-5 text-ink-800">
                 {comparison.diff.length === 0 ? (
-                  <span className="text-slate-400">No line differences in the compared text.</span>
+                  <span className="text-ink-500">No line differences in the compared text.</span>
                 ) : (
                   comparison.diff.map((line, index) => (
                     <span
@@ -1735,14 +1735,14 @@ export function DocumentPage({ id }: { id: string }) {
                       className={cn(
                         'block whitespace-pre-wrap break-words px-1',
                         line.startsWith('+++') || line.startsWith('---')
-                          ? 'text-slate-400'
+                          ? 'text-ink-500'
                           : line.startsWith('+')
-                            ? 'bg-emerald-400/15 text-emerald-300'
+                            ? 'bg-emerald-50 text-emerald-700'
                             : line.startsWith('-')
-                              ? 'bg-rose-500/15 text-rose-300'
+                              ? 'bg-rose-50 text-rose-600'
                               : line.startsWith('@@')
-                                ? 'text-blue-300'
-                                : 'text-slate-300'
+                                ? 'text-brand-700'
+                                : 'text-ink-700'
                       )}
                     >
                       {line || ' '}
@@ -1751,9 +1751,9 @@ export function DocumentPage({ id }: { id: string }) {
                 )}
               </pre>
               {comparison.diff_truncated ? (
-                <p className="text-[10px] text-slate-400">Only the first 300 diff lines are shown.</p>
+                <p className="text-[10px] text-ink-500">Only the first 300 diff lines are shown.</p>
               ) : null}
-              <p className="text-[10px] leading-4 text-slate-400">{comparison.note}</p>
+              <p className="text-[10px] leading-4 text-ink-500">{comparison.note}</p>
             </div>
           ) : null}
         </Card>
@@ -1768,7 +1768,7 @@ export function DocumentPage({ id }: { id: string }) {
           <SectionHeading
             title={
               <span className="inline-flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4 text-slate-400" />
+                <ClipboardCheck className="h-4 w-4 text-ink-500" />
                 Review summary
               </span>
             }
@@ -1788,9 +1788,9 @@ export function DocumentPage({ id }: { id: string }) {
               { label: 'Corrections', value: summaryState.data.audit.corrections_awaiting_review },
               { label: 'Evidence limits', value: summaryState.data.audit.evidence_limitations },
             ].map((item) => (
-              <div key={item.label} className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-2.5 py-2">
-                <dt className="text-[9px] uppercase tracking-wide text-slate-400">{item.label}</dt>
-                <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-200">{item.value}</dd>
+              <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
+                <dt className="text-[9px] uppercase tracking-wide text-ink-500">{item.label}</dt>
+                <dd className="mt-0.5 text-sm font-semibold tabular-nums text-ink-800">{item.value}</dd>
               </div>
             ))}
           </div>
@@ -1800,16 +1800,16 @@ export function DocumentPage({ id }: { id: string }) {
               {summaryState.data.outstanding_actions.map((action) => (
                 <li
                   key={action.id}
-                  className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] leading-5"
+                  className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] leading-5"
                 >
-                  <span className="font-medium text-slate-200">{action.label}</span>
-                  <span className="text-slate-400">{action.description}</span>
+                  <span className="font-medium text-ink-800">{action.label}</span>
+                  <span className="text-ink-500">{action.description}</span>
                 </li>
               ))}
             </ul>
           ) : null}
 
-          <p className="mt-3 text-[10px] leading-4 text-slate-400">
+          <p className="mt-3 text-[10px] leading-4 text-ink-500">
             {summaryState.data.audit.has_run
               ? `Readiness ${summaryState.data.audit.overall_score}/100 · ${summaryState.data.audit.open_findings} open of ${summaryState.data.audit.total_findings} finding(s).`
               : 'No compliance check has run on the current version.'}{' '}
@@ -1836,37 +1836,37 @@ export function DocumentPage({ id }: { id: string }) {
               <LoadingBlock rows={2} />
             </div>
           ) : comments.length === 0 ? (
-            <div className="mt-3 rounded-lg border border-dashed border-white/10 bg-white/[0.035] px-4 py-5 text-center">
-              <MessageSquare className="mx-auto h-5 w-5 text-slate-300" />
-              <p className="mt-1 text-xs font-medium text-slate-300">No comments yet</p>
-              <p className="mt-0.5 text-[11px] text-slate-400">
+            <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center">
+              <MessageSquare className="mx-auto h-5 w-5 text-ink-700" />
+              <p className="mt-1 text-xs font-medium text-ink-700">No comments yet</p>
+              <p className="mt-0.5 text-[11px] text-ink-500">
                 {can('review.comment') ? 'Leave a shared note or an internal reviewer note.' : 'Comments from reviewers will appear here.'}
               </p>
             </div>
           ) : (
             <ol className="mt-3 space-y-3">
               {comments.map((comment) => (
-                <li key={comment.id} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                <li key={comment.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-slate-200">{comment.author_name}</span>
+                    <span className="text-xs font-medium text-ink-800">{comment.author_name}</span>
                     {comment.author_role ? (
-                      <Badge className="border-white/10 bg-white/[0.035] text-slate-400">{ROLE_LABEL[comment.author_role as keyof typeof ROLE_LABEL] || comment.author_role}</Badge>
+                      <Badge className="border-slate-200 bg-slate-50 text-ink-500">{ROLE_LABEL[comment.author_role as keyof typeof ROLE_LABEL] || comment.author_role}</Badge>
                     ) : null}
                     {comment.visibility === 'internal' ? (
-                      <Badge className="border-amber-400/25 bg-amber-400/10 text-amber-200">Internal note</Badge>
+                      <Badge className="border-amber-200 bg-amber-50 text-amber-800">Internal note</Badge>
                     ) : null}
-                    <span className="ml-auto text-[10px] text-slate-400">{relativeTime(comment.created_at)}</span>
+                    <span className="ml-auto text-[10px] text-ink-500">{relativeTime(comment.created_at)}</span>
                   </div>
-                  <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-slate-300">
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-ink-700">
                     {comment.comment_text}
                   </p>
-                  <p className="mt-1 text-[10px] text-slate-400">Version {versions.find((item) => item.id === comment.version_id)?.version_number || '—'}</p>
+                  <p className="mt-1 text-[10px] text-ink-500">Version {versions.find((item) => item.id === comment.version_id)?.version_number || '—'}</p>
                 </li>
               ))}
             </ol>
           )}
 
-          <div className="mt-4 border-t border-white/[0.07] pt-3">
+          <div className="mt-4 border-t border-slate-200 pt-3">
             <Field label="Add a comment" htmlFor="review-comment" error={commentFieldError}>
               <Textarea
                 id="review-comment"
@@ -1901,7 +1901,7 @@ export function DocumentPage({ id }: { id: string }) {
                   <option value="internal">Internal reviewer note</option>
                 </Select>
               ) : (
-                <p className="text-[10px] text-slate-400">Your comment is shared with the creator and reviewers.</p>
+                <p className="text-[10px] text-ink-500">Your comment is shared with the creator and reviewers.</p>
               )}
               <Button
                 size="sm"
@@ -1914,7 +1914,7 @@ export function DocumentPage({ id }: { id: string }) {
               </Button>
             </div>
             {commentError ? (
-              <p id="review-comment-server-error" role="alert" className="mt-2 text-xs text-rose-300">
+              <p id="review-comment-server-error" role="alert" className="mt-2 text-xs text-rose-600">
                 {commentError}
               </p>
             ) : null}
@@ -1939,40 +1939,40 @@ export function DocumentPage({ id }: { id: string }) {
                 <LoadingBlock rows={2} />
               </div>
             ) : decisions.length === 0 ? (
-              <p className="mt-3 text-xs text-slate-400">No reviewer decision has been recorded yet.</p>
+              <p className="mt-3 text-xs text-ink-500">No reviewer decision has been recorded yet.</p>
             ) : (
               <ol className="mt-3 space-y-3">
                 {decisions.map((decision) => (
-                  <li key={decision.id} className="rounded-lg border border-white/10 p-3">
+                  <li key={decision.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className={DECISION_STYLE[decision.decision]}>{DECISION_LABEL[decision.decision]}</Badge>
-                      <span className="text-xs font-medium text-slate-300">{decision.reviewer_name}</span>
+                      <span className="text-xs font-medium text-ink-700">{decision.reviewer_name}</span>
                     </div>
-                    <p className="mt-1 text-[11px] text-slate-400">
+                    <p className="mt-1 text-[11px] text-ink-500">
                       Version {decision.version_number ?? '—'} · {formatDateTime(decision.created_at)}
                     </p>
                     {decision.feedback ? (
-                      <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-slate-300">
+                      <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-ink-700">
                         {decision.feedback}
                       </p>
                     ) : null}
                     {typeof decision.decision_metadata?.is_latest_version === 'boolean' &&
                     !decision.decision_metadata.is_latest_version ? (
-                      <p className="mt-1 text-[10px] text-amber-300">This decision applies to a superseded version.</p>
+                      <p className="mt-1 text-[10px] text-amber-700">This decision applies to a superseded version.</p>
                     ) : null}
                     {typeof decision.decision_metadata?.override_reason === 'string' &&
                     decision.decision_metadata.override_reason ? (
-                      <p className="mt-1.5 rounded border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-[10px] leading-4 text-amber-200">
+                      <p className="mt-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] leading-4 text-amber-800">
                         Override reason: {String(decision.decision_metadata.override_reason)}
                       </p>
                     ) : null}
                     {decision.decision_metadata?.decided_outside_assignment ? (
-                      <p className="mt-1 text-[10px] text-slate-400">
+                      <p className="mt-1 text-[10px] text-ink-500">
                         Recorded by an administrator outside the active reviewer assignment.
                       </p>
                     ) : null}
                     {typeof decision.decision_metadata?.score_at_decision === 'number' ? (
-                      <p className="mt-1 text-[10px] text-slate-400">
+                      <p className="mt-1 text-[10px] text-ink-500">
                         Score at decision: {decision.decision_metadata.score_at_decision}/100 ·{' '}
                         {String(decision.decision_metadata.findings_at_decision ?? '—')} findings
                       </p>
@@ -2013,16 +2013,16 @@ export function DocumentPage({ id }: { id: string }) {
               </InfoCallout>
             ) : null}
 
-            <div className="mt-3 border-t border-white/[0.07] pt-3">
+            <div className="mt-3 border-t border-slate-200 pt-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-medium text-slate-300">Reviewer assignment</p>
+                <p className="text-xs font-medium text-ink-700">Reviewer assignment</p>
                 <Badge
                   className={
                     isAssignee
-                      ? 'border-brand-400/25 bg-brand-500/10 text-brand-300'
+                      ? 'border-brand-200 bg-brand-50 text-brand-600'
                       : assignment
-                        ? 'border-white/10 bg-white/[0.035] text-slate-300'
-                        : 'border-white/10 bg-white/[0.04] text-slate-400'
+                        ? 'border-slate-200 bg-slate-50 text-ink-700'
+                        : 'border-slate-200 bg-slate-50 text-ink-500'
                   }
                 >
                   {isAssignee ? 'Assigned to you' : assignment ? 'Assigned' : 'Unassigned'}
@@ -2030,19 +2030,19 @@ export function DocumentPage({ id }: { id: string }) {
               </div>
               {assignment ? (
                 <>
-                  <p className="mt-1.5 text-xs leading-5 text-slate-300">
+                  <p className="mt-1.5 text-xs leading-5 text-ink-700">
                     {assignment.assignee_name}
                     {assignment.assignee_role ? ` · ${titleCase(assignment.assignee_role)}` : ''} · assigned by{' '}
                     {assignment.assigned_by_name}
                   </p>
                   {assignment.instructions ? (
-                    <p className="mt-1 rounded-md bg-white/[0.035] px-2 py-1.5 text-[11px] leading-4 text-slate-300">
+                    <p className="mt-1 rounded-md bg-slate-50 px-2 py-1.5 text-[11px] leading-4 text-ink-700">
                       {assignment.instructions}
                     </p>
                   ) : null}
                 </>
               ) : (
-                <p className="mt-1.5 text-xs leading-5 text-slate-400">
+                <p className="mt-1.5 text-xs leading-5 text-ink-500">
                   No reviewer has claimed this review. Any reviewer or administrator can claim it.
                 </p>
               )}
@@ -2059,7 +2059,7 @@ export function DocumentPage({ id }: { id: string }) {
                     </Button>
                   ) : null}
                   {assignment && !isAssignee && !can('org.manage') ? (
-                    <p className="text-[10px] leading-4 text-amber-300">
+                    <p className="text-[10px] leading-4 text-amber-700">
                       Only {assignment.assignee_name} or an organization administrator can decide this review.
                     </p>
                   ) : null}
@@ -2090,7 +2090,7 @@ export function DocumentPage({ id }: { id: string }) {
                     </div>
                   ) : null}
                   {assignmentError ? (
-                    <p role="alert" className="text-xs text-rose-300">
+                    <p role="alert" className="text-xs text-rose-600">
                       {assignmentError}
                     </p>
                   ) : null}
@@ -2099,7 +2099,7 @@ export function DocumentPage({ id }: { id: string }) {
             </div>
 
             {canDecide ? (
-              <div className="mt-3 border-t border-white/[0.07] pt-3">
+              <div className="mt-3 border-t border-slate-200 pt-3">
                 {version ? (
                   <>
                     <Field
@@ -2121,7 +2121,7 @@ export function DocumentPage({ id }: { id: string }) {
                       </Select>
                     </Field>
                     {decisionVersion && decisionVersion.id !== version.id ? (
-                      <p className="mt-1.5 rounded-md bg-amber-400/10 px-2 py-1.5 text-[10px] leading-4 text-amber-200">
+                      <p className="mt-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
                         This version was superseded by version {version.version_number}. Select the current version to
                         record a decision.
                       </p>
@@ -2136,7 +2136,7 @@ export function DocumentPage({ id }: { id: string }) {
                         Approve version {decisionVersion?.version_number || version.version_number}
                       </Button>
                       {highOpen > 0 ? (
-                        <p className="rounded-md bg-amber-400/10 px-2 py-1.5 text-[10px] leading-4 text-amber-200">
+                        <p className="rounded-md bg-amber-50 px-2 py-1.5 text-[10px] leading-4 text-amber-800">
                           {highOpen} high or critical finding{highOpen === 1 ? ' is' : 's are'} still open. Approval
                           requires a written override reason, which is stored with the decision.
                         </p>
@@ -2161,23 +2161,23 @@ export function DocumentPage({ id }: { id: string }) {
                       </Button>
                     </div>
                     {!run ? (
-                      <p className="mt-2 text-[10px] leading-4 text-amber-300">
+                      <p className="mt-2 text-[10px] leading-4 text-amber-700">
                         Run a check before approving this version.
                       </p>
                     ) : null}
                     {document.assignment && !isAssignee && canDecide && !can('org.manage') ? (
-                      <p className="mt-2 text-[10px] leading-4 text-amber-300">
+                      <p className="mt-2 text-[10px] leading-4 text-amber-700">
                         This review is assigned to {document.assignment.assignee_name}. Decisions from other reviewers
                         are rejected by the server.
                       </p>
                     ) : null}
                   </>
                 ) : (
-                  <p className="text-xs text-slate-400">There is no version to decide on.</p>
+                  <p className="text-xs text-ink-500">There is no version to decide on.</p>
                 )}
               </div>
             ) : (
-              <p className="mt-3 border-t border-white/[0.07] pt-3 text-[10px] leading-4 text-slate-400">
+              <p className="mt-3 border-t border-slate-200 pt-3 text-[10px] leading-4 text-ink-500">
                 Decisions are recorded by reviewer and organization administrator roles.
               </p>
             )}
@@ -2202,15 +2202,15 @@ export function DocumentPage({ id }: { id: string }) {
           <ErrorState message={eventsState.error} retry={eventsState.reload} />
         </div>
       ) : events.length === 0 ? (
-        <EmptyState icon={History} title="No history events" className="mt-3 border-0 bg-white/[0.035]" />
+        <EmptyState icon={History} title="No history events" className="mt-3 border-0 bg-slate-50" />
       ) : (
         <ol className="mt-4 space-y-0">
           {[...events].reverse().map((event, index) => (
             <li key={event.id} className="relative flex gap-3 pb-4 last:pb-0">
               {index < events.length - 1 ? (
-                <span className="absolute left-[13px] top-6 h-full w-px bg-white/[0.09]" aria-hidden />
+                <span className="absolute left-[13px] top-6 h-full w-px bg-slate-100" aria-hidden />
               ) : null}
-              <span className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-400">
+              <span className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-ink-500">
                 {event.event_type.includes('decision') ? (
                   <BadgeCheck className="h-3.5 w-3.5" />
                 ) : event.event_type.includes('comment') ? (
@@ -2225,18 +2225,18 @@ export function DocumentPage({ id }: { id: string }) {
               </span>
               <div className="min-w-0 flex-1 pt-0.5">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="text-xs font-medium text-slate-200">{titleCase(event.event_type)}</span>
+                  <span className="text-xs font-medium text-ink-800">{titleCase(event.event_type)}</span>
                   {event.version_id ? (
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-ink-500">
                       v{versions.find((item) => item.id === event.version_id)?.version_number ?? '—'}
                     </span>
                   ) : null}
-                  <span className="ml-auto text-[10px] text-slate-400">{formatDateTime(event.created_at)}</span>
+                  <span className="ml-auto text-[10px] text-ink-500">{formatDateTime(event.created_at)}</span>
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-5 text-slate-300">
+                <p className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-5 text-ink-700">
                   {event.description}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-400">{event.user_name}</p>
+                <p className="mt-0.5 text-[10px] text-ink-500">{event.user_name}</p>
               </div>
             </li>
           ))}
@@ -2266,14 +2266,14 @@ export function DocumentPage({ id }: { id: string }) {
             <DetailRow label="Approved by">{provenance.approved_by || 'No approval on this version'}</DetailRow>
             <DetailRow label="Approved at">{provenance.approved_at ? formatDateTime(provenance.approved_at) : '—'}</DetailRow>
           </dl>
-          <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Recomputed SHA-256</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">Recomputed SHA-256</p>
               <CopyButton value={provenance.file_hash} label="Copy hash" />
             </div>
-            <p className="mt-1 break-all font-mono text-[10px] leading-4 text-slate-300">{provenance.file_hash}</p>
+            <p className="mt-1 break-all font-mono text-[10px] leading-4 text-ink-700">{provenance.file_hash}</p>
             {provenance.previous_version_hash ? (
-              <p className="mt-2 break-all font-mono text-[10px] leading-4 text-slate-400">
+              <p className="mt-2 break-all font-mono text-[10px] leading-4 text-ink-500">
                 Previous: {provenance.previous_version_hash}
               </p>
             ) : null}
@@ -2294,16 +2294,16 @@ export function DocumentPage({ id }: { id: string }) {
         <Card className="p-4">
           <SectionHeading title="Provenance timeline" description="The stored event trail, oldest first." />
           {provenance.audit_history_timeline.length === 0 ? (
-            <p className="mt-3 text-xs text-slate-400">No timeline events are stored.</p>
+            <p className="mt-3 text-xs text-ink-500">No timeline events are stored.</p>
           ) : (
             <ol className="mt-3 space-y-3">
               {provenance.audit_history_timeline.map((event) => (
                 <li key={event.id} className="flex gap-2.5">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400" />
                   <div className="min-w-0">
-                    <p className="text-[11px] font-medium text-slate-300">{titleCase(event.event_type)}</p>
-                    <p className="text-[11px] leading-5 text-slate-400">{event.description}</p>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[11px] font-medium text-ink-700">{titleCase(event.event_type)}</p>
+                    <p className="text-[11px] leading-5 text-ink-500">{event.description}</p>
+                    <p className="text-[10px] text-ink-500">
                       {event.actor} · {formatDateTime(event.created_at)}
                     </p>
                   </div>
@@ -2329,18 +2329,18 @@ export function DocumentPage({ id }: { id: string }) {
               <StatusBadge status={document.status} />
               {run ? <RiskBadge risk={run.risk_level} /> : null}
               {run ? verificationBadge(run.verification_status) : null}
-              <Badge className="border-white/10 bg-white/[0.04] text-slate-300">Version {document.current_version_number}</Badge>
+              <Badge className="border-slate-200 bg-slate-50 text-ink-700">Version {document.current_version_number}</Badge>
               {document.is_demo ? (
-                <Badge className="border-amber-400/25 bg-amber-400/10 text-amber-200">Demo record</Badge>
+                <Badge className="border-amber-200 bg-amber-50 text-amber-800">Demo record</Badge>
               ) : null}
               {document.approval_stale ? (
-                <Badge className="border-amber-400/25 bg-amber-400/10 text-amber-200">Approval stale</Badge>
+                <Badge className="border-amber-200 bg-amber-50 text-amber-800">Approval stale</Badge>
               ) : null}
               {campaignState.data ? (
                 <button
                   type="button"
                   onClick={() => navigate(`/campaigns/${campaignState.data?.id}`)}
-                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-medium text-slate-300 hover:border-white/20 hover:text-slate-100"
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-ink-700 hover:border-slate-300 hover:text-ink-900"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
                   {campaignState.data.name}
@@ -2348,7 +2348,7 @@ export function DocumentPage({ id }: { id: string }) {
                 </button>
               ) : null}
             </span>
-            <span className="mt-1.5 block text-xs text-slate-400">
+            <span className="mt-1.5 block text-xs text-ink-500">
               Created by {document.created_by_name || 'an unknown user'} · updated {relativeTime(document.updated_at)} ·{' '}
               {document.versions_count} version{document.versions_count === 1 ? '' : 's'}
             </span>
@@ -2406,7 +2406,7 @@ export function DocumentPage({ id }: { id: string }) {
             <button
               type="button"
               onClick={campaignState.reload}
-              className="font-medium text-amber-200 underline underline-offset-2"
+              className="font-medium text-amber-800 underline underline-offset-2"
             >
               Retry
             </button>
@@ -2418,7 +2418,7 @@ export function DocumentPage({ id }: { id: string }) {
         <div className="mb-4">
           <InfoCallout tone="warning" title="A reviewer requested changes">
             {currentDecision.feedback}
-            <span className="mt-1 block text-[11px] text-amber-200/80">
+            <span className="mt-1 block text-[11px] text-amber-800/80">
               Decision on version {currentDecision.version_number} by {currentDecision.reviewer_name}. Revise the content
               to create a new version before resubmitting.
             </span>
@@ -2430,7 +2430,7 @@ export function DocumentPage({ id }: { id: string }) {
         <div className="mb-4">
           <InfoCallout tone="danger" title="This content was rejected">
             {currentDecision.feedback}
-            <span className="mt-1 block text-[11px] text-rose-200/80">
+            <span className="mt-1 block text-[11px] text-rose-800/80">
               Rejected on version {currentDecision.version_number} by {currentDecision.reviewer_name}.
             </span>
           </InfoCallout>
@@ -2454,7 +2454,7 @@ export function DocumentPage({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => setTab('content')}
-              className="font-medium text-amber-200 underline underline-offset-2"
+              className="font-medium text-amber-800 underline underline-offset-2"
             >
               Return to the editor
             </button>
@@ -2477,7 +2477,7 @@ export function DocumentPage({ id }: { id: string }) {
             onChange={setTab}
             idBase="document-tabs"
             label="Content detail"
-            className="rounded-t-xl bg-white/[0.04]"
+            className="rounded-t-xl bg-slate-50"
           />
           <div
             id="document-tabs-panel"
@@ -2504,13 +2504,13 @@ export function DocumentPage({ id }: { id: string }) {
           <Card className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Latest check</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">Latest check</p>
                 {run ? (
-                  <p className="mt-0.5 text-xs text-slate-400">
+                  <p className="mt-0.5 text-xs text-ink-500">
                     {formatDateTime(run.created_at)} · {run.execution_time_ms} ms
                   </p>
                 ) : (
-                  <p className="mt-0.5 text-xs text-slate-400">No check recorded</p>
+                  <p className="mt-0.5 text-xs text-ink-500">No check recorded</p>
                 )}
               </div>
               {run ? <ScoreRing score={run.overall_score} label="of 100" /> : null}
@@ -2518,53 +2518,53 @@ export function DocumentPage({ id }: { id: string }) {
 
             {run ? (
               <>
-                <div className="mt-3 grid grid-cols-3 gap-2 border-y border-white/[0.07] py-2.5 text-center">
+                <div className="mt-3 grid grid-cols-3 gap-2 border-y border-slate-200 py-2.5 text-center">
                   <div>
-                    <p className="text-base font-semibold tabular-nums text-slate-100">{findings.length}</p>
-                    <p className="text-[9px] uppercase tracking-wide text-slate-400">Findings</p>
+                    <p className="text-base font-semibold tabular-nums text-ink-900">{findings.length}</p>
+                    <p className="text-[9px] uppercase tracking-wide text-ink-500">Findings</p>
                   </div>
                   <div>
-                    <p className="text-base font-semibold tabular-nums text-slate-100">{openFindings.length}</p>
-                    <p className="text-[9px] uppercase tracking-wide text-slate-400">Open</p>
+                    <p className="text-base font-semibold tabular-nums text-ink-900">{openFindings.length}</p>
+                    <p className="text-[9px] uppercase tracking-wide text-ink-500">Open</p>
                   </div>
                   <div>
-                    <p className={cn('text-base font-semibold tabular-nums', highOpen ? 'text-rose-300' : 'text-slate-100')}>
+                    <p className={cn('text-base font-semibold tabular-nums', highOpen ? 'text-rose-600' : 'text-ink-900')}>
                       {highOpen}
                     </p>
-                    <p className="text-[9px] uppercase tracking-wide text-slate-400">High/critical</p>
+                    <p className="text-[9px] uppercase tracking-wide text-ink-500">High/critical</p>
                   </div>
                 </div>
 
                 {run.risk_factors.length > 0 ? (
                   <div className="mt-3 space-y-1.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Score breakdown</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">Score breakdown</p>
                     {run.risk_factors.map((factor) => (
                       <div
                         key={`${factor.label}-${factor.severity}`}
                         className="flex items-center justify-between gap-2 text-[11px]"
                       >
-                        <span className="min-w-0 truncate text-slate-300">
+                        <span className="min-w-0 truncate text-ink-700">
                           {factor.label}
-                          <span className="ml-1 text-slate-400">
+                          <span className="ml-1 text-ink-500">
                             · {factor.severity}
                             {factor.count > 1 ? ` × ${factor.count}` : ''}
                           </span>
                         </span>
-                        <span className="shrink-0 tabular-nums text-slate-400">−{factor.deduction}</span>
+                        <span className="shrink-0 tabular-nums text-ink-500">−{factor.deduction}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 text-[11px] leading-5 text-slate-400">
+                  <p className="mt-3 text-[11px] leading-5 text-ink-500">
                     No point deductions were recorded for this check.
                   </p>
                 )}
 
-                <details className="mt-3 border-t border-white/[0.07] pt-2.5">
-                  <summary className="cursor-pointer select-none text-[11px] font-medium text-slate-400 hover:text-slate-200">
+                <details className="mt-3 border-t border-slate-200 pt-2.5">
+                  <summary className="cursor-pointer select-none text-[11px] font-medium text-ink-500 hover:text-ink-800">
                     How this score is produced
                   </summary>
-                  <div className="mt-1.5 space-y-1 text-[10px] leading-4 text-slate-400">
+                  <div className="mt-1.5 space-y-1 text-[10px] leading-4 text-ink-500">
                     <p>{run.score_method || 'Each open finding deducts points from 100 based on category and severity.'}</p>
                     <p>Engine: {run.model_used}</p>
                     <p>Audit coverage: {VERIFICATION_LABEL[run.verification_status]}</p>
@@ -2575,7 +2575,7 @@ export function DocumentPage({ id }: { id: string }) {
               </>
             ) : (
               <div className="mt-3">
-                <p className="text-[11px] leading-5 text-slate-400">
+                <p className="text-[11px] leading-5 text-ink-500">
                   Run a check to compare this version against the active workspace rules and approved facts.
                 </p>
                 {canEdit ? (
@@ -2610,15 +2610,15 @@ export function DocumentPage({ id }: { id: string }) {
                 Submit version {document.current_version_number}
               </Button>
             ) : document.status === 'in_review' ? (
-              <p className="mt-3 rounded-lg bg-blue-500/10 px-2.5 py-2 text-[11px] leading-4 text-blue-200">
+              <p className="mt-3 rounded-lg bg-blue-50 px-2.5 py-2 text-[11px] leading-4 text-blue-700">
                 Version {document.current_version_number} is waiting for a reviewer decision.
               </p>
             ) : document.status === 'approved' && !document.approval_stale ? (
-              <p className="mt-3 rounded-lg bg-emerald-400/10 px-2.5 py-2 text-[11px] leading-4 text-emerald-200">
+              <p className="mt-3 rounded-lg bg-emerald-50 px-2.5 py-2 text-[11px] leading-4 text-emerald-700">
                 The current version is approved.
               </p>
             ) : canEdit && !run ? (
-              <p className="mt-3 text-[11px] leading-4 text-slate-400">
+              <p className="mt-3 text-[11px] leading-4 text-ink-500">
                 A check must run before this content can be submitted.
               </p>
             ) : null}
@@ -2641,7 +2641,7 @@ export function DocumentPage({ id }: { id: string }) {
                     href={document.source_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 break-all text-brand-300 hover:underline"
+                    className="inline-flex items-center gap-1 break-all text-brand-600 hover:underline"
                   >
                     Open link
                     <ExternalLink className="h-3 w-3" />
@@ -2652,12 +2652,12 @@ export function DocumentPage({ id }: { id: string }) {
                 <DetailRow label="Hash">
                   <span className="flex items-center justify-end gap-1">
                     <span className="font-mono text-[10px]">{version.content_hash.slice(0, 12)}…</span>
-                    <CopyButton value={version.content_hash} label="" className="text-slate-400" />
+                    <CopyButton value={version.content_hash} label="" className="text-ink-500" />
                   </span>
                 </DetailRow>
               ) : null}
             </dl>
-            <p className="mt-2 border-t border-white/[0.07] pt-2 text-[10px] leading-4 text-slate-400">
+            <p className="mt-2 border-t border-slate-200 pt-2 text-[10px] leading-4 text-ink-500">
               Role: {ROLE_LABEL[role]}. Data access and edits are enforced by the API for this role.
             </p>
           </Card>
@@ -2727,7 +2727,7 @@ export function DocumentPage({ id }: { id: string }) {
               maxLength={2000}
             />
           </Field>
-          <p className="text-[11px] leading-5 text-slate-400">
+          <p className="text-[11px] leading-5 text-ink-500">
             The reviewer sees the findings and the stored evidence for version {document.current_version_number}. If you
             create another version after submitting, this submission no longer applies to the latest content.
           </p>
@@ -2767,9 +2767,9 @@ export function DocumentPage({ id }: { id: string }) {
         }
       >
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5">
-            <span className="text-xs text-slate-400">Version being decided</span>
-            <span className="text-xs font-medium text-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <span className="text-xs text-ink-500">Version being decided</span>
+            <span className="text-xs font-medium text-ink-800">
               Version {decisionVersion?.version_number ?? '—'}
               {decisionVersion?.id === version?.id ? ' · current' : ' · superseded'}
             </span>
@@ -2781,11 +2781,11 @@ export function DocumentPage({ id }: { id: string }) {
             </InfoCallout>
           ) : null}
           {decisionOpen === 'approved' && highOpen > 0 ? (
-            <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 p-3">
-              <p className="text-xs font-medium text-amber-200">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-800">
                 {highOpen} high or critical finding{highOpen === 1 ? ' is' : 's are'} still open
               </p>
-              <p className="mt-1 text-[11px] leading-5 text-amber-200">
+              <p className="mt-1 text-[11px] leading-5 text-amber-800">
                 Approving with unresolved high-risk findings requires a written override reason. The reason is stored
                 with the decision and in the content’s audit history.
               </p>
@@ -2812,7 +2812,7 @@ export function DocumentPage({ id }: { id: string }) {
                 />
               </Field>
               {overrideError ? (
-                <p id="decision-override-error" role="alert" className="mt-1 text-xs text-rose-300">
+                <p id="decision-override-error" role="alert" className="mt-1 text-xs text-rose-600">
                   {overrideError}
                 </p>
               ) : null}
@@ -2859,16 +2859,16 @@ export function DocumentPage({ id }: { id: string }) {
             />
           </Field>
           {decisionFeedbackError ? (
-            <p id="decision-feedback-error" role="alert" className="text-xs text-rose-300">
+            <p id="decision-feedback-error" role="alert" className="text-xs text-rose-600">
               {decisionFeedbackError}
             </p>
           ) : null}
-          <p className="text-[10px] leading-4 text-slate-400">
+          <p className="text-[10px] leading-4 text-ink-500">
             This decision is recorded under {session?.active_user.full_name || ROLE_LABEL[role]} and stays in the audit
             history. It does not alter the findings themselves.
           </p>
           {decisionError ? (
-            <p role="alert" className="text-xs text-rose-300">
+            <p role="alert" className="text-xs text-rose-600">
               {decisionError}
             </p>
           ) : null}

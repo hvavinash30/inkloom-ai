@@ -61,16 +61,16 @@ import type {
 type TabId = 'facts' | 'rules' | 'assets';
 
 const FACT_STATUS_CLASS: Record<string, string> = {
-  verified: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
-  needs_review: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
-  expired: 'border-rose-400/25 bg-rose-500/10 text-rose-300',
-  draft: 'border-white/10 bg-white/[0.035] text-slate-300',
+  verified: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  needs_review: 'border-amber-200 bg-amber-50 text-amber-800',
+  expired: 'border-rose-200 bg-rose-50 text-rose-600',
+  draft: 'border-slate-200 bg-slate-50 text-ink-700',
 };
 
 const RULE_STATUS_CLASS: Record<string, string> = {
-  active: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
-  draft: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
-  archived: 'border-white/10 bg-white/[0.035] text-slate-400',
+  active: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  draft: 'border-amber-200 bg-amber-50 text-amber-800',
+  archived: 'border-slate-200 bg-slate-50 text-ink-500',
 };
 
 const ASSET_TYPE_LABEL: Record<string, string> = {
@@ -217,21 +217,21 @@ function AssetPreview({ asset }: { asset: BrandAsset }) {
   if (asset.asset_type === 'color') {
     const color = /^#[0-9a-f]{6}$/i.test(asset.value || '') ? asset.value || '#e2e8f0' : '#e2e8f0';
     return (
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.035] p-2">
-        <span className="h-10 w-10 rounded-md border border-white/10 shadow-inner" style={{ backgroundColor: color }} />
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-2">
+        <span className="h-10 w-10 rounded-md border border-slate-200 shadow-inner" style={{ backgroundColor: color }} />
       </div>
     );
   }
   if (url) {
     return (
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-white/[0.035]">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
         <img src={url} alt={`Stored asset: ${asset.name}`} className="max-h-full max-w-full object-contain" />
       </div>
     );
   }
   const Icon = ASSET_ICON[asset.asset_type] || Palette;
   return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.035] text-slate-400">
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-ink-500">
       {failed || asset.file_id === null ? <Icon className="h-5 w-5" /> : <Loader2 className="h-4 w-4 animate-spin" />}
     </div>
   );
@@ -641,33 +641,33 @@ export function BrandLibraryPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Card className="p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Approved facts</p>
-          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-white">{facts.length}</p>
-          <p className="mt-1 text-xs text-slate-400">{facts.filter((fact) => fact.status === 'verified').length} verified and active</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-500">Approved facts</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-ink-950">{facts.length}</p>
+          <p className="mt-1 text-xs text-ink-500">{facts.filter((fact) => fact.status === 'verified').length} verified and active</p>
         </Card>
         <Card className="p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Brand rules</p>
-          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-white">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-500">Brand rules</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-ink-950">
             {rules.filter((rule) => rule.status === 'active').length}
           </p>
-          <p className="mt-1 text-xs text-slate-400">Deterministic rules in force</p>
+          <p className="mt-1 text-xs text-ink-500">Deterministic rules in force</p>
         </Card>
         <Card className="p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Brand assets</p>
-          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-white">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-500">Brand assets</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-ink-950">
             {assets.filter((asset) => asset.status === 'active').length}
           </p>
-          <p className="mt-1 text-xs text-slate-400">Logos, colors, type, templates</p>
+          <p className="mt-1 text-xs text-ink-500">Logos, colors, type, templates</p>
         </Card>
         <Card className="p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Review attention</p>
-          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-amber-300">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-500">Review attention</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums text-amber-700">
             {facts.filter((fact) => {
               const reviewDue = parseApiDate(fact.next_review_at);
               return fact.status === 'needs_review' || Boolean(reviewDue && reviewDue.getTime() < Date.now());
             }).length}
           </p>
-          <p className="mt-1 text-xs text-slate-400">Facts flagged or past review date</p>
+          <p className="mt-1 text-xs text-ink-500">Facts flagged or past review date</p>
         </Card>
       </div>
 
@@ -698,10 +698,10 @@ export function BrandLibraryPage() {
           tabIndex={0}
           className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
         >
-        <div className="flex flex-col gap-3 border-b border-white/[0.07] p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 flex-col gap-2 sm:flex-row">
             <div className="relative min-w-0 flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -724,7 +724,7 @@ export function BrandLibraryPage() {
               ))}
             </Select>
           </div>
-          <span className="text-xs tabular-nums text-slate-400">
+          <span className="text-xs tabular-nums text-ink-500">
             {shownCount} of {totalCount}
           </span>
         </div>
@@ -755,7 +755,7 @@ export function BrandLibraryPage() {
               />
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.08]">
+            <div className="divide-y divide-slate-200">
               {filteredFacts.map((fact) => {
                 const dueAt = parseApiDate(fact.next_review_at)?.getTime() ?? Infinity;
                 const isOverdue = dueAt < Date.now();
@@ -764,28 +764,28 @@ export function BrandLibraryPage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-300">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-600">
                             {fact.category}
                           </span>
                           <FactBadge status={fact.status} />
                           {isOverdue && fact.status === 'verified' ? (
-                            <span className="inline-flex items-center gap-1 rounded border border-amber-400/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
+                            <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800">
                               <CalendarClock className="h-2.5 w-2.5" />
                               Review due
                             </span>
                           ) : null}
-                          <span className="text-[10px] text-slate-400">v{fact.version}</span>
+                          <span className="text-[10px] text-ink-500">v{fact.version}</span>
                         </div>
-                        <p className="mt-1.5 text-sm font-semibold text-slate-100">{fact.approved_value}</p>
-                        <p className="mt-0.5 text-xs leading-5 text-slate-400">{fact.claim_statement}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                        <p className="mt-1.5 text-sm font-semibold text-ink-900">{fact.approved_value}</p>
+                        <p className="mt-0.5 text-xs leading-5 text-ink-500">{fact.claim_statement}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-500">
                           <span>Source: {fact.source_reference}</span>
                           {fact.source_url ? (
                             <a
                               href={fact.source_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1 font-medium text-brand-300 hover:underline"
+                              className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"
                             >
                               Open source
                               <ExternalLink className="h-3 w-3" />
@@ -810,7 +810,7 @@ export function BrandLibraryPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-slate-400 hover:text-rose-300"
+                              className="text-ink-500 hover:text-rose-600"
                               onClick={() => setRetireFact(fact)}
                             >
                               <Archive className="h-3.5 w-3.5" />
@@ -843,35 +843,35 @@ export function BrandLibraryPage() {
               />
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.08]">
+            <div className="divide-y divide-slate-200">
               {filteredRules.map((rule) => (
                 <div key={rule.id} className="px-4 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-semibold text-slate-100">{rule.name}</h3>
+                        <h3 className="text-sm font-semibold text-ink-900">{rule.name}</h3>
                         <RuleBadge status={rule.status} />
                         <SeverityBadge severity={rule.severity} />
-                        <span className="text-[10px] text-slate-400">v{rule.version}</span>
+                        <span className="text-[10px] text-ink-500">v{rule.version}</span>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="rounded bg-white/[0.06] px-2 py-1 font-mono text-[11px] text-slate-300">
+                        <span className="rounded bg-slate-100 px-2 py-1 font-mono text-[11px] text-ink-700">
                           {rule.pattern_or_phrase}
                         </span>
                         {rule.trigger_phrase ? (
-                          <span className="text-[10px] text-slate-400">triggered by “{rule.trigger_phrase}”</span>
+                          <span className="text-[10px] text-ink-500">triggered by “{rule.trigger_phrase}”</span>
                         ) : null}
-                        <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                        <span className="text-[10px] uppercase tracking-wide text-ink-500">
                           {RULE_TYPE_LABEL[rule.rule_type as keyof typeof RULE_TYPE_LABEL] || titleCase(rule.rule_type)}
                         </span>
                       </div>
-                      {rule.description ? <p className="mt-1.5 text-xs leading-5 text-slate-400">{rule.description}</p> : null}
+                      {rule.description ? <p className="mt-1.5 text-xs leading-5 text-ink-500">{rule.description}</p> : null}
                       {rule.replacement_or_guidance ? (
-                        <p className="mt-1 text-[11px] text-emerald-200">
+                        <p className="mt-1 text-[11px] text-emerald-700">
                           <span className="font-medium">Guidance:</span> {rule.replacement_or_guidance}
                         </p>
                       ) : null}
-                      <p className="mt-1.5 text-[10px] text-slate-400">
+                      <p className="mt-1.5 text-[10px] text-ink-500">
                         Owner {rule.owner_name || '—'} · Last reviewed {formatDate(rule.last_reviewed_at)}
                       </p>
                     </div>
@@ -889,7 +889,7 @@ export function BrandLibraryPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-slate-400 hover:text-rose-300"
+                            className="text-ink-500 hover:text-rose-600"
                             onClick={() => setArchiveRuleTarget(rule)}
                           >
                             <Archive className="h-3.5 w-3.5" />
@@ -927,30 +927,30 @@ export function BrandLibraryPage() {
                   <AssetPreview asset={asset} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <h3 className="truncate text-sm font-semibold text-slate-100">{asset.name}</h3>
+                      <h3 className="truncate text-sm font-semibold text-ink-900">{asset.name}</h3>
                       {asset.status === 'archived' ? (
-                        <span className="rounded border border-white/10 bg-white/[0.035] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                        <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-500">
                           Archived
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-ink-500">
                       {ASSET_TYPE_LABEL[asset.asset_type] || titleCase(asset.asset_type)}
                     </p>
                     {asset.value ? (
-                      <p className="mt-1 break-words font-mono text-[11px] text-slate-300">{asset.value}</p>
+                      <p className="mt-1 break-words font-mono text-[11px] text-ink-700">{asset.value}</p>
                     ) : null}
                     {asset.file_id ? (
-                      <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-300">
+                      <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-700">
                         <CheckCircle2 className="h-3 w-3" />
                         Source file stored
                       </p>
                     ) : null}
                   </div>
                 </div>
-                {asset.notes ? <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-slate-400">{asset.notes}</p> : null}
-                <div className="mt-auto flex items-center justify-between gap-2 border-t border-white/[0.07] pt-3">
-                  <span className="text-[10px] text-slate-400">Owner {asset.owner_name || '—'}</span>
+                {asset.notes ? <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-ink-500">{asset.notes}</p> : null}
+                <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-200 pt-3">
+                  <span className="text-[10px] text-ink-500">Owner {asset.owner_name || '—'}</span>
                   {canManageAssets ? (
                     <Button variant="ghost" size="sm" onClick={() => openAssetEdit(asset)}>
                       <PencilLine className="h-3.5 w-3.5" />
@@ -966,7 +966,7 @@ export function BrandLibraryPage() {
       </Card>
 
       {!canManageFacts ? (
-        <p className="mt-4 text-xs text-slate-400">
+        <p className="mt-4 text-xs text-ink-500">
           You are viewing current approved facts and active rules. Only an organization admin can edit the brand library.
         </p>
       ) : null}
@@ -1076,7 +1076,7 @@ export function BrandLibraryPage() {
             </InfoCallout>
           ) : null}
           {factError ? (
-            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{factError}</p>
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{factError}</p>
           ) : null}
         </div>
       </Modal>
@@ -1187,7 +1187,7 @@ export function BrandLibraryPage() {
             </Select>
           </Field>
           {ruleError ? (
-            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{ruleError}</p>
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{ruleError}</p>
           ) : null}
         </div>
       </Modal>
@@ -1240,12 +1240,12 @@ export function BrandLibraryPage() {
             >
               <label
                 htmlFor="asset-file"
-                className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.035] px-3 py-3 text-xs text-slate-300 hover:border-brand-400/40 hover:bg-brand-500/10"
+                className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs text-ink-700 hover:border-brand-200 hover:bg-brand-50"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <UploadCloud className="h-4 w-4 shrink-0 text-slate-400" />
+                  <UploadCloud className="h-4 w-4 shrink-0 text-ink-500" />
                   <span className="truncate">{assetFile ? assetFile.name : 'Choose a file'}</span>
-                  {assetFile ? <span className="shrink-0 text-slate-400">{formatFileSize(assetFile.size)}</span> : null}
+                  {assetFile ? <span className="shrink-0 text-ink-500">{formatFileSize(assetFile.size)}</span> : null}
                 </span>
                 {assetFile ? (
                   <button
@@ -1254,7 +1254,7 @@ export function BrandLibraryPage() {
                       event.preventDefault();
                       setAssetFile(null);
                     }}
-                    className="shrink-0 rounded p-1 text-slate-400 hover:bg-white/[0.06] hover:text-slate-300"
+                    className="shrink-0 rounded p-1 text-ink-500 hover:bg-slate-100 hover:text-ink-700"
                     aria-label="Remove selected file"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -1295,12 +1295,12 @@ export function BrandLibraryPage() {
             />
           </Field>
           {editingAsset ? (
-            <p className="text-[11px] leading-5 text-slate-400">
+            <p className="text-[11px] leading-5 text-ink-500">
               Files cannot be replaced in this build; archive the asset and create a new one to change its file.
             </p>
           ) : null}
           {assetError ? (
-            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{assetError}</p>
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{assetError}</p>
           ) : null}
         </div>
       </Modal>
@@ -1318,44 +1318,44 @@ export function BrandLibraryPage() {
         }
       >
         {impactLoading ? (
-          <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-400">
-            <Loader2 className="h-4 w-4 animate-spin text-brand-300" />
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-ink-500">
+            <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
             Scanning stored content…
           </div>
         ) : impactError ? (
           <ErrorState message={impactError} />
         ) : impact ? (
           <div className="space-y-4">
-            <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
-              <p className="text-sm font-medium text-slate-100">{impact.entity_name}</p>
-              <p className="mt-0.5 text-xs leading-5 text-slate-400">{impact.entity_summary}</p>
-              <p className="mt-1.5 text-[10px] text-slate-400">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-medium text-ink-900">{impact.entity_name}</p>
+              <p className="mt-0.5 text-xs leading-5 text-ink-500">{impact.entity_summary}</p>
+              <p className="mt-1.5 text-[10px] text-ink-500">
                 Scanned {impact.scanned_documents} current document{impact.scanned_documents === 1 ? '' : 's'}.
               </p>
             </div>
             {impact.items.length === 0 ? (
-              <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-4 py-6 text-center">
-                <CheckCircle2 className="mx-auto h-5 w-5 text-emerald-300" />
-                <p className="mt-2 text-sm font-medium text-emerald-100">No current document matches</p>
-                <p className="mt-1 text-xs text-emerald-200/80">This change does not affect stored text in the current workspace.</p>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-6 text-center">
+                <CheckCircle2 className="mx-auto h-5 w-5 text-emerald-700" />
+                <p className="mt-2 text-sm font-medium text-emerald-800">No current document matches</p>
+                <p className="mt-1 text-xs text-emerald-700/90">This change does not affect stored text in the current workspace.</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {impact.items.map((item) => (
-                  <div key={item.document_id} className="rounded-lg border border-white/10 px-3 py-2.5">
+                  <div key={item.document_id} className="rounded-lg border border-slate-200 px-3 py-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-medium text-slate-200">
-                        {item.title} <span className="font-normal text-slate-400">· v{item.version_number}</span>
+                      <p className="text-xs font-medium text-ink-800">
+                        {item.title} <span className="font-normal text-ink-500">· v{item.version_number}</span>
                       </p>
-                      <span className="text-[10px] text-slate-400">{item.match_count} match{item.match_count === 1 ? '' : 'es'}</span>
+                      <span className="text-[10px] text-ink-500">{item.match_count} match{item.match_count === 1 ? '' : 'es'}</span>
                     </div>
-                    <p className="mt-1 break-words font-mono text-[11px] leading-4 text-slate-300">{item.snippet}</p>
-                    <p className="mt-1 text-[10px] text-slate-400">{item.reason}</p>
+                    <p className="mt-1 break-words font-mono text-[11px] leading-4 text-ink-700">{item.snippet}</p>
+                    <p className="mt-1 text-[10px] text-ink-500">{item.reason}</p>
                   </div>
                 ))}
               </div>
             )}
-            <p className="text-[10px] leading-4 text-slate-400">{impact.note}</p>
+            <p className="text-[10px] leading-4 text-ink-500">{impact.note}</p>
           </div>
         ) : null}
       </Modal>
@@ -1385,7 +1385,7 @@ export function BrandLibraryPage() {
                   aria-label="Pick foreground color"
                   value={/^#[0-9a-f]{6}$/i.test(foreground) ? foreground : '#000000'}
                   onChange={(event) => setForeground(event.target.value.toUpperCase())}
-                  className="h-9 w-10 shrink-0 cursor-pointer rounded-lg border border-white/10 bg-white/[0.04] p-1"
+                  className="h-9 w-10 shrink-0 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 p-1"
                 />
                 <Input
                   id="contrast-fg"
@@ -1402,7 +1402,7 @@ export function BrandLibraryPage() {
                   aria-label="Pick background color"
                   value={/^#[0-9a-f]{6}$/i.test(background) ? background : '#ffffff'}
                   onChange={(event) => setBackground(event.target.value.toUpperCase())}
-                  className="h-9 w-10 shrink-0 cursor-pointer rounded-lg border border-white/10 bg-white/[0.04] p-1"
+                  className="h-9 w-10 shrink-0 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 p-1"
                 />
                 <Input
                   id="contrast-bg"
@@ -1428,31 +1428,31 @@ export function BrandLibraryPage() {
               className={cn(
                 'rounded-lg border p-4',
                 contrast.passes_selected_requirement
-                  ? 'border-emerald-400/25 bg-emerald-400/10'
-                  : 'border-rose-400/25 bg-rose-500/10'
+                  ? 'border-emerald-200 bg-emerald-50'
+                  : 'border-rose-200 bg-rose-50'
               )}
             >
               <div className="flex items-center justify-between gap-3">
-                <p className={cn('text-sm font-semibold', contrast.passes_selected_requirement ? 'text-emerald-200' : 'text-rose-200')}>
+                <p className={cn('text-sm font-semibold', contrast.passes_selected_requirement ? 'text-emerald-700' : 'text-rose-800')}>
                   {contrast.ratio}:1 — {contrast.passes_selected_requirement ? 'Passes' : 'Fails'}
                 </p>
-                <span className="text-[10px] text-slate-400">Required {contrast.required_ratio}:1</span>
+                <span className="text-[10px] text-ink-500">Required {contrast.required_ratio}:1</span>
               </div>
               <div
-                className="mt-3 rounded-lg border border-white/10 p-3 text-sm"
+                className="mt-3 rounded-lg border border-slate-200 p-3 text-sm"
                 style={{ color: contrast.foreground, backgroundColor: contrast.background }}
               >
                 The quick brown fox jumps over the lazy dog.
               </div>
-              <p className="mt-2 text-[11px] leading-5 text-slate-300">{contrast.note}</p>
-              <p className="mt-1 text-[10px] text-slate-400">
+              <p className="mt-2 text-[11px] leading-5 text-ink-700">{contrast.note}</p>
+              <p className="mt-1 text-[10px] text-ink-500">
                 Normal text {contrast.normal_text_passes ? 'passes' : 'fails'} · Large text{' '}
                 {contrast.large_text_passes ? 'passes' : 'fails'}
               </p>
             </div>
           ) : null}
           {contrastError ? (
-            <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">{contrastError}</p>
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{contrastError}</p>
           ) : null}
           <InfoCallout tone="neutral" title="A measured result, not a brand approval">
             Passing contrast does not approve a color pairing for the brand. Design review still applies.
@@ -1476,7 +1476,7 @@ export function BrandLibraryPage() {
           </>
         }
       >
-        <p className="text-sm leading-6 text-slate-300">
+        <p className="text-sm leading-6 text-ink-700">
           “{retireFact?.approved_value}” will be marked expired and excluded from current guidance. Existing audit
           findings keep their recorded history. This does not delete the record.
         </p>
@@ -1498,7 +1498,7 @@ export function BrandLibraryPage() {
           </>
         }
       >
-        <p className="text-sm leading-6 text-slate-300">
+        <p className="text-sm leading-6 text-ink-700">
           “{archiveRuleTarget?.name}” will stop applying to future audits. Existing audit runs and findings are not
           rewritten, so their history remains intact.
         </p>

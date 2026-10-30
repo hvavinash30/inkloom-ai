@@ -35,8 +35,8 @@ function LoadingScreen() {
             <circle cx="23" cy="24" r="1.6" fill="#EAF2FF" />
           </svg>
         </span>
-        <p className="mt-4 text-sm font-semibold text-slate-100">Loading the Inkloom workspace</p>
-        <p className="mt-1 text-xs text-slate-400">Preparing your workspace…</p>
+        <p className="mt-4 text-sm font-semibold text-ink-900">Loading the Inkloom workspace</p>
+        <p className="mt-1 text-xs text-ink-500">Preparing your workspace…</p>
       </div>
     </div>
   );
@@ -47,13 +47,13 @@ function ApiUnavailable({ message, retry }: { message: string; retry: () => void
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <Card className="w-full max-w-lg p-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-400/25 bg-amber-400/10 text-amber-300">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-600">
             <ServerOff className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-white">Inkloom is not reachable</h1>
-            <p className="mt-1.5 text-sm leading-6 text-slate-300">{message}</p>
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5 text-xs leading-5 text-slate-400">
+            <h1 className="text-base font-semibold text-ink-900">Inkloom is not reachable</h1>
+            <p className="mt-1.5 text-sm leading-6 text-ink-600">{message}</p>
+            <div className="mt-4 rounded-lg border border-[var(--line)] bg-ink-50 px-3 py-2.5 text-xs leading-5 text-ink-500">
               Workspace records could not be loaded. Make sure the Inkloom service is running, then retry. If the
               problem continues, contact your workspace administrator.
             </div>

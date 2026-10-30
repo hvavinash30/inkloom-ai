@@ -69,9 +69,9 @@ export function EvidenceViewer({
           className
         )}
       >
-        <FileQuestion className="mb-3 h-6 w-6 text-slate-400" />
-        <p className="text-sm font-medium text-slate-200">No source file attached</p>
-        <p className="mt-1 max-w-sm text-xs leading-5 text-slate-400">
+        <FileQuestion className="mb-3 h-6 w-6 text-ink-500" />
+        <p className="text-sm font-medium text-ink-800">No source file attached</p>
+        <p className="mt-1 max-w-sm text-xs leading-5 text-ink-500">
           {emptyMessage ||
             'This content was checked from supplied text or a timestamped transcript. No media file was stored, so there is nothing to preview.'}
         </p>
@@ -82,7 +82,7 @@ export function EvidenceViewer({
   if (loading) {
     return (
       <div className={cn('glass-inset flex min-h-[280px] items-center justify-center rounded-2xl', className)}>
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-ink-500">
           <Loader2 className="h-4 w-4 animate-spin text-brand-400" />
           Loading the stored file…
         </div>
@@ -106,16 +106,16 @@ export function EvidenceViewer({
 
   return (
     <div className={cn('glass overflow-hidden rounded-2xl', className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 bg-white/[0.03] px-3 py-2">
-        <p className="min-w-0 truncate text-xs font-medium text-slate-300">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+        <p className="min-w-0 truncate text-xs font-medium text-ink-700">
           {assetType === 'pdf' ? 'Original PDF' : assetType === 'video' ? 'Stored video' : 'Stored image'}
-          <span className="ml-2 font-normal text-slate-400">Loaded with your role permissions</span>
+          <span className="ml-2 font-normal text-ink-500">Loaded with your role permissions</span>
         </p>
         <div className="flex shrink-0 items-center gap-2">
           <a
             href={url}
             download={downloadName}
-            className="inline-flex items-center gap-1 rounded text-xs font-medium text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            className="inline-flex items-center gap-1 rounded text-xs font-medium text-ink-500 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
           >
             <Download className="h-3.5 w-3.5" />
             Download
@@ -124,7 +124,7 @@ export function EvidenceViewer({
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded text-xs font-medium text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            className="inline-flex items-center gap-1 rounded text-xs font-medium text-ink-500 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Open
@@ -137,7 +137,7 @@ export function EvidenceViewer({
           key={page}
           title={`PDF preview: ${title}`}
           src={`${url}#page=${page && page > 0 ? page : 1}&view=FitH`}
-          className="h-[540px] w-full bg-[#0b1224] lg:h-[640px]"
+          className="h-[540px] w-full bg-ink-900 lg:h-[640px]"
         />
       ) : assetType === 'video' ? (
         <video
@@ -160,7 +160,7 @@ export function EvidenceViewer({
       )}
 
       {contentType ? (
-        <div className="flex flex-wrap items-center justify-between gap-1 border-t border-white/15 bg-white/[0.03] px-3 py-1.5 text-[10px] text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-1 border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] text-ink-500">
           <span>{contentType}</span>
           <span>File served through an authenticated API request, not a public URL.</span>
         </div>

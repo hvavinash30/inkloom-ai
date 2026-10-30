@@ -553,6 +553,49 @@ def test_assistant_declares_mode_and_grounding(client):
     assert payload["verification_note"]
 
 
+def test_assistant_suggestions_are_grounded(client):
+    attention = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "What needs my attention today?"},
+    )
+    assert attention.status_code == 200, attention.text
+    attention_payload = attention.json()
+    assert attention_payload["verification"] == "verified_from_workspace_records"
+    assert "attention" in attention_payload["reply"].lower()
+    assert "could not verify" not in attention_payload["reply"].lower()
+
+    score = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "What does the audit score mean?"},
+    )
+    assert score.status_code == 200, score.text
+    score_payload = score.json()
+    assert score_payload["verification"] == "general_guidance"
+    assert "not a legal risk rating" in score_payload["reply"]
+    assert "could not verify" not in score_payload["reply"].lower()
+
+    facts = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "Which approved facts are outdated?"},
+    )
+    assert facts.status_code == 200, facts.text
+    facts_payload = facts.json()
+    assert facts_payload["verification"] == "verified_from_workspace_records"
+    assert "approved fact" in facts_payload["reply"].lower()
+    assert "could not verify" not in facts_payload["reply"].lower()
+
+    queue = client.post(
+        "/api/v1/assistant/chat",
+        headers=CREATOR,
+        json={"message": "What is waiting in the review queue?"},
+    )
+    assert queue.status_code == 200, queue.text
+    assert "reviewers and admins" in queue.json()["reply"]
+
+
 def test_upload_limits_and_type_checks(client):
     bad_type = client.post(
         "/api/v1/uploads/",

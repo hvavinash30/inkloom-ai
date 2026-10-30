@@ -217,25 +217,25 @@ export function scoreTone(score?: number | null): {
   bar: string;
 } {
   if (score === null || score === undefined) {
-    return { text: 'text-slate-300', bg: 'bg-white/[0.06]', border: 'border-white/10', bar: 'bg-slate-400' };
+    return { text: 'text-ink-500', bg: 'bg-slate-100', border: 'border-slate-200', bar: 'bg-slate-400' };
   }
   if (score >= 85) {
-    return { text: 'text-emerald-300', bg: 'bg-emerald-400/10', border: 'border-emerald-400/25', bar: 'bg-emerald-400' };
+    return { text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', bar: 'bg-emerald-500' };
   }
   if (score >= 70) {
-    return { text: 'text-amber-300', bg: 'bg-amber-400/10', border: 'border-amber-400/25', bar: 'bg-amber-400' };
+    return { text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', bar: 'bg-amber-500' };
   }
   if (score >= 50) {
-    return { text: 'text-orange-300', bg: 'bg-orange-500/10', border: 'border-orange-400/25', bar: 'bg-orange-400' };
+    return { text: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200', bar: 'bg-orange-500' };
   }
-  return { text: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-400/25', bar: 'bg-rose-400' };
+  return { text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200', bar: 'bg-rose-500' };
 }
 
 export const SEVERITY_STYLE: Record<Severity, string> = {
-  low: 'bg-white/[0.06] text-slate-200 border-white/10',
-  medium: 'bg-amber-400/10 text-amber-200 border-amber-400/25',
-  high: 'bg-orange-500/10 text-orange-200 border-orange-400/25',
-  critical: 'bg-rose-500/10 text-rose-200 border-rose-400/30',
+  low: 'bg-slate-100 text-ink-700 border-slate-200',
+  medium: 'bg-amber-50 text-amber-700 border-amber-200',
+  high: 'bg-orange-50 text-orange-700 border-orange-200',
+  critical: 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
 export const SEVERITY_DOT: Record<Severity, string> = {
@@ -245,12 +245,12 @@ export const SEVERITY_DOT: Record<Severity, string> = {
   critical: 'bg-rose-500',
 };
 
-const NETURAL_STYLE = 'bg-white/[0.06] text-slate-300 border-white/10';
-const INFO_STYLE = 'bg-sky-500/10 text-sky-200 border-sky-400/25';
-const BRAND_STYLE = 'bg-blue-500/10 text-blue-200 border-blue-400/25';
-const SUCCESS_STYLE = 'bg-emerald-400/10 text-emerald-200 border-emerald-400/25';
-const WARNING_STYLE = 'bg-amber-400/10 text-amber-200 border-amber-400/25';
-const DANGER_STYLE = 'bg-rose-500/10 text-rose-200 border-rose-400/30';
+const NETURAL_STYLE = 'bg-slate-100 text-ink-600 border-slate-200';
+const INFO_STYLE = 'bg-sky-50 text-sky-700 border-sky-200';
+const BRAND_STYLE = 'bg-blue-50 text-blue-700 border-blue-200';
+const SUCCESS_STYLE = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+const WARNING_STYLE = 'bg-amber-50 text-amber-700 border-amber-200';
+const DANGER_STYLE = 'bg-rose-50 text-rose-700 border-rose-200';
 
 export const STATUS_STYLE: Record<string, string> = {
   draft: NETURAL_STYLE,
@@ -286,7 +286,7 @@ export const RISK_STYLE: Record<RiskLevel, string> = {
   clean: SUCCESS_STYLE,
   low: SUCCESS_STYLE,
   medium: WARNING_STYLE,
-  high: 'bg-orange-500/10 text-orange-200 border-orange-400/25',
+  high: 'bg-orange-50 text-orange-700 border-orange-200',
   critical: DANGER_STYLE,
 };
 

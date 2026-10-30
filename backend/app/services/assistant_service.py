@@ -9,6 +9,7 @@ contain an answer, it says so instead of guessing.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException
@@ -509,7 +510,42 @@ def _answer_campaign(
 
 def _answer_review_queue(db: Session, actor: Actor) -> Optional[AssistantChatResponse]:
     if not actor.can("review.queue"):
-        return None
+        own = (
+            db.query(ContentDocument)
+            .filter(
+                ContentDocument.workspace_id == actor.workspace_id,
+                ContentDocument.created_by == actor.id,
+                ContentDocument.status.in_(["in_review", "changes_requested"]),
+            )
+            .order_by(ContentDocument.submitted_at.asc())
+            .all()
+        )
+        if not own:
+            reply = (
+                "The review queue is available to reviewers and admins. You have no submissions "
+                "currently waiting for a decision."
+            )
+        else:
+            lines = [
+                f"• “{document.title}” — v{document.current_version_number}, "
+                f"{document.status.replace('_', ' ')}"
+                for document in own[:6]
+            ]
+            reply = (
+                "The shared review queue is available to reviewers and admins. Your own submissions "
+                f"currently waiting on a decision ({len(own)}):\n\n" + "\n".join(lines)
+            )
+        return _result(
+            reply=reply,
+            verification="verified_from_workspace_records",
+            verification_note=(
+                "Your role cannot review other people's content; these items were filtered to "
+                "submissions you created in this workspace."
+            ),
+            actions=[
+                AssistantActionSuggestion(action_type="navigate", label="Open your content", route="/content")
+            ],
+        )
     documents = (
         db.query(ContentDocument)
         .filter(
@@ -539,6 +575,259 @@ def _answer_review_queue(db: Session, actor: Actor) -> Optional[AssistantChatRes
         verification_note="Queue items and statuses were read from the workspace database.",
         actions=[
             AssistantActionSuggestion(action_type="navigate", label="Open review queue", route="/review-queue")
+        ],
+    )
+
+
+def _answer_attention(db: Session, actor: Actor) -> AssistantChatResponse:
+    priorities: list[dict] = []
+    high_open_total = 0
+    for document in _accessible_documents(db, actor):
+        version, run = _latest_audit(db, document)
+        high_open = 0
+        if run:
+            high_open = (
+                db.query(func.count(AuditFinding.id))
+                .filter(
+                    AuditFinding.audit_run_id == run.id,
+                    AuditFinding.status == "open",
+                    AuditFinding.severity.in_(["high", "critical"]),
+                )
+                .scalar()
+            ) or 0
+            high_open_total += high_open
+        if document.status == "changes_requested":
+            priorities.append(
+                {
+                    "rank": 0,
+                    "title": document.title,
+                    "detail": (
+                        f"Changes were requested on version {document.current_version_number}. "
+                        "Open the notes, revise, and resubmit."
+                    ),
+                    "route": f"/content/{document.id}",
+                }
+            )
+        elif actor.can("review.queue") and document.status == "in_review":
+            priorities.append(
+                {
+                    "rank": 0,
+                    "title": document.title,
+                    "detail": (
+                        f"Version {document.current_version_number} is waiting for a reviewer decision."
+                    ),
+                    "route": f"/content/{document.id}",
+                }
+            )
+        elif run and high_open:
+            priorities.append(
+                {
+                    "rank": 0,
+                    "title": document.title,
+                    "detail": (
+                        f"The latest check has {high_open} open high/critical finding(s) "
+                        f"(readiness {run.overall_score}/100)."
+                    ),
+                    "route": f"/content/{document.id}",
+                }
+            )
+        elif run and run.overall_score < 80 and document.status != "approved":
+            priorities.append(
+                {
+                    "rank": 1,
+                    "title": document.title,
+                    "detail": (
+                        f"The latest check scored {run.overall_score}/100 with "
+                        f"{run.total_findings} finding(s)."
+                    ),
+                    "route": f"/content/{document.id}",
+                }
+            )
+
+    unresolved = (
+        db.query(func.count(CampaignConflict.id))
+        .join(Campaign, Campaign.id == CampaignConflict.campaign_id)
+        .filter(
+            Campaign.workspace_id == actor.workspace_id,
+            CampaignConflict.status == "unresolved",
+        )
+        .scalar()
+    ) or 0
+    if unresolved:
+        priorities.append(
+            {
+                "rank": 0,
+                "title": f"{unresolved} unresolved campaign conflict{'s' if unresolved != 1 else ''}",
+                "detail": "Campaign assets make inconsistent claims; resolve values before launch.",
+                "route": "/campaigns",
+            }
+        )
+
+    priorities.sort(key=lambda item: item["rank"])
+    top = priorities[:5]
+    pending_own = sum(
+        1
+        for document in _accessible_documents(db, actor)
+        if document.status in {"in_review", "changes_requested"}
+    )
+    if not top:
+        return _result(
+            reply=(
+                "Nothing in the content you can access is currently flagged: no change requests, "
+                "no open high/critical findings, and no unresolved campaign conflicts. "
+                f"{pending_own} item(s) of yours are still waiting on a review decision."
+                if pending_own
+                else "Nothing in the content you can access is currently flagged: no change requests, "
+                "no open high/critical findings, and no unresolved campaign conflicts."
+            ),
+            verification="verified_from_workspace_records",
+            verification_note=(
+                "The assistant checked accessible documents, their latest audit runs, and campaign "
+                "conflicts. Scores are workflow aids, not legal risk ratings."
+            ),
+            actions=[
+                AssistantActionSuggestion(action_type="navigate", label="Open content", route="/content")
+            ],
+        )
+
+    lines = [f"• **{item['title']}** — {item['detail']}" for item in top]
+    actions: list[AssistantActionSuggestion] = []
+    seen_routes: set[str] = set()
+    for item in top:
+        if item["route"] in seen_routes or len(actions) >= 3:
+            continue
+        seen_routes.add(item["route"])
+        actions.append(
+            AssistantActionSuggestion(
+                action_type="navigate",
+                label=f"Open {item['title']}",
+                route=item["route"],
+            )
+        )
+    return _result(
+        reply=(
+            "Here is what needs attention in this workspace right now:\n\n"
+            + "\n".join(lines)
+            + f"\n\n{high_open_total} open high/critical finding(s) across the latest checks you can access."
+        ),
+        verification="verified_from_workspace_records",
+        verification_note=(
+            "Priorities were computed from accessible documents, review statuses, latest audit runs, "
+            "and unresolved campaign conflicts. Scores are workflow aids, not legal risk ratings."
+        ),
+        grounding=[
+            AssistantGroundingItem(
+                kind="record",
+                title=item["title"],
+                detail=item["detail"],
+                source_reference="Workspace priority check",
+            )
+            for item in top[:4]
+        ],
+        actions=actions,
+    )
+
+
+def _answer_outdated_facts(db: Session, actor: Actor, message: str) -> Optional[AssistantChatResponse]:
+    lowered = message.lower()
+    if "fact" not in lowered:
+        return None
+    if not any(
+        word in lowered
+        for word in ("outdated", "stale", "expired", "needs review", "need review", "review due", "old")
+    ):
+        return None
+    if not actor.can("brand.read"):
+        return _result(
+            reply="Your role cannot read the approved-facts register, so I cannot check fact freshness.",
+            verification="unable_to_verify",
+            verification_note="The assistant respects the brand.read capability.",
+        )
+    facts = (
+        db.query(ApprovedFact)
+        .filter(ApprovedFact.workspace_id == actor.workspace_id, ApprovedFact.is_active.is_(True))
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    stale: list[tuple[ApprovedFact, Optional[datetime]]] = []
+    for fact in facts:
+        next_review = fact.next_review_at
+        if next_review and next_review.tzinfo is None:
+            next_review = next_review.replace(tzinfo=timezone.utc)
+        if fact.status in {"expired", "needs_review"} or (next_review and next_review < now):
+            stale.append((fact, next_review))
+    if not stale:
+        return _result(
+            reply=(
+                f"No active approved fact is outdated right now. None of the {len(facts)} active "
+                "fact(s) is marked expired or needs review, and none is past its scheduled review date."
+            ),
+            verification="verified_from_workspace_records",
+            verification_note="Active approved facts and next-review dates were read from the workspace database.",
+            actions=[
+                AssistantActionSuggestion(
+                    action_type="navigate", label="Open approved facts", route="/brand-library?tab=facts"
+                )
+            ],
+        )
+    lines = []
+    for fact, next_review in stale[:5]:
+        due = (
+            f"; review was due {next_review.strftime('%d %b %Y')}"
+            if next_review and next_review < now
+            else ""
+        )
+        lines.append(
+            f"• **{fact.claim_statement}** — status {fact.status.replace('_', ' ')}{due}. "
+            f"Approved value: “{fact.approved_value}”."
+        )
+    return _result(
+        reply=(
+            f"{len(stale)} active approved fact(s) are outdated or due for review:\n\n"
+            + "\n".join(lines)
+            + "\n\nTreat these as stale when checking content; an administrator can update or retire "
+            "them in Brand Library → Approved facts."
+        ),
+        verification="verified_from_workspace_records",
+        verification_note=(
+            "Statuses and next-review dates were read from the approved-fact register for this workspace."
+        ),
+        grounding=[
+            AssistantGroundingItem(
+                kind="approved_fact",
+                title=fact.claim_statement,
+                detail=f"{fact.approved_value} · status {fact.status}",
+                source_reference=fact.source_reference,
+            )
+            for fact, _ in stale[:5]
+        ],
+        actions=[
+            AssistantActionSuggestion(
+                action_type="navigate", label="Open approved facts", route="/brand-library?tab=facts"
+            )
+        ],
+    )
+
+
+def _answer_score_meaning() -> AssistantChatResponse:
+    return _result(
+        reply=(
+            "An audit score is a readiness signal, not a legal risk rating. Each check compares the "
+            "saved version against this workspace's active brand rules and approved facts. Confirmed "
+            "contradictions and rule violations become findings with a severity, and the score starts "
+            "at 100 with points deducted by category and severity — the stored run keeps its own "
+            "breakdown and risk factors. The Quality snapshot averages the latest checked version of "
+            "each document you can access. Open a content item and ask “Why did this score low?” to "
+            "see that run's exact deductions."
+        ),
+        verification="general_guidance",
+        verification_note=(
+            "This explains how the audit score is produced; it is not a fact retrieved from workspace "
+            "records. Per-document scores are always read from the stored audit run."
+        ),
+        actions=[
+            AssistantActionSuggestion(action_type="navigate", label="Open content", route="/content"),
+            AssistantActionSuggestion(action_type="navigate", label="View governance insights", route="/insights"),
         ],
     )
 
@@ -628,11 +917,47 @@ def answer_query(db: Session, actor: Actor, request: AssistantChatRequest) -> As
 
     if any(
         phrase in lowered
+        for phrase in (
+            "needs my attention",
+            "needs attention",
+            "attention today",
+            "what should i work on",
+            "what should i do",
+            "what is urgent",
+            "what's urgent",
+            "my priorities",
+            "prioritize",
+        )
+    ):
+        return _answer_attention(db, actor)
+
+    if any(
+        phrase in lowered
         for phrase in ("review queue", "pending review", "waiting for review", "what needs review")
     ):
         queue_answer = _answer_review_queue(db, actor)
         if queue_answer:
             return queue_answer
+
+    outdated_answer = _answer_outdated_facts(db, actor, message)
+    if outdated_answer:
+        return outdated_answer
+
+    if any(
+        phrase in lowered
+        for phrase in (
+            "score mean",
+            "does the score",
+            "does an audit score",
+            "audit score mean",
+            "readiness score mean",
+            "how is the score",
+            "how are scores",
+            "score calculated",
+            "explain the score",
+        )
+    ):
+        return _answer_score_meaning()
 
     fact_answer = _answer_fact_question(db, actor, message)
     if fact_answer:

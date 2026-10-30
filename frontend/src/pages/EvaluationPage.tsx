@@ -28,9 +28,9 @@ import { formatDateTime, titleCase } from '../lib/format';
 import type { EvaluationRun, EvaluationSummary } from '../types';
 
 const RUN_STATUS: Record<string, { className: string; icon: typeof CheckCircle2 }> = {
-  passed: { className: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200', icon: CheckCircle2 },
-  failed: { className: 'border-rose-400/25 bg-rose-500/10 text-rose-300', icon: XCircle },
-  error: { className: 'border-amber-400/25 bg-amber-400/10 text-amber-200', icon: AlertTriangle },
+  passed: { className: 'border-emerald-200 bg-emerald-50 text-emerald-700', icon: CheckCircle2 },
+  failed: { className: 'border-rose-200 bg-rose-50 text-rose-600', icon: XCircle },
+  error: { className: 'border-amber-200 bg-amber-50 text-amber-800', icon: AlertTriangle },
 };
 
 function RunBadge({ status }: { status: string }) {
@@ -63,7 +63,7 @@ export function EvaluationPage() {
   if (loading) {
     return (
       <div>
-        <div className="mb-6 h-20 animate-pulse rounded-xl border border-white/[0.07] bg-white/[0.04]" />
+        <div className="mb-6 h-20 animate-pulse rounded-xl border border-slate-200 bg-slate-50" />
         <LoadingBlock rows={4} />
       </div>
     );
@@ -204,14 +204,14 @@ export function EvaluationPage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold text-slate-100">{testCase.name}</h3>
+                      <h3 className="text-sm font-semibold text-ink-900">{testCase.name}</h3>
                       {lastRun ? <RunBadge status={lastRun.status} /> : (
-                        <span className="rounded border border-white/10 bg-white/[0.035] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                        <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-500">
                           Not run
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-ink-500">
                       {titleCase(testCase.case_type)} · v{testCase.version}
                       {testCase.is_demo ? ' · demo case' : ''}
                     </p>
@@ -229,21 +229,21 @@ export function EvaluationPage() {
                 </div>
 
                 {testCase.description ? (
-                  <p className="mt-2 text-xs leading-5 text-slate-400">{testCase.description}</p>
+                  <p className="mt-2 text-xs leading-5 text-ink-500">{testCase.description}</p>
                 ) : null}
 
                 {testCase.expected_summary ? (
-                  <div className="mt-3 rounded-lg border border-white/[0.07] bg-white/[0.035] px-3 py-2">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Stored expectation</p>
-                    <p className="mt-0.5 text-[11px] leading-5 text-slate-300">{testCase.expected_summary}</p>
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-ink-500">Stored expectation</p>
+                    <p className="mt-0.5 text-[11px] leading-5 text-ink-700">{testCase.expected_summary}</p>
                   </div>
                 ) : null}
 
                 {lastRun ? (
                   <div className="mt-3">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-500">
                       <span>
-                        <span className="font-medium text-slate-300">{lastRun.findings_count}</span> finding
+                        <span className="font-medium text-ink-700">{lastRun.findings_count}</span> finding
                         {lastRun.findings_count === 1 ? '' : 's'}
                       </span>
                       {lastRun.actual_location ? <span>Location: {lastRun.actual_location}</span> : null}
@@ -252,7 +252,7 @@ export function EvaluationPage() {
                     {lastRun.matched_categories.length > 0 ? (
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {lastRun.matched_categories.map((category) => (
-                          <span key={category} className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-300">
+                          <span key={category} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-ink-700">
                             {titleCase(category)}
                           </span>
                         ))}
@@ -261,35 +261,35 @@ export function EvaluationPage() {
                     <button
                       type="button"
                       onClick={() => setExpanded(isExpanded ? null : testCase.id)}
-                      className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-brand-300 hover:underline"
+                      className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:underline"
                     >
                       {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       {isExpanded ? 'Hide run details' : 'View run details'}
                     </button>
                     {isExpanded ? (
                       <div className="mt-2 space-y-2">
-                        <dl className="rounded-lg border border-white/[0.07] bg-white/[0.035] px-3 py-2">
+                        <dl className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                           {Object.entries(lastRun.details).map(([key, value]) => (
                             <div key={key} className="flex flex-col gap-0.5 py-0.5 sm:flex-row sm:gap-2">
-                              <dt className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:w-32">
+                              <dt className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-ink-500 sm:w-32">
                                 {titleCase(key)}
                               </dt>
-                              <dd className="min-w-0 break-words text-[11px] leading-4 text-slate-300">{formatDetails(value)}</dd>
+                              <dd className="min-w-0 break-words text-[11px] leading-4 text-ink-700">{formatDetails(value)}</dd>
                             </div>
                           ))}
                           {Object.keys(lastRun.details).length === 0 ? (
-                            <p className="text-[11px] text-slate-400">No additional run details were stored.</p>
+                            <p className="text-[11px] text-ink-500">No additional run details were stored.</p>
                           ) : null}
                         </dl>
-                        <div className="rounded-lg border border-white/[0.07] bg-white/[0.04] px-3 py-2">
-                          <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-ink-500">
                             Stored expected outcome
                           </p>
                           <dl className="mt-1 space-y-0.5">
                             {Object.entries(testCase.expected_outcome).map(([key, value]) => (
                               <div key={key} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
-                                <dt className="shrink-0 text-[10px] text-slate-400 sm:w-32">{titleCase(key)}</dt>
-                                <dd className="min-w-0 break-words font-mono text-[10px] text-slate-300">
+                                <dt className="shrink-0 text-[10px] text-ink-500 sm:w-32">{titleCase(key)}</dt>
+                                <dd className="min-w-0 break-words font-mono text-[10px] text-ink-700">
                                   {formatDetails(value)}
                                 </dd>
                               </div>
@@ -300,7 +300,7 @@ export function EvaluationPage() {
                     ) : null}
                   </div>
                 ) : (
-                  <p className="mt-3 rounded-lg border border-dashed border-white/10 px-3 py-2 text-[11px] text-slate-400">
+                  <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-[11px] text-ink-500">
                     This case has not been run. Run it to compare the engine output with the stored expectation.
                   </p>
                 )}
@@ -311,24 +311,24 @@ export function EvaluationPage() {
       )}
 
       <Card className="mt-5 overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] px-4 py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3.5">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">Recent evaluation runs</h2>
-            <p className="mt-0.5 text-xs text-slate-400">Stored execution records, newest first.</p>
+            <h2 className="text-sm font-semibold text-ink-900">Recent evaluation runs</h2>
+            <p className="mt-0.5 text-xs text-ink-500">Stored execution records, newest first.</p>
           </div>
-          <span className="text-[11px] text-slate-400">{summary.runs.length} run{summary.runs.length === 1 ? '' : 's'} retained</span>
+          <span className="text-[11px] text-ink-500">{summary.runs.length} run{summary.runs.length === 1 ? '' : 's'} retained</span>
         </div>
         {summary.runs.length === 0 ? (
-          <p className="px-4 py-8 text-center text-xs text-slate-400">No cases have been run yet.</p>
+          <p className="px-4 py-8 text-center text-xs text-ink-500">No cases have been run yet.</p>
         ) : (
-          <div className="divide-y divide-white/[0.08]">
+          <div className="divide-y divide-slate-200">
             {summary.runs.map((run) => (
               <div key={run.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-slate-200">
+                  <p className="truncate text-xs font-medium text-ink-800">
                     {run.case_name || summary.cases.find((testCase) => testCase.id === run.case_id)?.name || 'Evaluation case'}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-slate-400">
+                  <p className="mt-0.5 text-[10px] text-ink-500">
                     {formatDateTime(run.executed_at)} · {run.findings_count} finding{run.findings_count === 1 ? '' : 's'}
                     {run.actual_location ? ` · ${run.actual_location}` : ''}
                   </p>
@@ -340,7 +340,7 @@ export function EvaluationPage() {
         )}
       </Card>
 
-      <div className="mt-5 flex items-start gap-2 text-[11px] leading-5 text-slate-400">
+      <div className="mt-5 flex items-start gap-2 text-[11px] leading-5 text-ink-500">
         <ClipboardCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
           Evaluation results reflect this build's deterministic engine and the seeded fictional demo cases. They are not

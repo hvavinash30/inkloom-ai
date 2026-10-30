@@ -79,15 +79,15 @@ function SectionCard({
   return (
     <Card className="p-5 sm:p-6">
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-brand-300">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-500">
             Step {step}
           </p>
-          <h2 className="mt-0.5 text-sm font-semibold text-slate-100">{title}</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-400">{description}</p>
+          <h2 className="mt-0.5 text-sm font-semibold text-ink-900">{title}</h2>
+          <p className="mt-1 text-xs leading-5 text-ink-500">{description}</p>
         </div>
       </div>
       <div className="mt-5 space-y-4">{children}</div>
@@ -206,19 +206,19 @@ export function OnboardingPage() {
   const configuredTerms = terms.filter((row) => row.preferred.trim() && row.avoid.trim()).length;
 
   return (
-    <div className="min-h-screen bg-[#070b18]">
-      <header className="border-b border-white/10 bg-[#0b1224]/80 backdrop-blur">
+    <div className="min-h-screen bg-canvas">
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2 rounded-lg text-sm font-medium text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-2 rounded-lg text-sm font-medium text-ink-700 transition-colors hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Back to Overview
           </button>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-slate-300">
-            <Users className="h-3 w-3 text-slate-400" aria-hidden />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-ink-700">
+            <Users className="h-3 w-3 text-ink-500" aria-hidden />
             Demo identities · no sign-up
           </span>
         </div>
@@ -226,13 +226,13 @@ export function OnboardingPage() {
 
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-300">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">
             New brand workspace
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink-950 sm:text-3xl">
             Create your own brand
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
+          <p className="mt-2 text-sm leading-6 text-ink-700">
             Everything below becomes the evidence Inkloom audits against. Only what you enter is used —
             the demo workspace's rules and facts are never inherited.
           </p>
@@ -247,25 +247,25 @@ export function OnboardingPage() {
               className={cn(
                 'rounded-xl border px-4 py-3',
                 firstError
-                  ? 'border-rose-400/25 bg-rose-500/10'
+                  ? 'border-rose-200 bg-rose-50'
                   : 'hidden'
               )}
             >
               <div className="flex items-start gap-2.5">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" aria-hidden />
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" aria-hidden />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-rose-200">
+                  <p className="text-sm font-medium text-rose-800">
                     {firstError
                       ? `${Object.keys(errors).length} field${Object.keys(errors).length === 1 ? '' : 's'} need attention`
                       : ''}
                   </p>
-                  <ul className="mt-1 space-y-1 text-xs leading-5 text-rose-300">
+                  <ul className="mt-1 space-y-1 text-xs leading-5 text-rose-600">
                     {Object.entries(errors).map(([key, message]) => (
                       <li key={key}>
                         <button
                           type="button"
                           onClick={() => focusField(key)}
-                          className="text-left underline decoration-rose-300 underline-offset-2 hover:text-rose-200"
+                          className="text-left underline decoration-rose-300 underline-offset-2 hover:text-rose-800"
                         >
                           {message}
                         </button>
@@ -399,9 +399,9 @@ export function OnboardingPage() {
             >
               <div className="space-y-3">
                 {claims.map((row, index) => (
-                  <div key={index} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                  <div key={index} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">
                         Approved fact {index + 1}
                       </p>
                       <button
@@ -410,7 +410,7 @@ export function OnboardingPage() {
                           setClaims((current) => current.filter((_, position) => position !== index));
                           setErrors((current) => clearGroup(current, `claim-${index}-`));
                         }}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-slate-400 hover:bg-white/[0.06] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-ink-500 hover:bg-slate-100 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                         aria-label={`Remove approved fact ${index + 1}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -495,7 +495,7 @@ export function OnboardingPage() {
                 ))}
               </div>
               {claims.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-white/15 bg-white/[0.04] px-3 py-4 text-xs leading-5 text-slate-400">
+                <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs leading-5 text-ink-500">
                   No approved facts yet. Audits can still check restricted claims and terminology, but product
                   claims cannot be verified against a stored fact.
                 </p>
@@ -550,7 +550,7 @@ export function OnboardingPage() {
                         setErrors((current) => clearGroup(current, `restricted-${index}`));
                       }}
                       className={cn(
-                        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/[0.06] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+                        'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-500 hover:bg-slate-100 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
                         index === 0 ? 'mt-5' : ''
                       )}
                       aria-label={`Remove restricted phrase ${index + 1}`}
@@ -561,7 +561,7 @@ export function OnboardingPage() {
                 ))}
               </div>
               {restricted.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-white/15 bg-white/[0.04] px-3 py-4 text-xs leading-5 text-slate-400">
+                <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs leading-5 text-ink-500">
                   No restricted claims yet. You can add prohibited phrases later in the brand library.
                 </p>
               ) : null}
@@ -583,9 +583,9 @@ export function OnboardingPage() {
             >
               <div className="space-y-3">
                 {terms.map((row, index) => (
-                  <div key={index} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                  <div key={index} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">
                         Terminology {index + 1}
                       </p>
                       <button
@@ -594,7 +594,7 @@ export function OnboardingPage() {
                           setTerms((current) => current.filter((_, position) => position !== index));
                           setErrors((current) => clearGroup(current, `term-${index}-`));
                         }}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-slate-400 hover:bg-white/[0.06] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-ink-500 hover:bg-slate-100 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                         aria-label={`Remove terminology pair ${index + 1}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -661,7 +661,7 @@ export function OnboardingPage() {
                 ))}
               </div>
               {terms.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-white/15 bg-white/[0.04] px-3 py-4 text-xs leading-5 text-slate-400">
+                <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs leading-5 text-ink-500">
                   No terminology pairs yet. Brand naming checks will not run until a pair is added.
                 </p>
               ) : null}
@@ -676,7 +676,7 @@ export function OnboardingPage() {
             </SectionCard>
 
             {submitError ? (
-              <div role="alert" className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-200">
+              <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800">
                 <p className="font-medium">The workspace was not created.</p>
                 <p className="mt-0.5">{submitError}</p>
               </div>
@@ -685,50 +685,50 @@ export function OnboardingPage() {
 
           <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
             <Card className="p-5">
-              <h2 className="text-sm font-semibold text-slate-100">Setup summary</h2>
+              <h2 className="text-sm font-semibold text-ink-900">Setup summary</h2>
               <dl className="mt-3 space-y-2 text-xs">
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-400">Approved facts</dt>
-                  <dd className="font-medium tabular-nums text-slate-200">{configuredFacts}</dd>
+                  <dt className="text-ink-500">Approved facts</dt>
+                  <dd className="font-medium tabular-nums text-ink-800">{configuredFacts}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-400">Restricted claims</dt>
-                  <dd className="font-medium tabular-nums text-slate-200">{configuredRestrictions}</dd>
+                  <dt className="text-ink-500">Restricted claims</dt>
+                  <dd className="font-medium tabular-nums text-ink-800">{configuredRestrictions}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-400">Terminology pairs</dt>
-                  <dd className="font-medium tabular-nums text-slate-200">{configuredTerms}</dd>
+                  <dt className="text-ink-500">Terminology pairs</dt>
+                  <dd className="font-medium tabular-nums text-ink-800">{configuredTerms}</dd>
                 </div>
               </dl>
-              <p className="mt-3 border-t border-white/[0.07] pt-3 text-[11px] leading-5 text-slate-400">
+              <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] leading-5 text-ink-500">
                 These counts are recorded with the workspace when you save.
               </p>
             </Card>
 
             <Card className="p-5">
-              <h2 className="text-sm font-semibold text-slate-100">What happens next</h2>
-              <ol className="mt-3 space-y-2.5 text-[11px] leading-5 text-slate-300">
+              <h2 className="text-sm font-semibold text-ink-900">What happens next</h2>
+              <ol className="mt-3 space-y-2.5 text-[11px] leading-5 text-ink-700">
                 <li className="flex gap-2">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[9px] font-semibold text-slate-300">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-semibold text-ink-700">
                     1
                   </span>
                   The workspace is created with admin, reviewer, and creator demo identities.
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[9px] font-semibold text-slate-300">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-semibold text-ink-700">
                     2
                   </span>
                   You are switched into it as Organization Admin, on an empty dashboard.
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[9px] font-semibold text-slate-300">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-semibold text-ink-700">
                     3
                   </span>
                   Upload content, run an audit, and review findings against the rules above.
                 </li>
               </ol>
               <div className="mt-4">
-                <Badge className="border-white/10 bg-white/[0.035] text-slate-300">
+                <Badge className="border-slate-200 bg-slate-50 text-ink-700">
                   <ShieldCheck className="h-3 w-3" aria-hidden />
                   Saved on the server, not in the browser
                 </Badge>
@@ -745,7 +745,7 @@ export function OnboardingPage() {
               Create brand workspace
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Button>
-            <p className="text-[11px] leading-5 text-slate-400">
+            <p className="text-[11px] leading-5 text-ink-500">
               Facts are recorded as self-declared during setup, not independently verified. You can remove or
               edit them later in the brand library.
             </p>

@@ -26,9 +26,9 @@ import { CAPABILITY_LABEL, ROLE_LABEL, formatDate, titleCase } from '../lib/form
 import type { Role } from '../types';
 
 const ROLE_STYLE: Record<Role, string> = {
-  creator: 'border-white/10 bg-white/[0.035] text-slate-300',
-  reviewer: 'border-blue-400/25 bg-blue-500/10 text-blue-200',
-  admin: 'border-white/15 bg-[#0b1224] text-white',
+  creator: 'border-slate-200 bg-slate-50 text-ink-700',
+  reviewer: 'border-blue-200 bg-blue-50 text-blue-700',
+  admin: 'border-slate-200 bg-ink-900 text-white',
 };
 
 export function TeamPage() {
@@ -46,7 +46,7 @@ export function TeamPage() {
   if (loading) {
     return (
       <div>
-        <div className="mb-6 h-20 animate-pulse rounded-xl border border-white/[0.07] bg-white/[0.04]" />
+        <div className="mb-6 h-20 animate-pulse rounded-xl border border-slate-200 bg-slate-50" />
         <LoadingBlock rows={4} />
       </div>
     );
@@ -85,26 +85,26 @@ export function TeamPage() {
       </div>
 
       <Card className="mt-5 overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] px-4 py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3.5">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">Members</h2>
-            <p className="mt-0.5 text-xs text-slate-400">Stored profiles and their recorded activity counts.</p>
+            <h2 className="text-sm font-semibold text-ink-900">Members</h2>
+            <p className="mt-0.5 text-xs text-ink-500">Stored profiles and their recorded activity counts.</p>
           </div>
-          <Badge className="border-white/10 bg-white/[0.035] text-slate-400">{members.length}</Badge>
+          <Badge className="border-slate-200 bg-slate-50 text-ink-500">{members.length}</Badge>
         </div>
         {members.length === 0 ? (
           <div className="p-5">
             <EmptyState icon={Users} title="No members found" description="The demo workspace has no member profiles." />
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.08]">
+          <div className="divide-y divide-slate-200">
             {members.map((member) => (
               <div key={member.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <Avatar name={member.full_name} role={member.role} size="lg" />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-slate-100">{member.full_name}</p>
+                      <p className="truncate text-sm font-semibold text-ink-900">{member.full_name}</p>
                       <span
                         className={cn(
                           'rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
@@ -114,29 +114,29 @@ export function TeamPage() {
                         {member.role_label || ROLE_LABEL[member.role]}
                       </span>
                       {member.is_demo ? (
-                        <span className="rounded border border-amber-400/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-200">
+                        <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-800">
                           Demo profile
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 text-xs text-slate-400">{member.title}</p>
-                    <p className="mt-0.5 break-all text-[11px] text-slate-400">{member.email}</p>
+                    <p className="mt-0.5 text-xs text-ink-500">{member.title}</p>
+                    <p className="mt-0.5 break-all text-[11px] text-ink-500">{member.email}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 sm:justify-end">
+                <div className="flex flex-wrap items-center gap-4 text-[11px] text-ink-500 sm:justify-end">
                   <span className="inline-flex items-center gap-1">
-                    <FileText className="h-3.5 w-3.5 text-slate-400" />
+                    <FileText className="h-3.5 w-3.5 text-ink-500" />
                     {member.stats.documents} content
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <MessageSquare className="h-3.5 w-3.5 text-slate-400" />
+                    <MessageSquare className="h-3.5 w-3.5 text-ink-500" />
                     {member.stats.comments} comments
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <BadgeCheck className="h-3.5 w-3.5 text-slate-400" />
+                    <BadgeCheck className="h-3.5 w-3.5 text-ink-500" />
                     {member.stats.decisions} decisions
                   </span>
-                  <span className="text-slate-400">Joined {formatDate(member.created_at)}</span>
+                  <span className="text-ink-500">Joined {formatDate(member.created_at)}</span>
                 </div>
               </div>
             ))}
@@ -146,8 +146,8 @@ export function TeamPage() {
 
       <div className="mt-5">
         <div className="mb-3 flex items-center gap-2">
-          <UserRoundCheck className="h-4 w-4 text-slate-400" />
-          <h2 className="text-sm font-semibold text-slate-100">Role capability matrix</h2>
+          <UserRoundCheck className="h-4 w-4 text-ink-500" />
+          <h2 className="text-sm font-semibold text-ink-900">Role capability matrix</h2>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {data.role_matrix.map((entry) => (
@@ -161,14 +161,14 @@ export function TeamPage() {
                 >
                   {entry.label}
                 </span>
-                <Badge className="border-white/10 bg-white/[0.035] text-slate-400">{entry.capabilities.length}</Badge>
+                <Badge className="border-slate-200 bg-slate-50 text-ink-500">{entry.capabilities.length}</Badge>
               </div>
-              <p className="mt-2 text-xs leading-5 text-slate-400">{entry.description}</p>
+              <p className="mt-2 text-xs leading-5 text-ink-500">{entry.description}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {entry.capabilities.map((capability) => (
                   <span
                     key={capability}
-                    className="rounded-md border border-white/10 bg-white/[0.035] px-1.5 py-0.5 text-[10px] text-slate-300"
+                    className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-ink-700"
                   >
                     {CAPABILITY_LABEL[capability] || titleCase(capability)}
                   </span>
@@ -179,7 +179,7 @@ export function TeamPage() {
         </div>
       </div>
 
-      <p className="mt-5 text-[11px] leading-5 text-slate-400">
+      <p className="mt-5 text-[11px] leading-5 text-ink-500">
         This build does not support inviting, editing, or deactivating members. Those operations need a production
         identity provider and are intentionally not simulated.
       </p>
