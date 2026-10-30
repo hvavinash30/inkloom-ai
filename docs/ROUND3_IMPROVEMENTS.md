@@ -1,8 +1,8 @@
 # Round 3 — Implementation Report
 
-Date: 2026-10-28
-Scope: three improvements to the existing Inkloom AI application (no rebuild, no route removals).
-Status: **implemented, verified locally, and deployed** on 2026-10-29 as commit `ccf799b` (live OCR is disabled by the production `OCR_PROVIDER=none` setting).
+Date: 2026-10-28 (Round 3 features); post-Round-3 redesign recorded 2026-10-30.
+Scope: three improvements to the existing Inkloom AI application (no rebuild, no route removals), followed by a presentation-only dark 3D-glass redesign.
+Status: Round 3 is **implemented, verified locally, and deployed** on 2026-10-29 as commit `ccf799b` (live OCR is disabled by the production `OCR_PROVIDER=none` setting). The 2026-10-30 redesign is **implemented, verified locally, and deployed to Vercel** as commit `e59bb17`; see [Post-Round-3 redesign](#post-round-3--dark-3d-glass-frontend-redesign-2026-10-30).
 
 This report records what was built, how it works, which records it produces, and its honest boundaries. Measured results are in [VERIFICATION.md](VERIFICATION.md).
 
@@ -138,6 +138,46 @@ Images (PNG/JPEG/WebP) and scanned PDF pages are now read with a **local** OCR e
 
 ---
 
+## Post-Round-3 — Dark 3D-glass frontend redesign (2026-10-30)
+
+### Scope
+
+Every existing route, dialog, drawer, menu, loading/empty/error/access-denied state, and workflow now uses one dark layered visual system. No route, feature, server contract, test, demo record, or backend behavior was removed. The application remains the same React + FastAPI product; there is no separate prototype or static replacement.
+
+### What changed
+
+- **Design tokens and surfaces** (`frontend/src/index.css`, `frontend/tailwind.config.js`): canvas `#070B18`, secondary `#0B1224`, raised `#111B32`, primary `#4388FF`, violet `#8765FF`, cyan `#36D9FF`, text `#F3F6FF`, muted `#A7B3CA`; Inter type stack. Fixed ambient gradients and a static perspective grid add depth without motion.
+- **Layer utilities**: `.glass` (cards, 18 px blur), `.glass-soft` (secondary rows, 14 px blur), `.glass-strong` (overlays; fully opaque gradient plus 24 px blur so content cannot ghost through), `.glass-inset`, `.glass-sheen`, `.lift` (200 ms hover elevation), and restrained brand/violet glows. Radii: controls 8–12 px, cards 14–20 px, panels 18–24 px.
+- **Shell and navigation** (`Shell.tsx`, `RoleSwitcher.tsx`, `AssistantDrawer.tsx`, `Toast.tsx`): dark sidebar with grouped navigation, sticky translucent header, workspace menu with `role="menu"`/`menuitemradio`, role switcher, mobile navigation dialog, assistant sheet, and toast surfaces. On small screens the workspace menu and drawer are fixed sheets with opaque surfaces.
+- **Shared primitives** (`ui.tsx`): Card, PageHeader, Button, Badge, StatusBadge, SeverityBadge, Tabs, Dialog, Field, EmptyState, ErrorState, and Skeleton all use the new surfaces and focus styles, so every page inherits the system. Status is always written as text in addition to color.
+- **Pages** (31 modified frontend files): Overview, Content list, New content, Document workspace/evidence, Reviews, Campaigns and campaign detail, Brand library, Policies, History, Insights, Research, Evaluation, Team, Settings, Create Your Own Brand, error states, plus their dialogs and empty states.
+- **Responsive behavior**: single column on mobile, two columns at 768 px, sidebar plus multi-column layouts at 1024/1440 px. Wide tables and tab strips scroll inside their own region; page bodies do not overflow. Dialogs become full-height sheets at 390 px. Header action groups wrap and stay right-aligned.
+- **Accessibility**: visible focus rings, labelled controls, semantic landmarks, `aria-expanded`/`aria-haspopup` menus, tab keyboard navigation (Arrow/Home/End), dialog focus trapping/restoration, and screen-reader labels for icon-only actions. `prefers-reduced-motion: reduce` removes animations, transitions, and hover lift.
+
+### Verification
+
+Measured against the final working tree on 2026-10-30 (details in [VERIFICATION.md](VERIFICATION.md)):
+
+- Backend **84 passed**, 0 failed, 45.20 s; frontend **27 passed**, 0 failed, 711.62 ms; `tsc --noEmit` **0 errors**.
+- Production build succeeded: 1,624 modules; JS 624.78 kB (gzip 158.98 kB), CSS 58.06 kB (gzip 10.90 kB); one chunk-size advisory.
+- **22 of 22** end-to-end browser journeys passed, including the full create → audit → correct → revise → submit → claim → comment → request changes → resubmit → approve flow, audit trail, image OCR, mixed PDF, insights, empty workspace, unauthorized actions, workspace isolation, and refresh persistence. Console errors: **0**.
+- **56** route-overflow checks (14 routes × 390/768/1024/1440 px) found **0 horizontal overflow**; the clipped-text scan flagged only `sr-only` helper spans. Overlay checks at four widths confirmed settled-opaque menus, dialogs, and drawer with no page bleed-through.
+
+### Deployment
+
+- The redesign is **deployed** to [Vercel](https://inkloom-ai-rho.vercel.app) as commit `e59bb17`, deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`, ready 2026-10-30 03:05:49 UTC. Live assets are `assets/index-C1W67hZu.js` (624,811 bytes) and `assets/index-CjC3LMnu.css` (58,064 bytes).
+- A live smoke check at 1440 and 390 px confirmed the dark canvas `rgb(7, 11, 24)`, 14 glass surfaces, sidebar and header, zero console errors, no horizontal overflow, and an opaque workspace menu inside the 390 px viewport. Full journey re-runs against the live site have not been done.
+- The backend was not redeployed; Render still runs `ccf799b`, and live OCR remains disabled by `OCR_PROVIDER=none`.
+
+### Boundaries
+
+- Browser verification used Chromium only. Safari, Firefox, real devices, screen readers, and automated axe checks were not run.
+- The bundle remains a single ~625 kB JS chunk; route-level code splitting was not added.
+- The existing OCR, review, insights, and data semantics are unchanged; the redesign is presentation-only.
+- No product PDF exists in the repository, so none was regenerated.
+
+---
+
 ## Status summary
 
 | Item | Status |
@@ -147,5 +187,6 @@ Images (PNG/JPEG/WebP) and scanned PDF pages are now read with a **local** OCR e
 | 3. Governance-risk insights (four signals, methods, drill-down, tests) | **COMPLETE** (local) |
 | Integration and regression testing | **COMPLETE** (local browser + suites) |
 | Deployment of Round 3 | **COMPLETE** — Vercel and Render deployed commit `ccf799b` on 2026-10-29; live OCR is disabled by `OCR_PROVIDER=none` |
+| Dark 3D-glass frontend redesign (2026-10-30) | **COMPLETE AND DEPLOYED** — 22/22 journeys, 56/56 responsive checks, 0 console errors, build passes; live on Vercel as `e59bb17` with a passing smoke check |
 | Documentation package | **COMPLETE** (this report, verification, roadmap, README, architecture, project status) |
 | Updated product PDF | **NOT APPLICABLE** — no product PDF exists in the repository, so none was regenerated |

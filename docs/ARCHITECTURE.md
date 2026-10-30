@@ -30,16 +30,32 @@ There is no browser-side database client and no secret in the frontend. The brow
 
 ## 3. Frontend
 
-- **Shell**: fixed desktop sidebar, sticky top bar, mobile drawer (dialog semantics), role switcher, assistant entry point.
+- **Shell**: dark fixed desktop sidebar, sticky top bar, mobile drawer (dialog semantics), workspace and role switchers, assistant entry point. Panels use layered translucent surfaces rather than flat fills.
 - **Routing**: a small hash router maps routes to pages (`src/lib/router.ts`, `src/App.tsx`). Access requirements are declared in `src/lib/navigation.ts` and checked in the shell.
 - **Pages**: Overview, Content list, New content, Document workspace, Reviews, Campaigns, Campaign detail, Brand library, Policies & brand memory, History, Insights, Research, Evaluation, Team, Settings.
 - **Session context**: signs in through the demo auth endpoints, keeps the bearer token in memory, and exposes the active user, role, workspace, capabilities, and demo flag. Only the demo role/workspace selection is remembered for the next sign-in. If the session expires, the client re-signs in; `401` responses are surfaced instead of being ignored.
 - **API client**: `src/services/api.ts` is a typed wrapper. Errors are normalized into `ApiError` so pages can show server messages.
-- **Evidence rendering**: findings show affected text, location, rule/fact reference, verification status, score deductions, and actions. Tabs announce selection with `aria-pressed`.
+- **Evidence rendering**: findings show affected text, location, rule/fact reference, verification status, score deductions, and actions. Tabs use `role="tab"`/`tabpanel` with `aria-selected`.
 - **PDF viewer**: downloads the file through the authenticated endpoint, creates a Blob URL, and renders it in an iframe. The URL is revoked when no longer needed.
 - **Video player**: renders `<video>` only when a stored file exists. Transcript-only assets show an explicit empty-file state.
 
 State is local to each page; there is no client cache layer. Mutations reload the affected record so the UI reflects server state rather than optimistic guesses.
+
+### 3.1 Design system and 3D layering
+
+The 2026-10-30 redesign is a presentation-layer change only: routes, hooks, API calls, and server contracts are unchanged.
+
+- **Tokens** (`src/index.css`, `tailwind.config.js`): canvas `#070B18`, secondary `#0B1224`, raised `#111B32`, primary `#4388FF`, violet `#8765FF`, cyan `#36D9FF`, text `#F3F6FF`, muted `#A7B3CA`; Inter with system fallbacks. The page background combines fixed radial ambient gradients with a static, mask-faded perspective grid. There is no parallax.
+- **Layer model**: depth is built from stacked surfaces, 1 px illuminated borders (`--line`, `--line-strong`), inset top highlights, ambient shadows, and restrained glows. Content, forms, tables, and charts remain flat and upright; no text is perspective-transformed.
+- **Surface utilities**:
+  - `.glass` — cards and panels, translucent gradient with 18 px blur and inset highlight.
+  - `.glass-soft` — secondary rows and quieter containers, 14 px blur.
+  - `.glass-strong` — menus, dialogs, drawers. It uses a fully opaque gradient (not a see-through blur) so underlying page content cannot ghost through overlays, plus 24 px blur and a stronger border.
+  - `.glass-inset` — wells inside cards; `.glass-sheen` — static top-light; `.lift` — 200 ms hover elevation; `.glow-brand` / `.glow-violet` — primary and selected emphasis.
+- **Shape and motion**: controls 8–12 px radius, cards 14–20 px, panels 18–24 px. Transitions are 150–250 ms; `prefers-reduced-motion: reduce` removes animation, transition duration, and hover lift.
+- **Responsive strategy**: mobile single column; two columns at 768 px; persistent sidebar plus multi-column dashboards at 1024/1440 px. Wide tables scroll inside their own region (`overflow-x-auto` + `.tab-scroll`), never the page body. Dialogs and the assistant drawer become full-height sheets on narrow screens.
+- **Shared primitives**: `src/components/ui.tsx` (Card, PageHeader, Button, Badge, StatusBadge, SeverityBadge, Tabs, Dialog, Field, EmptyState, ErrorState, Skeleton) and the shell carry the system, so pages inherit consistent surfaces, spacing, focus rings, and dialog behavior instead of re-implementing them.
+- **Accessibility**: visible `:focus-visible` rings, labelled inputs, text labels on every status/severity badge, `aria-expanded`/`aria-haspopup` on menus, `role="menu"`/`menuitemradio` workspace options, tab keyboard navigation (Arrow/Home/End), dialog focus trapping and restoration, and screen-reader-only labels for icon-only actions.
 
 ---
 
@@ -259,6 +275,8 @@ Not provided: production login, password reset, audit logging to an external SIE
 - **Backend process**: `backend/Procfile`.
 - **Frontend**: static Vite build. `frontend/vercel.json` rewrites all paths to `index.html`; `VITE_API_BASE_URL` must point at a reachable API when deployed separately.
 
+The 2026-10-30 3D-glass redesign is a frontend-only change, committed as `e59bb17` and deployed to Vercel at <https://inkloom-ai-rho.vercel.app> (deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`). The backend was not rebuilt and still runs `ccf799b` on Render.
+
 ---
 
 ## 15. Verification approach
@@ -266,7 +284,8 @@ Not provided: production login, password reset, audit logging to an external SIE
 - **Backend tests** (`backend/tests`, 84 tests): API permissions, session issuance/expiry/logout, client-header rejection, cross-workspace record and file isolation, seed integrity, PDF page linkage, generated native/scanned/mixed PDFs, image OCR with line confidence and bounding boxes, OCR failure/unavailable honesty, image validation, transcript timestamps, revision/review/stale approval, assignment and override rules, campaign conflicts, brand memory, research source requirement, evaluation execution, secret-safe integrations, assistant declarations, upload limits, deterministic engine units, and insights aggregation.
 - **Frontend tests**: 27 Node tests for pure helpers (`npm run test:format`), plus `tsc --noEmit`.
 - **Build**: `tsc` then Vite production build.
-- **Browser checks**: a temporary headless-Chrome CDP harness (outside the repo) exercised OCR image and mixed-PDF journeys, the reviewer claim/override flow, insights at 1440/768/390 px, and dashboard/content/create-brand/mobile-navigation regressions. The local development database received test documents during those runs; no deployed data was touched.
+- **Browser checks (2026-10-30 redesign)**: a temporary headless-Chrome CDP harness (outside the repo) executed 22 end-to-end journeys against the real local API — including create/audit/correct/re-audit/submit/review/request-changes/approve with version 3, image OCR, mixed PDF, insights, an empty workspace, unauthorized actions, workspace isolation, and refresh persistence — plus 56 route-overflow checks (14 routes × 390/768/1024/1440 px), overlay checks at four widths, and console-error capture (0 errors). The local development database received test documents during those runs; no deployed data was touched.
+- **Not covered**: Safari/Firefox, real devices, screen readers, and automated axe/WCAG checks. The production bundle remains a single ~625 kB JS chunk.
 - There is no lint script or ESLint configuration in the repository; TypeScript is the static check.
 
 ---
@@ -281,3 +300,4 @@ Not provided: production login, password reset, audit logging to an external SIE
 - Single-node SQLite/local file storage; no background workers or notifications.
 - Demo accounts are fictional; sessions are server-issued and enforced, but there is no external identity provider. RLS is not enforced on the local trusted connection.
 - The five evaluation cases are synthetic fixtures, not a benchmark.
+- The 2026-10-30 dark 3D-glass redesign was verified in Chromium only at 390/768/1024/1440 px. It is deployed to Vercel as `e59bb17`, but Safari/Firefox, screen readers, axe, and reduced-motion OS settings were not exercised. The deployed backend still runs `ccf799b` with OCR disabled.

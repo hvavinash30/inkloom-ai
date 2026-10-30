@@ -1,18 +1,19 @@
 # Inkloom AI — Roadmap
 
-Date: 2026-10-28
+Date: 2026-10-30
 This file lists work that is **not implemented**. Items already shipped are described in the [README](../README.md) and [Round 3 report](ROUND3_IMPROVEMENTS.md).
 
 ---
 
 ## 1. Deployment follow-ups
 
-Round 3 is deployed: commit `ccf799b` is live on [Vercel](https://inkloom-ai-rho.vercel.app) and [Render](https://inkloom-api.onrender.com) as of 2026-10-29. Remaining deployment work:
+Round 3 is deployed: commit `ccf799b` is live on [Render](https://inkloom-api.onrender.com) as of 2026-10-29. The 2026-10-30 dark 3D-glass frontend redesign is **deployed** on [Vercel](https://inkloom-ai-rho.vercel.app) as commit `e59bb17` (deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`) and passed a live smoke check at 1440/390 px. The backend was not rebuilt and still runs `ccf799b`. Remaining deployment work:
 
-1. Decide whether to enable OCR on the free Render instance. The service currently sets `OCR_PROVIDER=none`; switching to `auto` requires confirming the 512 MB memory limit and cold-start latency with real uploads, and reverting if the instance restarts under load.
-2. Investigate why Render did not auto-deploy the `main` push despite `autoDeploy` being enabled; the same commit was deployed manually.
-3. Render’s free instance has an ephemeral filesystem. Uploaded files and stored changes reset on restart; the fictional seed is recreated. For durable demo evidence, attach a disk or move uploads to object storage.
-4. Re-run the live demo journeys after any provider change: image OCR, mixed PDF, claim/override, insights, and dashboard.
+1. Re-run the full local journey suite against the live deployment, not just the smoke check: create, audit, correct, re-audit, submission, claim, comment, request changes, approval, audit trail, OCR, insights, and workspace isolation.
+2. Decide whether to enable OCR on the free Render instance. The service currently sets `OCR_PROVIDER=none`; switching to `auto` requires confirming the 512 MB memory limit and cold-start latency with real uploads, and reverting if the instance restarts under load.
+3. Investigate why Render did not auto-deploy the `main` push despite `autoDeploy` being enabled; the same commit was deployed manually.
+4. Render’s free instance has an ephemeral filesystem. Uploaded files and stored changes reset on restart; the fictional seed is recreated. For durable demo evidence, attach a disk or move uploads to object storage.
+5. Re-run the live demo journeys after any provider change: image OCR, mixed PDF, claim/override, insights, and dashboard.
 
 ---
 
@@ -48,17 +49,21 @@ Round 3 is deployed: commit `ccf799b` is live on [Vercel](https://inkloom-ai-rho
 - **Policy workflow**: turn “may need review” flags into a tracked policy-review task with an owner and due date.
 - **Fact review automation**: scheduled reminders using `next_review_date`; bulk re-verification flows.
 - **Search and reporting** across decisions and override reasons.
+- **Design-system guidance**: document when to use each glass surface and overlay rule, and replace remaining inline color values with shared tokens where practical.
+- **Contrast audit**: measure text and control contrast against the new dark surfaces and publish the results; adjust tokens rather than eyeballing.
 
 ---
 
 ## 5. Quality and verification
 
-- Add a committed Playwright (or equivalent) end-to-end suite; the Round 3 browser harness lived outside the repository.
+- Add a committed Playwright (or equivalent) end-to-end suite; the browser harness lives outside the repository.
 - Add CI (GitHub Actions) running backend pytest, frontend helper tests, `tsc`, and the production build on every pull request.
-- Add accessibility automation (axe) and keyboard-only journeys.
-- Add visual regression snapshots for Insights, Document evidence, and review dialogs.
+- Add accessibility automation (axe) and keyboard-only journeys, including the new dark UI’s menus, dialogs, tabs, and focus order.
+- Add a reduced-motion verification pass with the OS setting enabled; only stylesheet behavior was inspected.
+- Add visual regression snapshots for the redesign at 390/768/1024/1440 px (shell, Overview, Document/evidence, Insights, review dialogs, assistant drawer, workspace menu).
+- Add a cross-browser pass (Safari/Firefox) for `backdrop-filter`, `color-scheme`, and overlay opacity.
 - Build a small, consented corpus of real scanned documents to measure OCR accuracy honestly; do not publish invented accuracy numbers.
-- Add performance budgets for the 617 kB JS bundle (route-level code splitting is the obvious next step).
+- Add performance budgets for the 624.78 kB JS bundle (route-level code splitting is the obvious next step).
 
 ---
 

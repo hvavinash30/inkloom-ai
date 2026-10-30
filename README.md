@@ -8,6 +8,8 @@ The demo workspace — **Acme Cloud Technologies** — is explicitly fictional. 
 - App: <https://inkloom-ai-rho.vercel.app>
 - API: <https://inkloom-api.onrender.com> (`/api/v1/health`)
 
+The live app serves the dark 3D-glass redesign deployed on 2026-10-30 as commit `e59bb17`.
+
 The Render free instance sleeps after inactivity, so the first request can take about a minute. Its filesystem is ephemeral: uploads and stored changes reset on restart or redeploy, and the fictional seed is recreated. See [Deploy](#deploy-vercel--render) for durable options.
 
 **What this build is**
@@ -17,6 +19,8 @@ The Render free instance sleeps after inactivity, so the first request can take 
 - Real video playback when a file exists, plus transcript-timestamp audits when one is supplied.
 - Versioned content, reviewer assignment, human review decisions bound to an exact version, written override reasons when high-risk findings remain, campaign cross-asset conflicts, brand memory, research records, measured evaluation runs, and stored-data insights.
 - Governance-risk insights computed from stored records only: recurring violations, frequently overridden rules with reasons, approved facts due for verification, and unclear guideline signals — each with its method, sample size, and reporting window.
+
+**Frontend redesign (2026-10-30).** Every route, dialog, drawer, menu, and state now uses the dark 3D-glass design system described in [Design system](#design-system): near-black navy canvases, layered translucent panels, illuminated borders, and restrained blue/violet/cyan glows. Content, forms, and tables remain flat and upright. The redesign was verified locally and deployed to Vercel as commit `e59bb17` on 2026-10-30; the live smoke check passed. See [Verification results](#verification-results) and [Deployment state](#deployment-state).
 
 **What this build is not**
 - It does not call an LLM in the audit path, the assistant, OCR, or transcription. There is no simulated AI output anywhere.
@@ -145,6 +149,30 @@ See `docs/ROUND3_IMPROVEMENTS.md` for the implementation report and `docs/VERIFI
 
 ---
 
+## Design system
+
+The interface uses one dark, layered visual system across every route, dialog, drawer, menu, and state. It is implemented with CSS custom properties and Tailwind extensions in `frontend/src/index.css` and `frontend/tailwind.config.js`; no page carries a separate theme.
+
+| Token | Value | Use |
+| --- | --- | --- |
+| Canvas | `#070B18` | Page background, fixed ambient gradients, static perspective grid |
+| Secondary | `#0B1224` | Elevated background bands and inputs |
+| Raised | `#111B32` | Cards, table headers, selected navigation |
+| Primary | `#4388FF` | Primary actions, links, focus accents |
+| Violet | `#8765FF` | Secondary accent, gradient endpoint |
+| Cyan | `#36D9FF` | Informational accent |
+| Text | `#F3F6FF` | Primary text |
+| Muted | `#A7B3CA` | Secondary text and metadata |
+
+- **Layers, not fake 3D.** Depth comes from stacked translucent surfaces, 1 px illuminated borders, inset top highlights, soft ambient shadows, and restrained glows. Text, forms, tables, and charts stay flat and upright; nothing is perspective-tilted.
+- **Surface scale.** `.glass` (cards and panels, 18 px blur), `.glass-soft` (secondary rows, 14 px blur), `.glass-strong` (menus, dialogs, drawers; an opaque gradient so page content never shows through overlays, 24 px blur), `.glass-inset` (wells), `.glass-sheen` (top-light), `.lift` (200 ms hover elevation), and `.glow-brand`/`.glow-violet` (primary and selected emphasis).
+- **Type and shape.** Inter with system fallbacks; controls 8–12 px radius, cards 14–20 px, panels 18–24 px. Status is always written as text, never conveyed by color alone.
+- **Motion.** 150–250 ms transitions for hover, menus, dialogs, and drawers; no parallax or continuous animation. `prefers-reduced-motion: reduce` removes animations, transitions, and hover lift.
+- **Responsive behavior.** Single-column layouts on mobile, two-column at 768 px, and the full sidebar plus multi-column dashboards at 1024/1440 px. Wide tables scroll inside their own region; the page body does not overflow. Dialogs and the assistant drawer become full-height sheets on small screens.
+- **Accessibility.** Semantic landmarks; visible focus rings; labelled controls; a workspace menu with `role="menu"`/`menuitemradio`, `aria-expanded`, Escape and outside-click close; tab lists with arrow/Home/End navigation; modal dialogs that trap and restore focus; screen-reader-only labels for icon-only controls.
+
+---
+
 ## Architecture
 
 ```text
@@ -171,6 +199,7 @@ inkloom/
 │   │                               # policies, history, insights, research, evaluation,
 │   │                               # team, settings
 │   ├── src/components/             # shell, assistant drawer, dialogs, tables, UI primitives
+│   ├── src/index.css               # dark tokens, glass layers, motion, reduced-motion
 │   ├── src/lib/                    # evidence matching, insights formatting, router
 │   ├── src/services/api.ts         # typed API client
 │   ├── scripts/                    # Node helper tests (`npm run test:format`)
@@ -310,37 +339,38 @@ If you point `DATABASE_URL` at Postgres, SQLAlchemy creates the current runtime 
 
 ## Verification results
 
-Local suites and journeys were verified on 2026-10-28; Round 3 was published to GitHub and redeployed on 2026-10-29 (see [Deployment state](#deployment-state)).
+The redesign was verified locally on 2026-10-30 against the final working tree and then smoke-tested on the live deployment.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Backend tests | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **84 passed**, 1 third-party deprecation warning, 43.23 s. Includes OCR fixtures generated at test time, security/session tests, review-workflow tests, and insights tests. |
-| Frontend helper tests | `cd frontend && npm run test:format` | **27 passed** (Node test runner). |
+| Backend tests | `cd backend && .venv\Scripts\python.exe -m pytest -q` | **84 passed**, 0 failed, 1 third-party deprecation warning, 45.20 s. Includes OCR fixtures generated at test time, session/security tests, review-workflow tests, and insights tests. |
+| Frontend helper tests | `cd frontend && npm run test:format` | **27 passed**, 0 failed (Node test runner, 711.62 ms). |
 | TypeScript | `cd frontend && npx tsc --noEmit` | **0 errors**. |
-| Production build | `cd frontend && npm run build` | **0 TypeScript errors**; 1,624 modules transformed; JS 617.26 kB (gzip 157.62 kB), CSS 53.20 kB (gzip 9.48 kB); one chunk-size advisory. |
-| OCR browser journey | Headless Chrome (CDP), 1440 px and 390 px | PNG upload → OCR processed (2 lines, 99% mean confidence) → findings “Product naming” + “cheapest” with `Image text` location; extracted text highlighted; no horizontal overflow at 390 px. |
-| Mixed PDF journey | Headless Chrome (CDP), 1440 px | 2-page PDF with 1 native + 1 scanned page → findings on `Page 1` and `Page 2`; extraction note “native: 1, OCR: 1”; Page 2 OCR line listed; highlights match extracted text exactly. |
-| Review + override journey | Headless Chrome (CDP), 1440 px and 390 px | Claim review → assigned to reviewer; approval blocked without override reason; approval with reason recorded; “Current version is approved”, override reason and reviewer shown in history; no overflow. |
-| Insights journeys | Headless Chrome (CDP), 1440 / 768 / 390 px | Admin sees all four governance-risk sections, methods, and empty states; document chips navigate to the affected content; no horizontal overflow at any width. |
-| Regression journeys | Headless Chrome (CDP) | Dashboard, content list (“Showing 16 items” in the local verification database), Create Your Own Brand form, and the 390 px mobile drawer with navigation to Insights all render. |
-| Live deployment smoke | Headless Chrome (CDP) + API probes against <https://inkloom-ai-rho.vercel.app> and <https://inkloom-api.onrender.com> | **PASS** — commit `ccf799b` serves the Round 3 bundle; dashboard, content list, insights, Create Your Own Brand, and the 390 px drawer render with no access-denied or session errors and no horizontal overflow; `POST /api/v1/auth/demo/session` → **201**, role-only header without a token → **401**, `GET /api/v1/insights/` → **200** with all four signal groups and metric methods. Production OCR is disabled by configuration (see [Deployment state](#deployment-state)). |
+| Production build | `cd frontend && npm run build` | **0 TypeScript errors**; 1,624 modules transformed; JS 624.78 kB (gzip 158.98 kB), CSS 58.06 kB (gzip 10.90 kB); built in 16.36 s; one chunk-size advisory. |
+| End-to-end journeys | Headless Chrome (CDP), local API + Vite | **22 of 22 journeys passed** with the data recorded in [VERIFICATION.md](docs/VERIFICATION.md): direct open, workspace switch, create/audit (score 0, 7 findings), re-run, evidence inspection, correction, version 2 (score 100), re-audit, submission, reviewer claim, comment, request changes, revision to version 3, approval, audit trail (14 events), image OCR, mixed PDF, insights, empty workspace, unauthorized actions, workspace isolation, and refresh persistence. Console errors: **0**. |
+| Responsive sweep | Headless Chrome, 14 routes × 390/768/1024/1440 px | **56 checks, 0 horizontal overflow.** A clipped-text scan flagged only `sr-only` helper spans, which are intentionally visually hidden. |
+| Overlay checks | Headless Chrome, 1440/1024/768/390 px | Assistant drawer, workspace/role menus, and dialogs settle fully opaque (entry animation 200–240 ms) and stay on-screen with no horizontal overflow; dialogs are opaque at 390 px. |
+| Live redesign smoke | Headless Chrome (CDP) + curl, <https://inkloom-ai-rho.vercel.app> | **PASS (2026-10-30)** — deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` is READY at commit `e59bb17`; live CSS `index-CjC3LMnu.css` contains the dark tokens and opaque `.glass-strong` gradient; body background `rgb(7, 11, 24)`; 14 glass surfaces; sidebar/header render; no onboarding gate; **0 JS errors**; `scrollWidth == innerWidth` at 1440 and 390 px; workspace menu settled opaque and inside the 390 px viewport. |
+| Historical Round 3 smoke | 2026-10-29, pre-redesign | **PASS for the Round 3 build** (`ccf799b`); retained as history. |
 
-`npm run build` runs `tsc` before Vite, which is the static type check used here; there is no ESLint configuration in this repository. Browser checks used a temporary headless-Chrome CDP harness outside the repository (Playwright is not installed in this environment), so those scripts are not part of the delivered application.
+`npm run build` runs `tsc` before Vite, which is the static type check used here; there is no ESLint configuration in this repository. Browser checks used a temporary headless-Chrome CDP harness outside the repository (Playwright is not installed in this environment), so those scripts are not part of the delivered application. Verification covered Chromium only; Safari, Firefox, real mobile devices, screen readers, and automated axe checks were not run.
 
-The browser journeys ran against the local development database. They created verification documents in it (OCR image/PDF checks and a separate throwaway workspace for the override test); no production data was edited by these journeys. The deploy reseeded the production demo database from the seed, so live content counts start from the seeded set.
+The local browser journeys ran against the local development database. They created a `Lifecycle QA …` text document with versions 1–3 and its audits/comments/decisions, two OCR verification documents (image and mixed PDF), and a throwaway empty workspace; no production data was touched. The live deployment was smoke-tested separately and serves the redesign.
 
 ---
 
 ## Deployment state
 
-| Component | Serves | Round 3 present? |
+The 3D-glass frontend is **live** on Vercel from commit `e59bb17` (deployed 2026-10-30). The backend is unchanged and still runs commit `ccf799b`.
+
+| Component | Serves | Redesign? |
 | --- | --- | --- |
-| Vercel frontend <https://inkloom-ai-rho.vercel.app> | `assets/index-BgjRQFHF.js` (617,293 bytes), commit `ccf799b` | **Yes** — the bundle contains the Round 3 UI strings (`Governance risk signals`, `Recurring violations`, `auth/demo/session`, `Extracted text with evidence`). |
-| Render API <https://inkloom-api.onrender.com> | Commit `ccf799b` | **Yes** — `/api/v1/auth/demo/session` returns **201**, and `/api/v1/health` reports `ocr_configured: false`, `ocr_provider: "none"` with the explicit reason `OCR is disabled by configuration (OCR_PROVIDER=none)`. |
+| Vercel frontend <https://inkloom-ai-rho.vercel.app> | `assets/index-C1W67hZu.js` (624,811 bytes) + `assets/index-CjC3LMnu.css` (58,064 bytes), commit `e59bb17` | **Yes** — deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57`, READY and aliased to the production domain. Live smoke: dark body background, 14 glass surfaces, sidebar/header, opaque menus, no onboarding gate, 0 JS errors, no overflow at 1440/390 px. |
+| Render API <https://inkloom-api.onrender.com> | Commit `ccf799b` (Round 3) | **Backend unchanged** — the redesign is frontend-only. `/api/v1/auth/demo/session` returns **201**, and `/api/v1/health` reports `ocr_configured: false`, `ocr_provider: "none"` with the explicit reason `OCR is disabled by configuration (OCR_PROVIDER=none)`. |
 
-Round 3 was committed as `ccf799b` and pushed to GitHub `main` on 2026-10-29. Vercel built and promoted the frontend automatically. Render did not auto-trigger from the push despite `autoDeploy` being enabled, so the API was deployed manually to the same commit. The build installed the OCR dependencies successfully, but the Render service still runs with `OCR_PROVIDER=none`; image and scanned-PDF uploads on the live site therefore report OCR as disabled instead of inventing text. Local runs use `OCR_PROVIDER=auto` and perform real OCR. Set the Render variable to `auto` to enable it there; the free instance has 512 MB of memory, so verify memory headroom and latency first.
+The redesign was pushed to GitHub `main` as `e59bb17`; Vercel built and promoted it automatically. Round 3 was previously committed as `ccf799b` and deployed on 2026-10-29; Render did not auto-trigger from that push despite `autoDeploy` being enabled, so the API was deployed manually to that commit. The Render service still runs with `OCR_PROVIDER=none`; image and scanned-PDF uploads on the live site therefore report OCR as disabled instead of inventing text. Local runs use `OCR_PROVIDER=auto` and perform real OCR. Set the Render variable to `auto` to enable it there; the free instance has 512 MB of memory, so verify memory headroom and latency first.
 
-Render’s free-plan filesystem is ephemeral: the deploy reseeded the fictional demo workspace, and uploads or edits made on the live site reset on the next restart or deploy.
+Render's free-plan filesystem is ephemeral: the deploy reseeded the fictional demo workspace, and uploads or edits made on the live site reset on the next restart or deploy.
 
 ---
 
@@ -379,6 +409,10 @@ Render’s free-plan filesystem is ephemeral: the deploy reseeded the fictional 
 - **Evaluation is a fixture.** Five synthetic cases verify regressions; they are not a benchmark of real-world accuracy.
 - **Insights are descriptive.** Counts, rates, and signals are computed from stored records only; small sample sizes are labelled and do not predict legal or brand risk.
 - **Live OCR is disabled on the free Render instance.** The deployment runs with `OCR_PROVIDER=none` because the free plan has limited memory; image and scanned-PDF checks there return an explicit “OCR is disabled” state. Local runs perform real OCR, and the live instance can be switched to `auto` once memory headroom is confirmed.
+- **Live redesign smoke only.** The redesign is deployed and the live home page, menus, layout, and console were checked at 1440/390 px. The full 22-journey workflow suite was run locally, not against the live deployment.
+- **Frontend verification is Chromium-only.** Widths 390/768/1024/1440 px were checked for overflow and overlays; Safari, Firefox, real devices, screen-reader testing, and automated axe audits were not run.
+- **Single bundle.** The production build remains one ~625 kB JS chunk (Vite advisory); route-level code splitting was not added in this round.
+- **No product PDF exists in the repository.** Only uploaded evidence PDFs are present, so no product PDF was regenerated.
 - **Single-node demo storage.** SQLite and local disk uploads suit the demo. A multi-instance production deployment needs Postgres, object storage, and a real auth provider.
 - **Supabase migrations are optional and not exercised by the local runtime.** RLS policies are included for a production Postgres setup; they are not active protections around the demo’s direct SQLAlchemy connection.
 

@@ -4,7 +4,7 @@
 
 Inkloom AI is a working, evidence-first brand-governance demo for the fictional **Acme Cloud Technologies** workspace. It runs locally with SQLite and no external services. Every finding comes from a deterministic rule match or a source-backed approved fact; images and scanned PDF pages are read by a local OCR engine whose output is stored and inspected, never simulated.
 
-**Last verified:** 2026-10-29 (Round 3 published to GitHub and deployed; local suites verified 2026-10-28). Live OCR is disabled by the Render configuration; see [Deployment](#deployment).
+**Last verified:** 2026-10-30 (dark 3D-glass frontend redesign verified locally and deployed to Vercel as `e59bb17`; a live smoke check passed at 1440/390 px). The backend remains live from commit `ccf799b`, deployed 2026-10-29; live OCR is disabled by the Render configuration. See [Deployment](#deployment).
 
 ---
 
@@ -76,8 +76,9 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 - Fictional demo labelling throughout the shell and seeded records.
 
 ### UI and accessibility — completed
-- Responsive shell with a desktop sidebar and a mobile drawer.
-- White/soft-neutral surfaces, deep navy navigation, restrained blue accent, and status colors.
+- Responsive dark shell with a desktop sidebar, sticky translucent header, mobile drawer, and shared layered glass surfaces.
+- One 3D-glass design system across every route, dialog, drawer, menu, and empty/loading/error state: canvas `#070B18`, raised surfaces, illuminated borders, and restrained blue/violet/cyan glows. Content, forms, and tables remain flat and upright.
+- Controls 8–12 px radius, cards 14–20 px, panels 18–24 px; Inter typography; 150–250 ms motion with `prefers-reduced-motion` support.
 - Loading, empty, error, and access-denied states.
 - Keyboard-focus styles, labelled controls, keyboard-operable tabs with tabpanel relationships, accessible field validation, and focus-trapped mobile navigation.
 - Exact PDF-page, image-text, and transcript evidence highlights, with explicit unavailable-evidence states and no approximate matching.
@@ -96,15 +97,15 @@ Inkloom AI is a working, evidence-first brand-governance demo for the fictional 
 
 | Check | Result |
 | --- | --- |
-| Backend pytest suite | **84 passed**, 0 failed, 1 third-party deprecation warning, 43.23 s |
-| Frontend helper tests | **27 passed** |
+| Backend pytest suite | **84 passed**, 0 failed, 1 third-party deprecation warning, 45.20 s |
+| Frontend helper tests | **27 passed**, 0 failed (711.62 ms) |
 | TypeScript check | **0 errors** (`npx tsc --noEmit`) |
-| Vite production build | 1,624 modules; JS 617.26 kB (gzip 157.62 kB), CSS 53.20 kB (gzip 9.48 kB); one chunk-size advisory |
-| OCR browser journey | Image OCR, mixed PDF with page-linked findings, exact highlights, no horizontal overflow at 390 px |
-| Review browser journey | Claim → assigned; approval blocked without override reason; reason recorded in decision history; no overflow |
-| Insights browser journeys | All four governance-risk sections, drill-down, methods, empty states; 1440/768/390 px with no horizontal overflow |
-| Regression browser journey | Dashboard, content list, Create Your Own Brand, 390 px mobile drawer/navigation |
-| Live deployment smoke (2026-10-29) | Commit `ccf799b` on Vercel and Render; dashboard, content, insights, onboarding, and 390 px drawer pass with no session/access errors; session **201**, role-only header **401**, insights **200**; production OCR disabled by configuration |
+| Vite production build | 1,624 modules; JS 624.78 kB (gzip 158.98 kB), CSS 58.06 kB (gzip 10.90 kB); one chunk-size advisory |
+| End-to-end browser journeys (2026-10-30) | **22 of 22 passed**: direct open, workspace switch, create/audit/correct/re-audit, submission, claim, comment, request changes, revision 3, approval, 14-event audit trail, image OCR, mixed PDF, insights, empty workspace, unauthorized actions, workspace isolation, refresh persistence. Console errors: 0 |
+| Responsive sweep | **56 checks** (14 routes × 390/768/1024/1440 px), **0 horizontal overflow**; clipped-text flags were only `sr-only` spans |
+| Overlay checks | Drawer, menus, and dialogs settled opaque and on-screen at 1440/1024/768/390 px with no horizontal overflow |
+| Live deployment smoke (2026-10-29) | Historical: commit `ccf799b` on Vercel and Render; Round 3 dashboard, content, insights, onboarding, and 390 px drawer passed; session **201**, role-only header **401**, insights **200**; production OCR disabled |
+| Live redesign smoke (2026-10-30) | Deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` READY and aliased; dark canvas `rgb(7, 11, 24)`, 14 glass surfaces, sidebar/header rendered, **0 JS errors**, no horizontal overflow at 1440 and 390 px, workspace menu opaque at 390 px |
 
 Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIFICATION.md).
 
@@ -112,9 +113,13 @@ Exact commands, outputs, and journey details are in [VERIFICATION.md](docs/VERIF
 
 | Component | Status | URL |
 | --- | --- | --- |
-| Frontend (Vercel, Vite) | Live — commit `ccf799b` (Round 3) | <https://inkloom-ai-rho.vercel.app> |
-| API (Render, FastAPI) | Live — commit `ccf799b` (Round 3) | <https://inkloom-api.onrender.com> |
+| Frontend (Vercel, Vite) | Live — 3D-glass redesign, commit `e59bb17` | <https://inkloom-ai-rho.vercel.app> |
+| API (Render, FastAPI) | Live — commit `ccf799b` | <https://inkloom-api.onrender.com> |
 | GitHub source | Public | <https://github.com/hvavinash30/inkloom-ai> |
+
+The 2026-10-30 dark 3D-glass redesign was committed as `e59bb17` and pushed to GitHub `main`, and Vercel built deployment `dpl_5PHx5bjX5WaUUP7taiYMWc1gjx57` to READY, aliased to the production URL. The live frontend serves `assets/index-C1W67hZu.js` (624,811 bytes) and `assets/index-CjC3LMnu.css` (58,064 bytes); the local build emits a different JS hash because `VITE_API_BASE_URL` is baked in at build time. The backend was not rebuilt and still runs `ccf799b`.
+
+The live smoke covered the deployed shell, Overview, workspace menu, dark styling, responsive overflow, and console health at 1440 and 390 px. The full 22-journey suite was executed locally, not against the live deployment.
 
 Round 3 was committed as `ccf799b` and pushed to GitHub `main` on 2026-10-29. Vercel deployed automatically; Render required a manual deploy of the same commit because its auto-deploy did not trigger. Live probes confirm the Round 3 bundle, session issuance (**201**), rejection of role-only headers without a token (**401**), and governance insights (**200**). The Render service still sets `OCR_PROVIDER=none`, so image and scanned-PDF checks on the live site report OCR as disabled rather than returning invented text; local runs use `OCR_PROVIDER=auto` and perform real OCR.
 
@@ -134,17 +139,19 @@ These are explicit product boundaries, not hidden gaps:
 - **No background jobs, notifications, or scheduled re-reviews.** All actions are user-triggered.
 - **Single-node storage.** SQLite and local uploads are suitable for the demo; production needs Postgres, object storage, and real migrations (Alembic).
 - **Supabase RLS is not the demo’s runtime boundary.** The migrations provide policy definitions for a production Postgres deployment; the local API uses a trusted SQLAlchemy connection.
+- **The redesign is deployed but live-tested only at smoke level.** The 2026-10-30 dark 3D-glass interface is live on Vercel; the 22 browser journeys were run locally, and only shell, Overview, menu, styling, overflow, and console health were rechecked against the deployment.
+- **Frontend verification is Chromium-only.** Widths 390/768/1024/1440 px were tested; Safari, Firefox, real devices, screen readers, and automated axe audits were not.
 
 ---
 
 ## Recommended next steps (not implemented)
 
-1. Deploy Round 3 (commit/push, Render redeploy) and verify the live OCR/auth/override journeys.
+1. Re-run the full journey suite against the live deployment, not just the smoke check, and redeploy the backend so frontend and API share a commit.
 2. Replace demo sign-in with Supabase Auth and map verified identities to workspace roles.
 3. Add Alembic migrations and bring the Supabase starter schema to parity.
 4. Add object storage with signed URLs and retention policies.
 5. Draw stored OCR bounding boxes over the source image/PDF.
 6. Add assignment notifications and fact-review reminders.
-7. Commit an end-to-end test suite and run it in CI.
+7. Commit an end-to-end test suite and run it in CI, including axe and cross-browser coverage for the redesign.
 
 Full details: [ROADMAP.md](docs/ROADMAP.md).
